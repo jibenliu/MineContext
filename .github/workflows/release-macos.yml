@@ -44,7 +44,7 @@ jobs:
           key: ${{ runner.os }}-cargo-tauri-${{ hashFiles('Cargo.lock', 'src-tauri/Cargo.toml') }}
 
       - name: Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
 
