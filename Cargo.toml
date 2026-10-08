@@ -23,7 +23,7 @@ thiserror = "1"
 # hashing (idempotency keys / content hashes)
 blake3 = "1"
 # config
-toml = "0.8"
+toml = "1.1"
 serde_path_to_error = "0.1"
 serde_yaml = "0.9"
 # domain
