@@ -1,0 +1,175 @@
+// Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+import { Message } from '@arco-design/web-react'
+import { IconClose } from '@arco-design/web-react/icon'
+import chatIcon from '@renderer/assets/icons/chat-icon.svg'
+import feedEmptyIcon from '@renderer/assets/icons/feed-empty.svg'
+import { ProactiveFeedModal } from '@renderer/components/proactive-feed-modal'
+import { PushDataTypes } from '@renderer/constant/feed'
+import { FeedEvent, useEvents } from '@renderer/hooks/use-events'
+import { useNavigation } from '@renderer/hooks/use-navigation'
+import { useI18n } from '@renderer/i18n'
+import { formatRelativeTime } from '@renderer/utils/time'
+import dayjs from 'dayjs'
+import React, { FC, useMemo, useState } from 'react'
+import removeMarkdown from 'remove-markdown'
+
+// Define the properties received by the component
+interface FeedCardProps {
+  id: string
+  feedType: PushDataTypes // Card type (used to control styles, icons)
+  time: string
+  desc?: string
+  doc_id?: string // Optional: document ID, for navigation
+  doc_title?: string // Optional: document title, for display
+  doc_content?: string // Optional: document content, for display
+}
+
+const ProactiveFeedCardItem: FC<FeedCardProps> = (props) => {
+  const { t } = useI18n()
+  const { id, feedType, time, desc, doc_content, doc_id } = props
+  // const isDocument =
+  //   feedType === PushDataTypes.DAILY_SUMMARY_GENERATED || feedType === PushDataTypes.WEEKLY_SUMMARY_GENERATED
+  // const { navigateToVault } = useNavigation()
+  const [visible, setVisible] = useState(false)
+  const { removeEvent, setCurrentActiveEvent } = useEvents()
+  // const handleNavigateToVault = () => {
+  //   if (doc_id) {
+  //     navigateToVault(Number(doc_id))
+  //   }
+  // }
+  const { navigateToVault } = useNavigation()
+  const handleChat = () => {
+    if (feedType === PushDataTypes.DAILY_SUMMARY_GENERATED) {
+      navigateToVault(Number(doc_id))
+    } else {
+      setCurrentActiveEvent(id)
+      setVisible(true)
+    }
+  }
+
+  const [eventIcon, eventTitle] = useMemo(() => {
+    switch (feedType) {
+      case PushDataTypes.TIP_GENERATED:
+        return ['💡', t('home.feed.tip')]
+      case PushDataTypes.DAILY_SUMMARY_GENERATED:
+        return ['👋', t('home.feed.dailySummary')]
+      case PushDataTypes.WEEKLY_SUMMARY_GENERATED:
+        return ['🌟', t('home.feed.weeklySummary')]
+      default:
+        return ['🔔', t('home.feed.newNotification')]
+    }
+  }, [feedType, t])
+
+  const handleRemoveEvent = (id: string) => {
+    removeEvent(id)
+    Message.success(t('home.feed.deleted'))
+  }
+
+  return (
+    <div className="flex flex-col items-start  py-2 pr-3 pl-2 gap-2 w-full rounded-lg bg-[var(--color-bg-2)] group">
+      <div className="flex items-start gap-2  w-full">
+        <div>{eventIcon}</div>
+        <div className="flex flex-col items-start gap-1 w-full">
+          <div className="flex justify-between items-center w-full">
+            <div className="flex gap-2 items-center flex-1">
+              <div className="text-[var(--color-text-1)] font-['Roboto'] text-[13px] leading-[22px] font-medium">
+                {eventTitle}
+              </div>
+            </div>
+            <div className="text-[var(--color-text-3)] font-['Roboto'] text-xs font-normal leading-5 group-hover:hidden">
+              {formatRelativeTime(time)}
+            </div>
+            <div
+              className="cursor-pointer text-[14px] text-[var(--color-text-3)] hidden group-hover:block"
+              onClick={() => handleRemoveEvent(id)}>
+              <IconClose />
+            </div>
+          </div>
+          <div className="text-[var(--color-text-1)] w-full font-[Roboto] text-[13px] font-normal leading-[18px]">
+            {removeMarkdown(desc || '')}
+          </div>
+          <div className="flex items-center gap-3">
+            {/* {isDocument && (
+              <div
+                className="text-[var(--mc-brand)] font-['PingFang SC'] text-[13px] leading-[22px] tracking-[0.039px] font-medium cursor-pointer"
+                style={{
+                  fontWeight: 500
+                }}
+                onClick={handleNavigateToVault}>
+                View
+              </div>
+            )} */}
+            <div className="flex items-center gap-1 cursor-pointer" onClick={handleChat}>
+              <div>
+                <img src={chatIcon} alt="chat icon" />
+              </div>
+              <div className="text-[var(--color-text-3)] font-['Roboto'] text-xs font-normal leading-5">
+                {feedType === PushDataTypes.DAILY_SUMMARY_GENERATED ? t('home.view') : t('home.check')}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ProactiveFeedModal
+        visible={visible}
+        onCancel={() => setVisible(false)}
+        content={doc_content || ''}
+        time={formatRelativeTime(time)}
+      />
+    </div>
+  )
+}
+
+const ProactiveFeedCard: React.FC = () => {
+  const { t } = useI18n()
+  const { feedEvents } = useEvents()
+  const transferType = (event: FeedEvent): FeedCardProps => {
+    return {
+      id: event.id,
+      feedType: event.type,
+      time: dayjs(event.timestamp).format('YYYY-MM-DD HH:mm:ss'),
+      desc: event.data.title as string,
+      doc_id: event.data.doc_id as string,
+      doc_title: event.data.title as string,
+      doc_content: event.data.content as string
+    }
+  }
+  const sortedEventsList = [...feedEvents].reverse()
+  const isEmpty = sortedEventsList.length === 0
+  return (
+    <div className="flex w-[256px] flex-col items-start gap-4 self-stretch rounded-[12px] bg-white h-[700px]">
+      <div className="flex items-center gap-2 w-full">
+        <div className="flex px-[2px] justify-center items-center gap-[4px] rounded-[2px] bg-gradient-to-l from-[rgba(239,251,248,0.5)] to-[#F5FBEF]">
+          💡
+          <div className="font-['Roboto'] text-[15px] font-extralight leading-[22px] tracking-[0.045px] bg-gradient-to-l from-[#00C469] to-[#0026B1] bg-clip-text text-transparent">
+            {t('home.feed.proactive')}
+          </div>
+        </div>
+        <div
+          className="text-[var(--color-text-1)] font-['Roboto'] text-sm font-medium leading-[22px] tracking-[0.042px]"
+          style={{
+            fontWeight: 500
+          }}>
+          {t('home.feed.title')}
+        </div>
+      </div>
+      <div
+        className={`flex flex-col item-center ${!isEmpty && 'items-start'} gap-[6px] flex-1 self-stretch h-[500px] overflow-y-auto`}>
+        {!isEmpty ? (
+          sortedEventsList.map((event) => <ProactiveFeedCardItem key={event.id} {...transferType(event)} />)
+        ) : (
+          <div className="flex flex-col items-center justify-center mt-14 gap-[8px]">
+            <img src={feedEmptyIcon} alt="empty icon" />
+            <div className="w-[182px] text-center text-[var(--color-text-3)] font-roboto text-[12px] font-normal leading-[20px] tracking-[0.036px]">
+              {t('home.feed.empty')}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export { ProactiveFeedCard }

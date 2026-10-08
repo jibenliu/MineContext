@@ -1,0 +1,18 @@
+name: "总结里必须出现模板要求的字段"
+tags: [summary, template]
+description: |
+  模板声明的是「总结里必须有哪些信息」。这条场景断言正文里真的出现了
+  时间段与活动名 —— 只声明不渲染，等于字段形同虚设。
+config:
+  activity: { idle_gap_secs: 3600 }
+  stage: { min_activity_stable_secs: 60, idle_threshold_secs: 1800, switch_grace_secs: 300, min_duration_secs: 600, timezone: "Asia/Shanghai" }
+rules:
+  - { id: meeting, name: 需求评审, category: 需求, triggers: { apps: [Zoom] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "Zoom", window: "周会" } }
+  - { at: "2026-09-30T09:15:00Z", observe: { id: obs-2, app: "Zoom", window: "周会" } }
+expect:
+  summaries:
+    every_long_stage_has_one: true
+    quality: fallback
+    body_contains: ["需求评审", "17:00"]

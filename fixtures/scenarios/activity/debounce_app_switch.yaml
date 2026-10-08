@@ -1,0 +1,28 @@
+name: "短暂切走再回来不产生新活动"
+tags: [activity, debounce, regression:problem-25]
+description: |
+  suggestion.md §25 点名的用例：VSCode → Chrome(3 秒) → VSCode 必须是**一个**活动。
+  没有防抖，时间线就是一串「10:01 Chrome / 10:02 VSCode」的碎片。
+rules:
+  - id: coding
+    name: 写代码
+    category: 开发
+    triggers: { apps: [VSCode] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:00:30Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:01:00Z"
+    observe: { app: "Chrome", window: "Hacker News" }
+  - at: "2026-09-30T09:01:03Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:02:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+expect:
+  count_total: 1
+  activities:
+    - { title: "写代码", origin: rule, observations: [obs-1, obs-2, obs-3, obs-4, obs-5] }
+  # 中断期间那条观测归原活动（观测不能丢，也不能单独成活动）
+  noise: []
+  provider_calls: { vision: 0 }

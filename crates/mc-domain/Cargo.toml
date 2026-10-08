@@ -1,0 +1,20 @@
+[package]
+name = "mc-domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# 纯领域层：不得依赖 tokio / rusqlite / reqwest / axum
+# （scripts/check-dep-direction.sh 会强制这一点）
+[dependencies]
+mc-common = { path = "../mc-common" }
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+regex.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+mc-testkit = { path = "../mc-testkit" }

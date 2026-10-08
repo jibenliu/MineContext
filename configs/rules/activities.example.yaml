@@ -1,0 +1,119 @@
+# MineContext 活动规则示例
+#
+# 放在数据目录的 `rules/activities.yaml` 就会被 daemon 自动加载：
+#   macOS: ~/Library/Application Support/MineContext/rules/activities.yaml
+#   Linux: ~/.minecontext/rules/activities.yaml
+# 也可以用 `mc-cli replay --rules <path>` 临时指定一份规则来重算历史。
+#
+# 为什么值得写规则（`suggestion.md` §6「规则 + 行为 + AI 三者共同判断」）：
+#   1. 规则命中 = 判定确定 + **零模型调用**（省 token，也不会有编造）；
+#   2. 规则的标题/分类是你自己定的，时间线不会因为模型换了就变样；
+#   3. 规则没命中的时段会退化成「只用进程名标注」（provenance=observed），
+#      系统照样可用，只是不猜。
+#
+# 匹配语义：**跨类别 AND，类别内 OR**。
+#   apps + keywords => 「在 VSCode 里 **且** 出现某关键词」
+#   exclude 优先级最高：命中即整条规则不成立。
+#
+# 改完规则后：实时运行只影响**之后**的观测；
+# 想让历史也按新规则重算，跑 `mc-cli replay --projector activities`。
+
+version: 1
+
+activities:
+  # ---- 开发 ----
+  - id: coding
+    name: 写代码
+    category: 开发
+    priority: 10
+    # 命中即用规则，不需要模型
+    ai: none
+    triggers:
+      apps: [VSCode, GoLand, IntelliJ, Terminal]
+      window_patterns: ['\.(rs|ts|tsx|py|go|java|sql)\b', '— [A-Za-z0-9_\-/]+$']
+    exclude:
+      # 终端里跑这些命令更像「调试/构建」而不是「写代码」，交给下一条规则
+      keywords: [cargo test, npm test, pytest]
+
+  - id: debugging
+    name: 调试与构建
+    category: 开发
+    priority: 20
+    triggers:
+      apps: [Terminal]
+      keywords: [cargo test, cargo build, npm run, pytest, debug]
+
+  - id: code-review
+    name: 代码评审
+    category: 协作
+    priority: 30
+    triggers:
+      domains: [github.com, gitlab.com]
+      keywords: [pull request, PR, review, 评审]
+
+  # ---- 协作 ----
+  - id: meeting
+    name: 会议
+    category: 协作
+    priority: 40
+    triggers:
+      apps: [Zoom, 腾讯会议, Teams, 飞书, Lark]
+    exclude:
+      # 只是开着客户端没人说话，不该整段时间都算会议
+      window_patterns: ['^飞书$', '^Lark$']
+
+  - id: chat
+    name: 沟通
+    category: 协作
+    priority: 50
+    triggers:
+      apps: [WeChat, Slack, 微信]
+      window_patterns: [聊天, Chat, DM]
+
+  # ---- 需求与文档 ----
+  - id: requirement-review
+    name: 需求评审
+    category: 需求
+    priority: 60
+    triggers:
+      keywords: [需求评审, 需求澄清, 验收标准]
+      domains: [jira.example.com, confluence.example.com]
+
+  - id: writing
+    name: 写文档
+    category: 文档
+    priority: 70
+    triggers:
+      apps: [Obsidian, Notion, Typora, Word]
+      window_patterns: ['\.(md|docx?|txt)$']
+
+  - id: reading
+    name: 查资料
+    category: 研究
+    priority: 80
+    triggers:
+      apps: [Chrome, Safari, Edge, Firefox]
+      keywords: [docs, 文档, 教程, how to, rfc]
+
+  # ---- 模型辅助（规则判不了时才花钱） ----
+  - id: deep-analysis
+    name: 深度分析
+    category: 研究
+    priority: 90
+    # 命中本规则时不直接给结论，而是要求模型做一次更深的分析
+    ai: deep
+    minimum_duration_secs: 300
+    triggers:
+      window_patterns: ['架构', 'architecture', '性能分析', 'profiling']
+
+  # ---- 隐私：命中即跳过（不写库、不外发） ----
+  - id: private-banking
+    name: 私密内容
+    category: 隐私
+    priority: 1000
+    triggers:
+      apps: [1Password, Keychain Access, 密码]
+      keywords: [password, 身份证, 银行卡, 私钥]
+    # 说明：隐私拦截在采集侧由 privacy 规则处理；
+    # 这里把它也列成活动规则，是为了让「这段时间被跳过了」在时间线上有痕迹，
+    # 而不是留一段无法解释的空白。

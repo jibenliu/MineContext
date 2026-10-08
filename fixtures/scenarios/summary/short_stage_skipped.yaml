@@ -1,0 +1,17 @@
+name: "极短阶段不强求总结"
+tags: [summary, min_duration]
+description: |
+  只有 3 分钟的阶段（防抖残留）不该产出总结：给它写总结只会稀释真正的总结，
+  反而让用户不再相信这些卡片。因此 `long_stage_count` 必须是 0。
+config:
+  activity: { idle_gap_secs: 3600 }
+  stage: { min_activity_stable_secs: 30, idle_threshold_secs: 1800, switch_grace_secs: 300, min_duration_secs: 900 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:01:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:03:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+expect:
+  summaries:
+    long_stage_count: 0

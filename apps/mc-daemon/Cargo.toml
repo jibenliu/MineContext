@@ -1,0 +1,40 @@
+[package]
+name = "mc-daemon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mc-daemon"
+path = "src/main.rs"
+
+[lib]
+name = "mc_daemon"
+path = "src/lib.rs"
+
+[features]
+process-smoke = []
+
+[[test]]
+name = "e2e"
+path = "tests/e2e.rs"
+required-features = ["process-smoke"]
+
+[dependencies]
+mc-common = { path = "../../crates/mc-common" }
+mc-config = { path = "../../crates/mc-config" }
+mc-storage = { path = "../../crates/mc-storage" }
+mc-server = { path = "../../crates/mc-server" }
+mc-capture = { path = "../../crates/mc-capture" }
+tokio.workspace = true
+axum.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+mc-testkit = { path = "../../crates/mc-testkit" }
+serde_json.workspace = true
+tempfile.workspace = true
+mc-capture = { path = "../../crates/mc-capture" }
+mc-storage = { path = "../../crates/mc-storage" }
+mc-common = { path = "../../crates/mc-common" }

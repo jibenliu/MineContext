@@ -1,0 +1,521 @@
+{
+  "note": "由 scripts/extract-compat-routes.py 从旧 Python 后端源码抽取。不得手工编辑；如需更新请重跑该脚本。",
+  "source_root": "opencontext/server/routes",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/advanced_chat",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/add_screenshot",
+      "source": "opencontext/server/routes/screenshots.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/add_screenshots",
+      "source": "opencontext/server/routes/screenshots.py"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agent/cancel/{workflow_id}",
+      "source": "opencontext/server/routes/agent_chat.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat",
+      "source": "opencontext/server/routes/agent_chat.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/conversations",
+      "source": "opencontext/server/routes/conversation.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/chat/conversations/list",
+      "source": "opencontext/server/routes/conversation.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/chat/conversations/{cid}",
+      "source": "opencontext/server/routes/conversation.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/chat/conversations/{cid}/messages",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agent/chat/conversations/{cid}/update",
+      "source": "opencontext/server/routes/conversation.py"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/agent/chat/conversations/{cid}/update",
+      "source": "opencontext/server/routes/conversation.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/message/stream/{mid}/create",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/message/{mid}/append",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/message/{mid}/create",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/message/{mid}/finished",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/message/{mid}/update",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/messages/{mid}/interrupt",
+      "source": "opencontext/server/routes/messages.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat/stream",
+      "source": "opencontext/server/routes/agent_chat.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/resume/{workflow_id}",
+      "source": "opencontext/server/routes/agent_chat.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/state/{workflow_id}",
+      "source": "opencontext/server/routes/agent_chat.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/test",
+      "source": "opencontext/server/routes/agent_chat.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/status",
+      "source": "opencontext/server/routes/health.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/completions/cache/clear",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/completions/cache/optimize",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/completions/cache/stats",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/completions/feedback",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/completions/precompute/{document_id}",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/completions/stats",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/completions/suggest",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/completions/suggest/stream",
+      "source": "opencontext/server/routes/completions.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/content_generation/config",
+      "source": "opencontext/server/routes/content_generation.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/content_generation/config",
+      "source": "opencontext/server/routes/content_generation.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/context_types",
+      "source": "opencontext/server/routes/context.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/debug/activities",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/generate/activity",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/generate/report",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/generate/tips",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/generate/todos",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/generate/{category}/custom",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/debug/prompts/export",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/prompts/restore",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/debug/prompts/{category}",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/debug/prompts/{category}",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/debug/reports",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/debug/tips",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/debug/todos",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/debug/todos/{todo_id}",
+      "source": "opencontext/server/routes/debug.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/documents/upload",
+      "source": "opencontext/server/routes/documents.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/events/fetch",
+      "source": "opencontext/server/routes/events.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/events/publish",
+      "source": "opencontext/server/routes/events.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/events/status",
+      "source": "opencontext/server/routes/events.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "source": "opencontext/server/routes/health.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/model_settings/get",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/model_settings/update",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/model_settings/validate",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/context-types",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/data-stats",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/data-stats-range",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/data-stats-trend",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/health",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/overview",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/processing",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/processing-errors",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/recording-stats",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/monitoring/recording-stats/reset",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/monitoring/refresh-context-stats",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/stage-timing",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/token-usage",
+      "source": "opencontext/server/routes/monitoring.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/general",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/general",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/prompts",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/prompts",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/prompts/export",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/prompts/history/{category}",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/prompts/history/{category}/{filename}",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/prompts/import",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/prompts/language",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/prompts/language",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/prompts/regenerate",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/reset",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/system_info",
+      "source": "opencontext/server/routes/settings.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/vaults/create",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/vaults/list",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/vaults/{document_id}",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/vaults/{document_id}",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/vaults/{document_id}",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/vaults/{document_id}/context",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/vector_search",
+      "source": "opencontext/server/routes/context.py"
+    },
+    {
+      "method": "POST",
+      "path": "/api/weblinks/upload",
+      "source": "opencontext/server/routes/documents.py"
+    },
+    {
+      "method": "GET",
+      "path": "/assistant",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/chat",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/contexts",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "POST",
+      "path": "/contexts/delete",
+      "source": "opencontext/server/routes/context.py"
+    },
+    {
+      "method": "POST",
+      "path": "/contexts/detail",
+      "source": "opencontext/server/routes/context.py"
+    },
+    {
+      "method": "GET",
+      "path": "/debug",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/files/{file_path:path}",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "source": "opencontext/server/routes/health.py"
+    },
+    {
+      "method": "GET",
+      "path": "/monitoring",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/settings",
+      "source": "opencontext/server/routes/web.py"
+    },
+    {
+      "method": "GET",
+      "path": "/vaults",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "GET",
+      "path": "/vaults/editor",
+      "source": "opencontext/server/routes/vaults.py"
+    },
+    {
+      "method": "GET",
+      "path": "/vector_search",
+      "source": "opencontext/server/routes/web.py"
+    }
+  ]
+}

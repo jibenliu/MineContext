@@ -1,0 +1,23 @@
+[package]
+name = "mc-memory"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# 记忆的组织层：把「一段时间」收成报告并归档进笔记树。
+# 总结引擎在 mc-summary；这里负责跨天/跨周的聚合与归档。
+[dependencies]
+mc-common = { path = "../mc-common" }
+mc-domain = { path = "../mc-domain" }
+mc-storage = { path = "../mc-storage" }
+mc-summary = { path = "../mc-summary" }
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tempfile.workspace = true
+mc-providers = { path = "../mc-providers" }
+mc-testkit = { path = "../mc-testkit" }

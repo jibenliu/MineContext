@@ -1,0 +1,25 @@
+name: "稳定切换 → 阶段结束"
+tags: [stage, switch]
+description: |
+  写代码 30 分钟 → 看网页 30 分钟。宽限期过去了，因此第一个阶段以
+  `switched` 结束，新阶段从切换那一刻开始（区间首尾相接，不重叠）。
+config:
+  activity: { debounce_secs: 30, idle_gap_secs: 3600 }
+  stage: { min_activity_stable_secs: 30, switch_grace_secs: 60, idle_threshold_secs: 1800, min_duration_secs: 600 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+  - { id: browsing, name: 看网页, triggers: { apps: [Chrome] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:10:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:20:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:30:00Z", observe: { id: obs-4, app: "Chrome", window: "Hacker News" } }
+  - { at: "2026-09-30T09:40:00Z", observe: { id: obs-5, app: "Chrome", window: "Hacker News" } }
+  - { at: "2026-09-30T09:50:00Z", observe: { id: obs-6, app: "Chrome", window: "Hacker News" } }
+expect:
+  stages:
+    # 第二段（看网页）在场景结束时仍在进行中
+    count_total: 2
+    open: true
+    items:
+      - { end_reason: switched, activities: [act-obs-1], min_duration_secs: 600 }

@@ -1,0 +1,322 @@
+{
+  "note": "由 `cargo run -p xtask -- extract-used-ipc-channels` 从适配层渠道表抽取。这是适配层必须覆盖的渠道清单；不得手工编辑。",
+  "channels": [
+    {
+      "channel": "app-activate",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "app:cancel-download",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "app:check-for-update",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "app:log-to-main",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "app:quit-and-install",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "backend:get-status",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "backend:status-changed",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:add-task",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:create-folder",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:delete-task",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:delete-vault-by-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-all-activities",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-all-tasks",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-all-tips",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-all-vaults",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-folders",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-latest-activity",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-new-activities",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-vault-by-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-vault-by-title",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-vaults-by-document-type",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:get-vaults-by-parent-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:hard-delete-vault-by-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:insert-vault",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:restore-vault-by-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:soft-delete-vault-by-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:toggle-task-status",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:update-task",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "database:update-vault-by-id",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "file:copy",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "file:get-all",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "file:read",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "file:save",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "heatmap:get-data",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "home:get-latest-activity",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "main-log",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "notification:send",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "push:get-init-check-data",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "push:latest-activity",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "push:power-monitor",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "push:screen-monitor-status",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "push:tray-navigate-to-screen-monitor",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "push:tray-toggle-recording",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:check-permissions",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:clear-settings",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:delete-screenshot",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:get-capture-all-sources",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:get-recording-stats",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:get-screenshots-by-date",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:get-settings",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:get-visible-sources",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:open-prefs",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:read-image-base64",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:set-settings",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "screen-monitor:take-screenshot",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "store-sync:broadcast-sync",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "store-sync:on-update",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "store-sync:subscribe",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "store-sync:unsubscribe",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "summary:progress",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "task:check-can-record",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "task:start",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "task:stop",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "task:update-current-record-app",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "task:update-model-config",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "tray:update-recording-status",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:activities",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:activity-merge",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:activity-override",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:activity-split",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:adhoc-job",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:adhoc-job-cancel",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:adhoc-job-submit",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:adhoc-preview",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:conversation-messages",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:conversations",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:search",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:summaries",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "window-show",
+      "source": "adapters/channel-map.ts"
+    }
+  ],
+  "unknown_references": []
+}

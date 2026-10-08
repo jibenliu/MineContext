@@ -1,0 +1,41 @@
+/build
+/screenshots
+/logs
+/persist
+/debug
+/dist/*
+/config/runtime
+/config/user*
+.DS_Store
+
+.idea
+
+# ide config file
+.trae
+# claude code
+.claude/
+# gemini cli
+GEMINI.md
+.gemini/
+
+# ---- Rust (workspace) ----
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# ---- MineContext runtime data (Rust daemon) ----
+fixtures/private/
+src-tauri/target
+src-tauri/gen
+.codewhale/
+
+# ---- 开发过程中间产物（本机留档，不进交付仓库）----
+docs/internal/
+# 开发过程的验收登记与过程说明（判据/清单/当时证据）：面向开发者，不入交付仓库
+docs/external-verification.md
+docs/release-checklist.md
+docs/delivery-notes.md
+
+# 待办与改进输入（本机留档，不入库）
+todo.md
+.pnpm-store

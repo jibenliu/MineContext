@@ -1,0 +1,74 @@
+// Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+import docIcon from '@renderer/assets/icons/doc-icon.svg'
+import { useNavigation } from '@renderer/hooks/use-navigation'
+import { useI18n } from '@renderer/i18n'
+import { CardLayout } from '@renderer/pages/home/components/layout'
+import { VaultTreeNode } from '@renderer/types'
+import { formatRelativeTime } from '@renderer/utils/time'
+
+interface DocColumnBoxProps {
+  vaultsList: VaultTreeNode[]
+}
+
+interface DocColumnProps {
+  vault: VaultTreeNode
+}
+
+const DocColumn = ({ vault }: DocColumnProps) => {
+  const { t } = useI18n()
+  const { title, updated_at } = vault
+  const { navigateToVault } = useNavigation()
+
+  const handleNavigateToVault = () => {
+    navigateToVault(vault.id)
+  }
+  return (
+    <div className="group flex items-center justify-between p-1 rounded transition-all duration-200 bg-white w-full h-[32px] hover:bg-[var(--color-bg-1)]">
+      <div className="flex items-center gap-2">
+        {/* Left side: icon + title */}
+        <div className="flex items-center gap-[6px]">
+          <img src={docIcon} alt="doc icon" />
+          <span className="text-[var(--color-text-1)] font-roboto text-[13px] font-normal leading-[22px] tracking-[0.039px]">
+            {title}
+          </span>
+        </div>
+        {/* Edit time - hidden by default, shown on hover */}
+        {updated_at && (
+          <span className="flex flex-1 text-[var(--color-text-4)] font-roboto items-center text-[11px] font-normal leading-[22px] tracking-[0.033px] opacity-0 group-hover:opacity-100">
+            {formatRelativeTime(updated_at)}
+          </span>
+        )}
+      </div>
+
+      {/* Right side: shows "Edit time + View button" on hover */}
+      <div className="flex items-center">
+        {/* View button - hidden by default, shown on hover */}
+        <button
+          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[var(--mc-brand-soft)] font-pingfang-sc text-[12px] font-medium leading-[20px] tracking-[0.036px] cursor-pointer"
+          onClick={handleNavigateToVault}>
+          {t('home.view')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const DocColumnsCard: React.FC<DocColumnBoxProps> = ({ vaultsList }) => {
+  const { t } = useI18n()
+  return (
+    <CardLayout
+      title={t('home.recentCreation')}
+      emptyText={t('home.recentCreation.empty')}
+      isEmpty={vaultsList.length === 0}>
+      <div className="flex flex-col items-start gap-[4px] self-stretch">
+        {vaultsList.map((vault) => (
+          <DocColumn key={vault.id} vault={vault} />
+        ))}
+      </div>
+    </CardLayout>
+  )
+}
+
+export { DocColumnsCard }

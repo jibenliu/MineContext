@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.vault-card {
+  .vault-title-container .milkdown .ProseMirror {
+    padding: 30px 0 !important;
+  }
+
+  .milkdown .ProseMirror {
+    padding: 60px 0 !important;
+  }
+
+  .arco-card-body {
+    padding: 0 21% !important;
+  }
+}
+
+/* 编辑器自带浅色主题：暗色下会变成一块白板（与深色外壳对比突兀）。
+   crepe 的配色走 CSS 变量，这里按主题覆盖 —— 亮色不动，暗色跟随。 */
+body[arco-theme='dark'] .milkdown {
+  --crepe-color-background: var(--color-bg-2);
+  --crepe-color-on-background: var(--color-text-1);
+  --crepe-color-surface: var(--color-bg-3);
+  --crepe-color-surface-low: var(--color-bg-1);
+  --crepe-color-on-surface: var(--color-text-1);
+  --crepe-color-on-surface-variant: var(--color-text-3);
+  --crepe-color-outline: var(--color-border-2);
+  --crepe-color-primary: rgb(var(--primary-6));
+  --crepe-color-secondary: var(--color-fill-3);
+  --crepe-color-on-secondary: var(--color-text-1);
+  --crepe-color-inverse: var(--color-bg-4);
+  --crepe-color-on-inverse: var(--color-text-1);
+  --crepe-color-inline-code: rgb(var(--danger-6));
+  --crepe-color-error: rgb(var(--danger-6));
+  --crepe-color-hover: var(--color-fill-2);
+  --crepe-color-selected: var(--color-fill-3);
+  --crepe-color-inline-area: var(--color-fill-2);
+}
+
+/* 双保险：变量之外，直接把编辑器的底色与文字色也钉住（crepe 的 reset 里有
+   `background: var(--crepe-color-background)`，变量若被其它主题文件覆盖仍会发白）。 */
+body[arco-theme='dark'] .milkdown,
+body[arco-theme='dark'] .milkdown .ProseMirror {
+  background: var(--color-bg-2) !important;
+  color: var(--color-text-1) !important;
+}

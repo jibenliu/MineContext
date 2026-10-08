@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "apps/*"]
+
+[workspace.package]
+version = "0.1.5"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+repository = "https://github.com/volcengine/MineContext"
+
+[workspace.dependencies]
+# serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# time (UTC millis newtype + IANA tz for day boundaries)
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+# ids
+uuid = { version = "1", features = ["v7", "v4", "serde"] }
+# errors
+thiserror = "1"
+# hashing (idempotency keys / content hashes)
+blake3 = "1"
+# config
+toml = "0.8"
+serde_path_to_error = "0.1"
+serde_yaml = "0.9"
+# domain
+regex = "1"
+# storage
+rusqlite = { version = "0.40", features = ["bundled"] }
+tempfile = "3"
+# http control plane
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal", "fs", "process", "net"] }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+futures-util = "0.3"
+base64 = "0.22"
+# providers
+# reqwest 0.13 的默认 TLS 在 macOS 上走 Security.framework，无需 OpenSSL
+reqwest = { version = "0.13", features = ["json"] }
+async-trait = "0.1"
+# capture / image
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# property testing
+proptest = "1"
+# logging
+# fmt + level filter 足够；json 输出用于支持侧检索
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
+
+[profile.dev]
+# keep dev builds fast for TDD loops; opt-level 1 makes tests noticeably quicker
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2

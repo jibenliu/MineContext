@@ -1,0 +1,73 @@
+name: Release (macOS, unsigned)
+
+# 出可安装的 macOS 产物：未签名 `.dmg`，附 sha256，并**如实标注未签名**。
+#
+# 触发方式：手动（workflow_dispatch）或推 `v*` 标签。
+# 与本地 `./scripts/package-macos-tauri.sh` 的区别只有两处：
+#   1. 不跑 `launch-check-tauri.sh` —— 它要挂载 dmg 并真的启动外壳，CI runner 没有
+#      可用的窗口会话；产物里的 daemon 由 `verify-packaged-app.sh` 验证（不需要 GUI）；
+#   2. 产物走 `actions/upload-artifact`，不发布到 GitHub Release（没有签名身份，
+#      发布未签名安装包需要仓库维护者明确同意）。
+#
+# 签名与公证：本仓库没有 Developer ID 身份，因此 `CSC_IDENTITY_AUTO_DISCOVERY=false`
+# 产物未签名、未公证 —— 首次打开需要右键「打开」，
+# 或 `xattr -dr com.apple.quarantine /Applications/MineContext.app`。
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  dmg-tauri:
+    name: Build unsigned dmg (Tauri shell)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo 缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-tauri-${{ hashFiles('Cargo.lock', 'src-tauri/Cargo.toml') }}
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 前端依赖
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      # 与本地同一条命令：release daemon → 渲染层 → cargo tauri build → 启动检查
+      - name: 打包（未签名）
+        run: ./scripts/package-macos-tauri.sh
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: MineContext-macos-unsigned-tauri
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14

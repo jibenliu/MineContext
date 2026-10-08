@@ -1,0 +1,19 @@
+name: "锁屏 → 阶段立即关闭"
+tags: [stage, lock, lifecycle]
+description: |
+  锁屏是**事实**，不是推断。阶段必须以 `locked` 结束（而不是 `idle`），
+  总结里才能如实说「合上电脑走了」而不是「一段时间没有操作」。
+config:
+  activity: { idle_gap_secs: 7200 }
+  stage: { min_activity_stable_secs: 60, idle_threshold_secs: 3600, switch_grace_secs: 300, min_duration_secs: 600 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:30:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:35:00Z", lock: true }
+expect:
+  stages:
+    count_total: 1
+    items:
+      - { end_reason: locked, activities: [act-obs-1] }

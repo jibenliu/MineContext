@@ -1,0 +1,31 @@
+[package]
+name = "mc-pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+mc-common = { path = "../mc-common" }
+tokio = { workspace = true }
+futures-util = { workspace = true }
+mc-domain = { path = "../mc-domain" }
+mc-capture = { path = "../mc-capture" }
+mc-storage = { path = "../mc-storage" }
+mc-providers = { path = "../mc-providers" }
+# 同层依赖：切批计划（`plan_batches`）定义在检索层，
+# 索引管道复用它，避免「批量上限」在两处各写一份。
+mc-search = { path = "../mc-search" }
+async-trait.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+image.workspace = true
+blake3.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+mc-testkit = { path = "../mc-testkit" }
+tempfile.workspace = true
+proptest.workspace = true

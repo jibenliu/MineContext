@@ -1,0 +1,24 @@
+name: "跨天 → 阶段在本地日边界结束"
+tags: [stage, timezone, day_boundary, regression:problem-9]
+description: |
+  本地（Asia/Shanghai）23:50 干到 00:10。跨天必须断开：日报、每周回顾
+  都依赖「一天」这个边界。用 UTC 算日边界的话，这里会切错 8 小时。
+config:
+  activity: { idle_gap_secs: 7200 }
+  stage: { timezone: "Asia/Shanghai", min_activity_stable_secs: 60, idle_threshold_secs: 3600, switch_grace_secs: 300, min_duration_secs: 600 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  # 本地 23:50 = UTC 15:50
+  - { at: "2026-09-30T15:50:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T15:55:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  # 本地 00:10 = UTC 16:10（跨天）：上一个阶段在日边界结束，新的一天从这里开始
+  - { at: "2026-09-30T16:10:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T16:12:00Z", observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T16:20:00Z", observe: { id: obs-5, app: "VSCode", window: "main.rs" } }
+expect:
+  stages:
+    count_total: 2
+    open: true
+    items:
+      - { end_reason: day_boundary, activities: [act-obs-1] }

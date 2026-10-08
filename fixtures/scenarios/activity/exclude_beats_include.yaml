@@ -1,0 +1,36 @@
+name: "排除条件优先于包含条件"
+tags: [activity, rules, exclude]
+description: |
+  开着飞书不等于在开会。exclude 命中时整条规则不成立 ——
+  否则「沟通」会把整天都算成会议。
+
+  聊天窗口同时满足两条规则，因此 chat 的优先级必须更高：
+  同优先级会落到「规则冲突 → 交给模型」，那是浪费且不可预测的。
+  只开客户端（窗口标题就是应用名）时两条都不成立 → 退回进程名兜底。
+rules:
+  - id: meeting
+    name: 会议
+    category: 协作
+    priority: 10
+    triggers: { apps: [飞书] }
+    exclude: { window_patterns: ['^飞书$'] }
+  - id: chat
+    name: 沟通
+    category: 协作
+    priority: 50
+    triggers: { apps: [飞书], keywords: [聊天] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { app: "飞书", window: "飞书" }
+  - at: "2026-09-30T09:01:00Z"
+    observe: { app: "飞书", window: "飞书" }
+  - at: "2026-09-30T09:10:00Z"
+    observe: { app: "飞书", window: "产品群 聊天" }
+  # 间隔必须小于 idle_gap（默认 5 分钟），否则会被正确判成两段
+  - at: "2026-09-30T09:11:00Z"
+    observe: { app: "飞书", window: "产品群 聊天" }
+expect:
+  count_total: 2
+  activities:
+    - { title: "飞书", origin: observed, observations: [obs-1, obs-2] }
+    - { title: "沟通", origin: rule, observations: [obs-3, obs-4] }

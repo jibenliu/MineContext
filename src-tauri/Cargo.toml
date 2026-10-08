@@ -1,0 +1,29 @@
+# Tauri 外壳：独立的 crate（不属于根 workspace 的 crates/*|apps/* 成员），
+# 这样 tauri 的依赖树不会进 Rust 后端的每次门禁编译。
+[package]
+name = "minecontext-shell"
+version = "0.1.5"
+edition = "2021"
+rust-version = "1.82"
+
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+signal-hook = "0.3"
+# 开机自启：走 macOS 的 LaunchAgent；写完会再读回一次，避免"调用成功但系统没生效"
+tauri-plugin-autostart = "2"
+# 系统通知：渲染层桥（adapters/tauri-shell.ts）发 plugin:notification|notify
+tauri-plugin-notification = "2"
+tauri-plugin-log = "2"
+log = "0.4.34"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

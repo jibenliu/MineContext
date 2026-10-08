@@ -1,0 +1,135 @@
+/*
+ * Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.vault-card {
+  height: 100%;
+  border: none;
+  background-color: transparent;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  width: 100%;
+}
+
+.markdown-content h1 {
+  font-size: 2em;
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid var(--color-border-2);
+  padding-bottom: 0.3em;
+}
+
+.markdown-content h2 {
+  font-size: 1.5em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid var(--color-border-2);
+  padding-bottom: 0.3em;
+}
+
+.markdown-content h3 {
+  font-size: 1.25em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content p {
+  margin-bottom: 1em;
+  line-height: 1.6;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 2em;
+  margin-bottom: 1em;
+}
+
+.markdown-content li {
+  margin-bottom: 0.5em;
+}
+
+.markdown-content code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  background-color: var(--color-bg-5);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  background-color: var(--color-bg-5);
+  border-radius: 3px;
+  padding: 16px;
+  overflow: auto;
+  margin-bottom: 1em;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+  display: block;
+  overflow-x: auto;
+}
+
+/* highlight.js 样式调整 */
+.markdown-content .hljs {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-content a {
+  color: rgb(var(--primary-6));
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+.markdown-content .empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: var(--color-text-3);
+  font-size: 16px;
+  text-align: center;
+}
+
+/* 页面卡片：与设置页/屏幕监控页同款（表面色 + 16px 圆角 + 上下 8px 间距）。
+   右侧那 8px 由 Router 的内容列 `pr-2` 提供，左侧贴侧栏。 */
+.vault-page-container {
+  height: calc(100vh - 16px);
+  margin-bottom: 8px;
+  overflow: hidden;
+  padding: 20px;
+  border-radius: 16px;
+  background-color: var(--color-bg-2);
+}
+
+.vault-title-container .milkdown .ProseMirror {
+  padding: 30px 120px;
+}
+
+.vault-title-container .milkdown .ProseMirror h2 {
+  margin-top: 0;
+}
+
+/* 上面用到的颜色全部是 Arco 变量：两套主题共用一套规则，不再单独写暗色覆盖。 */

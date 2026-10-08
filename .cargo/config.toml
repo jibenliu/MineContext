@@ -1,0 +1,10 @@
+# 最低支持的 macOS 版本：13（Ventura）。同时覆盖 14（Sonoma）。
+#
+# 为什么必须显式写：依赖（xcap / objc2 系列）的 object file 是按 13.3 编的，
+# 不设这个值时会落到历史默认值 10.12 —— 链接期一直警告
+# 「object file was built for newer macOS version (13.3) than being linked (10.12)」，
+# 产出一个声称支持 10.12、实际不支持的二进制。
+#
+# 守卫：`scripts/check-macos-target.sh`（也校验 CI 同时跑 macos-13 与 macos-14）。
+[env]
+MACOSX_DEPLOYMENT_TARGET = "13.0"

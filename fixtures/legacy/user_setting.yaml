@@ -1,0 +1,25 @@
+# 模拟旧版 save_user_settings() 写出的 user_setting.yaml
+# 注意：旧版会把 API Key 明文写进这个文件 —— 这正是我们要消除的问题。
+vlm_model:
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  api_key: "sk-SECRET-VLM-KEY-0123456789abcdef"
+  model: "doubao-seed-1-6-vision-250815"
+  provider: "doubao"
+
+embedding_model:
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  api_key: "sk-SECRET-EMB-KEY-0123456789abcdef"
+  model: "doubao-embedding-vision-250615"
+  provider: "doubao"
+  output_dim: 2048
+
+capture:
+  screenshot:
+    enabled: true
+    capture_interval: 15
+
+prompts:
+  language: "zh"
+
+logging:
+  level: "INFO"

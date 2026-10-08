@@ -1,0 +1,22 @@
+name: "宽限期内回到原活动 → 阶段不结束"
+tags: [stage, grace, regression]
+description: |
+  切到浏览器 20 秒又切回来。宽限期是 5 分钟，因此这次切换应当被**取消**，
+  阶段继续 —— 否则用户每次查一下文档，时间线就被切成两段。
+config:
+  activity: { debounce_secs: 10, idle_gap_secs: 3600 }
+  stage: { min_activity_stable_secs: 20, switch_grace_secs: 300, idle_threshold_secs: 1800, min_duration_secs: 600 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+  - { id: browsing, name: 看网页, triggers: { apps: [Chrome] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:02:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:03:00Z", observe: { id: obs-3, app: "Chrome", window: "docs.rs" } }
+  - { at: "2026-09-30T09:03:20Z", observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:05:00Z", observe: { id: obs-5, app: "VSCode", window: "main.rs" } }
+expect:
+  stages:
+    count_total: 1
+    open: true
+    items: []

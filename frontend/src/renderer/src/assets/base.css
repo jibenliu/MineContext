@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@layer utilities {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    font-weight: normal;
+  }
+
+  ul {
+    list-style: none;
+  }
+
+  /* 语义别名必须挂在 `body` 上，不能挂在 `:root`：Arco 的 `--color-*` 定义在 `body`，
+     自定义属性在**声明它的那个元素**上求值，挂在 `:root` 会取到空值 ——
+     于是下面的 `color` / `background` 变成无效声明，文字色退回浏览器默认
+     （跟随 prefers-color-scheme，而不是跟随应用主题）。 */
+  body {
+    --color-background: var(--color-bg-1);
+    --color-background-soft: var(--color-bg-2);
+    --color-background-mute: var(--color-bg-3);
+
+    --color-text: var(--color-text-1);
+
+    min-height: 100vh;
+    color: var(--color-text);
+    background: var(--color-background);
+    line-height: 1.6;
+    font-family:
+      Inter,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      Oxygen,
+      Ubuntu,
+      Cantarell,
+      'Fira Sans',
+      'Droid Sans',
+      'Helvetica Neue',
+      sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

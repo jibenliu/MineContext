@@ -1,0 +1,80 @@
+name: "一个合成工作日（9:00–17:45）"
+tags: [stage, workday, snapshot]
+description: |
+  一天的真实形状：写代码 → 站会 → 写代码 → 午饭（长空闲）→ 排查问题
+  → 需求评审 → 写代码。阶段划分必须落在**真实的工作段落**上：
+
+  - 午饭的空闲要断开（否则「一天是一个阶段」）；
+  - 会议与编码之间要分开（否则总结说不出「做过什么」）；
+  - 每段够长的阶段都要有总结。
+
+  时间段一律按本地（Asia/Shanghai）理解：09:00 本地 = 01:00Z。
+  段内每 15 分钟一条观测 —— 它必须**小于**两个阈值（活动的 idle_gap、
+  阶段的 idle_threshold，都是 30 分钟），否则每 30 分钟就会被误判成离开。
+  段与段之间相隔 15–30 分钟（小于阶段阈值 → 判成「切换」），
+  午饭 90 分钟（大于阈值 → 判成「离开」）。
+config:
+  activity: { idle_gap_secs: 1800, debounce_secs: 30 }
+  stage:
+    timezone: "Asia/Shanghai"
+    min_activity_stable_secs: 60
+    idle_threshold_secs: 1800
+    switch_grace_secs: 120
+    min_duration_secs: 900
+    max_duration_secs: 14400
+rules:
+  - { id: coding, name: 写代码, category: 开发, triggers: { apps: [VSCode] } }
+  - { id: standup, name: 站会, category: 协作, triggers: { apps: [Zoom] } }
+  - { id: debugging, name: 排查问题, category: 开发, triggers: { apps: [Terminal] } }
+  - { id: review, name: 需求评审, category: 需求, triggers: { apps: [飞书] } }
+steps:
+  # 09:00–09:45 写代码
+  - { at: "2026-09-30T01:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T01:15:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T01:30:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T01:45:00Z", observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+  # 10:00–10:15 站会
+  - { at: "2026-09-30T02:00:00Z", observe: { id: obs-5, app: "Zoom", window: "每日站会" } }
+  - { at: "2026-09-30T02:15:00Z", observe: { id: obs-6, app: "Zoom", window: "每日站会" } }
+  # 10:30–11:45 写代码
+  - { at: "2026-09-30T02:30:00Z", observe: { id: obs-7, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T02:45:00Z", observe: { id: obs-8, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T03:00:00Z", observe: { id: obs-9, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T03:15:00Z", observe: { id: obs-10, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T03:30:00Z", observe: { id: obs-11, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T03:45:00Z", observe: { id: obs-12, app: "VSCode", window: "main.rs" } }
+  # 午饭 11:45–13:15（90 分钟空闲 → 必须断开）
+  # 13:15–14:00 排查问题
+  - { at: "2026-09-30T05:15:00Z", observe: { id: obs-13, app: "Terminal", window: "cargo test" } }
+  - { at: "2026-09-30T05:30:00Z", observe: { id: obs-14, app: "Terminal", window: "cargo test" } }
+  - { at: "2026-09-30T05:45:00Z", observe: { id: obs-15, app: "Terminal", window: "cargo test" } }
+  - { at: "2026-09-30T06:00:00Z", observe: { id: obs-16, app: "Terminal", window: "cargo test" } }
+  # 14:15–14:30 需求评审
+  - { at: "2026-09-30T06:15:00Z", observe: { id: obs-17, app: "飞书", window: "APEX-389 需求评审" } }
+  - { at: "2026-09-30T06:30:00Z", observe: { id: obs-18, app: "飞书", window: "APEX-389 需求评审" } }
+  # 14:45–17:45 写代码
+  - { at: "2026-09-30T06:45:00Z", observe: { id: obs-19, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T07:00:00Z", observe: { id: obs-20, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T07:15:00Z", observe: { id: obs-21, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T07:30:00Z", observe: { id: obs-22, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T07:45:00Z", observe: { id: obs-23, app: "VSCode", window: "main.rs" } }
+expect:
+  # 正常工作日里**不该有观测被当成噪声丢掉**：丢一条就意味着总结里少了一件事
+  noise: []
+  stages:
+    # 六个工作段落：写代码 / 站会 / 写代码 / 排查 / 评审 / 写代码（最后一段仍在进行）
+    count_total: 6
+    open: true
+    items:
+      - { end_reason: switched, min_duration_secs: 3000, max_duration_secs: 4200 }
+      - { end_reason: switched, min_duration_secs: 1500, max_duration_secs: 2400 }
+      - { end_reason: idle, min_duration_secs: 3600 }
+      - { end_reason: switched, min_duration_secs: 3000, max_duration_secs: 4200 }
+      - { end_reason: switched, min_duration_secs: 1500, max_duration_secs: 2400 }
+  summaries:
+    # 五个已结束且够长的阶段都必须有兜底总结。
+    # 不在这里断言正文含某个活动名：不同阶段的正文本来就不同
+    # （站会那段不会有「写代码」），字段覆盖由 summary 目录的场景负责。
+    every_long_stage_has_one: true
+    long_stage_count: 5
+    quality: fallback

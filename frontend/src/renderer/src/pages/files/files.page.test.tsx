@@ -1,0 +1,74 @@
+// 页面级测试：文件页能渲染出后端给的已分析文档。
+//
+// 这是 T1 登记的两个真缺口之一（另一个是笔记页）：238 行的页面、走 `useFiles` hook，
+// 此前**没有任何测试** —— 白屏这类问题不会被任何断言拦住。
+//
+// 这里钉两件事：① 页面挂载时真的去取文件列表（渠道 + 参数）；② 取回来的文档渲染出来。
+
+import { installFakeBackend } from '@renderer/test/page-setup'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
+import Files from './files'
+
+// 形状取自 `useFiles`：它读 `result.success` 与 `result.files[].name`
+// （不是裸数组，字段也不是 `fileName` —— 形状不对时页面只是「没有文档」，不会报错）。
+const DOC = {
+  id: 7,
+  name: '季度复盘.md',
+  size: 2048,
+  type: 'text/markdown',
+  uploadTime: '2026-10-08 10:00:00'
+}
+
+describe('文件页（渲染 + 取数接线）', () => {
+  it('已保存文件显示已上传，不宣称分析成功', async () => {
+    installFakeBackend(
+      { 'file:get-all': { success: true, files: [{ ...DOC, status: 'Uploaded' }] } },
+      { strict: false }
+    )
+    render(<Files />)
+    expect(await screen.findByText('已上传')).toBeInTheDocument()
+    expect(screen.queryByText('分析成功')).toBeNull()
+  })
+
+  it('列表加载失败提供重试', async () => {
+    installFakeBackend({}, { strict: false })
+    vi.spyOn(window.fileService, 'getFiles')
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ success: true, files: [DOC] })
+    render(<Files />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('加载文件失败')
+    fireEvent.click(screen.getByText('重试'))
+    expect(await screen.findByText(DOC.name)).toBeInTheDocument()
+  })
+
+  it('保存失败保留对话框并支持重试，不向页面根路径上传', async () => {
+    installFakeBackend({ 'file:get-all': { success: true, files: [] } }, { strict: false })
+    const save = vi
+      .spyOn(window.fileService, 'saveFile')
+      .mockResolvedValueOnce({ success: false, error: 'disk full' })
+      .mockResolvedValueOnce({ success: true, filePath: '/uploads/REPORT.MD' })
+    const upload = vi.spyOn(XMLHttpRequest.prototype, 'open')
+    const { container } = render(<Files />)
+    const input = container.querySelector('input[type="file"]')!
+    fireEvent.change(input, { target: { files: [new File(['hello'], 'REPORT.MD', { type: 'text/markdown' })] } })
+    fireEvent.click(await screen.findByText('保存文件'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('保存失败')
+    fireEvent.click(screen.getByText('保存文件'))
+    expect(await screen.findByText('已上传')).toBeInTheDocument()
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(upload).not.toHaveBeenCalled()
+  })
+  it('取一次文件列表并渲染文档名', async () => {
+    const backend = installFakeBackend({ 'file:get-all': { success: true, files: [DOC] } }, { strict: false })
+
+    render(<Files />)
+
+    // ① 取数：页面挂载时会调 `file:get-all`
+    await waitFor(() => expect(backend.calls.filter((call) => call.channel === 'file:get-all')).toHaveLength(1))
+
+    // ② 渲染：文档名出现在「已分析的文档」区域
+    expect(await screen.findByText(DOC.name)).toBeInTheDocument()
+  })
+})

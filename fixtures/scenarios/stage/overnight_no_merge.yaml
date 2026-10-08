@@ -1,0 +1,21 @@
+name: "隔夜不算一个阶段"
+tags: [stage, idle, overnight]
+description: |
+  晚上 19:00 收工，第二天早上 09:00 又开始。中间 14 小时不能算进任何一个阶段 ——
+  「我连续工作了 14 小时」是最容易被用户一眼看穿的错误。
+config:
+  activity: { idle_gap_secs: 600 }
+  stage: { min_activity_stable_secs: 60, idle_threshold_secs: 600, switch_grace_secs: 300, min_duration_secs: 600 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  - { at: "2026-09-30T11:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T11:02:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  # 第二天（UTC 01:00 是本地 09:00）
+  - { at: "2026-10-01T01:00:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-10-01T01:02:00Z", observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+expect:
+  stages:
+    count_total: 2
+    items:
+      - { end_reason: idle, max_duration_secs: 600 }

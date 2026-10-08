@@ -1,0 +1,22 @@
+name: "规则命中 → 零 VLM 调用"
+tags: [activity, cost, regression:problem-6]
+description: |
+  problem.md #6：旧系统 2 小时烧掉 300 万 token，因为每张截图都问模型。
+  规则能判出来的时段，一次模型调用都不该发生。
+rules:
+  - id: meeting
+    name: 会议
+    category: 协作
+    triggers: { apps: [Zoom] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { app: "Zoom", window: "周会" }
+  - at: "2026-09-30T09:03:00Z"
+    observe: { app: "Zoom", window: "周会" }
+  - at: "2026-09-30T09:06:00Z"
+    observe: { app: "Zoom", window: "周会" }
+expect:
+  count_total: 1
+  activities:
+    - { title: "会议", origin: rule }
+  provider_calls: { vision: 0 }

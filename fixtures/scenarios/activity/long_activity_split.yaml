@@ -1,0 +1,36 @@
+name: "超长活动强制切分"
+tags: [activity, max_duration]
+description: |
+  连续 5 小时不换应用。单活动上限 2 小时，必须切成多段 ——
+  否则「一个活动持续一整天」既没法读，也没法拿去做阶段总结。
+config:
+  activity: { max_duration_secs: 7200, idle_gap_secs: 86400 }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { id: obs-1, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-2, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-3, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-4, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-5, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-6, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-7, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-8, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-9, app: "VSCode", window: "main.rs" }
+  - advance: 30min
+    observe: { id: obs-10, app: "VSCode", window: "main.rs" }
+expect:
+  # 5 小时连续观测、单活动上限 2 小时 → 切成 2 段已结束 + 1 段进行中
+  count_total: 3
+  activities:
+    - { title_contains: "VSCode", max_duration_secs: 7200 }
+    - { title_contains: "VSCode", max_duration_secs: 7200 }
+    - { title_contains: "VSCode", max_duration_secs: 7200 }
+  provider_calls: { vision_at_least: 0 }

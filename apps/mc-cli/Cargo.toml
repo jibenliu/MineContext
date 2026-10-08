@@ -1,0 +1,30 @@
+[package]
+name = "mc-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mc-cli"
+path = "src/main.rs"
+
+[lib]
+name = "mc_cli"
+path = "src/lib.rs"
+
+[dependencies]
+mc-common = { path = "../../crates/mc-common" }
+mc-config = { path = "../../crates/mc-config" }
+mc-storage = { path = "../../crates/mc-storage" }
+mc-capture = { path = "../../crates/mc-capture" }
+mc-domain = { path = "../../crates/mc-domain" }
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+mc-testkit = { path = "../../crates/mc-testkit" }
+# 集成测试要**手工造一个旧版 SQLite 库**（新库用 mc-storage 打开，
+# 但旧库必须用旧结构建），因此这里直接依赖 rusqlite
+rusqlite.workspace = true
+tempfile.workspace = true

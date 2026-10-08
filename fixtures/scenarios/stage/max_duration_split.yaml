@@ -1,0 +1,24 @@
+name: "超长阶段强制切分"
+tags: [stage, max_duration]
+description: |
+  连续 3 小时没换应用，阶段上限 30 分钟 → 必须切成多段。
+  「一个阶段持续一整天」既没法读，也没法拿去做阶段总结。
+config:
+  activity: { idle_gap_secs: 86400 }
+  stage: { min_activity_stable_secs: 60, idle_threshold_secs: 86400, switch_grace_secs: 300, max_duration_secs: 1800, min_duration_secs: 60 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-5, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-6, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-7, app: "VSCode", window: "main.rs" } }
+  - { advance: 10min, observe: { id: obs-8, app: "VSCode", window: "main.rs" } }
+expect:
+  stages:
+    items:
+      - { end_reason: max_duration, max_duration_secs: 1800 }
+      - { end_reason: max_duration, max_duration_secs: 1800 }

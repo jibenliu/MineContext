@@ -1,0 +1,26 @@
+name: "模型全失败也要有总结（兜底）"
+tags: [summary, fallback, regression:problem-15]
+description: |
+  problem.md #15 的原始诉求是「一直在截图却没有阶段总结」。
+  这条场景断言的是**第二道防线**：模型不可用时，
+  每个够长的阶段仍然有一份**人类可读**的兜底总结
+  （时间段 + 做过什么），而不是一句「生成失败」。
+config:
+  # 活动层的空闲阈值要「大于观测间隔（20 分钟）、小于那段长间隔（50 分钟）」：
+  # 太小会把每个观测切成一个活动，太大则并成一段。
+  activity: { idle_gap_secs: 1500 }
+  stage: { min_activity_stable_secs: 60, idle_threshold_secs: 300, switch_grace_secs: 300, min_duration_secs: 900 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:20:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:40:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  # 50 分钟后才又有动静 → 上一个阶段因空闲结束（也就必须产出总结）
+  - { at: "2026-09-30T10:30:00Z", observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+expect:
+  summaries:
+    every_long_stage_has_one: true
+    long_stage_count: 1
+    quality: fallback
+    body_contains: ["写代码"]

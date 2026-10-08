@@ -1,0 +1,137 @@
+name: Rust
+
+on:
+  push:
+    branches: [main, feat/rust-workspace]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # 静态检查与守卫自检复用 xtask 构建缓存。
+  guards:
+    name: Guards (scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: 验证入口模式（默认不启动冒烟）
+        run: bash scripts/tests/verification-modes.sh
+
+      - name: lint 脚本自检（植入违规必须被拦截）
+        run: ./scripts/tests/selftest-lints.sh
+
+      - name: macOS 支持范围（最低 13 / 覆盖 14）
+        run: ./scripts/checks/check-macos-target.sh
+
+      - name: 生产代码里没有测试夹具
+        run: ./scripts/checks/check-no-test-fixtures.sh
+
+      - name: 故障排查文档与错误码一致
+        run: ./scripts/checks/check-troubleshooting-freshness.sh
+
+      - name: 源码注释面向交付
+        run: ./scripts/checks/check-comment-style.sh
+
+      - name: 依赖方向
+        run: ./scripts/checks/check-dep-direction.sh
+
+      - name: 领域层禁止 naive 时间
+        run: ./scripts/checks/check-no-naive-datetime.sh
+
+      - name: Provider 纯净性
+        run: ./scripts/checks/check-provider-purity.sh
+
+      - name: 提示词内嵌
+        run: ./scripts/checks/check-prompt-embedded.sh
+
+      - name: 阶段总结不变量哨兵
+        run: ./scripts/checks/check-summary-invariant.sh
+
+      - name: 兼容面契约必须是最新的
+        # 清单已冻结（旧后端源码不再存在）：内容由 mc-server 的
+        # `compat_routes_all_present` 测试保证「一条都不少」，这里只保证没人手改。
+        run: |
+          if ! git diff --exit-code fixtures/contract/compat-routes.json; then
+            echo "::error::fixtures/contract/compat-routes.json 被改动过；这份清单已冻结，改动需连同 mc-server 的契约测试一起评审"
+            exit 1
+          fi
+
+  adapters:
+    name: Frontend adapters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10'
+
+      - name: 安装前端锁定依赖
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: lint（eslint）
+        working-directory: frontend
+        run: npm run lint
+
+      - name: 适配层测试
+        working-directory: frontend
+        run: npm run test:adapters
+
+      - name: 共享包测试（渲染层日志器）
+        working-directory: frontend
+        run: npm run test:shared
+
+      - name: 页面级测试（vitest + jsdom）
+        working-directory: frontend
+        run: npm run test:pages
+
+      - name: 渠道契约必须是最新的（渠道表 + 调用点反查）
+        run: |
+          cargo run -q -p xtask -- extract-used-ipc-channels
+          if ! git diff --exit-code fixtures/contract/used-ipc-channels.json; then
+            echo "::error::fixtures/contract/used-ipc-channels.json 与源码不一致（渠道表或调用点变了），请重跑 cargo run -q -p xtask -- extract-used-ipc-channels 并提交"
+            exit 1
+          fi
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # 最低支持 macOS 13，同时覆盖 14：两个 runner 都要跑
+      # （由 scripts/check-macos-target.sh 守卫，缺一个就失败）
+      matrix:
+        os: [macos-13, macos-14]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: 格式
+        run: cargo fmt --all -- --check
+
+      - name: Clippy（警告即错误）
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: 业务测试（并行，冒烟显式开启）
+        run: ./scripts/tests/rust-tests-parallel.sh
+
+      - name: macOS 产物校验（minos / 构建期与运行期一致）
+        run: ./scripts/checks/check-macos-artifacts.sh
+
+      - name: 文档测试
+        run: cargo test --workspace --doc

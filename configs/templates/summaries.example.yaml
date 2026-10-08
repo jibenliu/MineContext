@@ -1,0 +1,36 @@
+# MineContext 总结模板示例
+#
+# 放在数据目录的 `templates/summaries.yaml` 就会被加载。
+# 模板声明的是「总结里必须有哪些信息」，不是提示词片段 ——
+# 所以换模型、换提示词都不会让总结结构变形，UI 也能按模板顺序渲染卡片。
+#
+# 字段类型是封闭集合（见 mc-summary::template::FieldKind）：
+#   time_range / activity_list / app_list / highlight_list /
+#   observation_count / blocked_notice
+# 写错类型会**直接报错**，不会静默丢弃。
+
+templates:
+  - id: work_stage
+    name: 工作阶段
+    fields:
+      - { id: time_range, label: 时间段, kind: time_range }
+      - { id: activities, label: 做过什么, kind: activity_list }
+      - { id: categories, label: 涉及分类, kind: app_list }
+      - { id: captured, label: 采集量, kind: observation_count }
+
+  - id: work_stage_detailed
+    name: 工作阶段（详细）
+    fields:
+      - { id: time_range, label: 时间段, kind: time_range }
+      - { id: activities, label: 做过什么, kind: activity_list }
+      - { id: highlights, label: 主要时间花在哪, kind: highlight_list }
+      - { id: categories, label: 涉及分类, kind: app_list }
+      - { id: captured, label: 采集量, kind: observation_count }
+      - { id: privacy, label: 隐私说明, kind: blocked_notice }
+
+  - id: meeting_heavy
+    name: 会议较多的时段
+    fields:
+      - { id: time_range, label: 时间段, kind: time_range }
+      - { id: activities, label: 会议与沟通, kind: activity_list }
+      - { id: highlights, label: 主要时间花在哪, kind: highlight_list }

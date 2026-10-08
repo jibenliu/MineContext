@@ -1,0 +1,28 @@
+name: "锁屏立即结束当前活动"
+tags: [activity, lock]
+config:
+  # 这里要演示「连续 1 小时」被锁屏打断，因此把空闲阈值放宽
+  activity: { idle_gap_secs: 86400 }
+description: |
+  合盖 / 锁屏之后的空白时间不该算进活动时长，
+  否则「写代码 3 小时」里有 2 小时是离开的。
+rules:
+  - id: coding
+    name: 写代码
+    triggers: { apps: [VSCode] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T10:00:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T10:05:00Z"
+    lock: true
+  - at: "2026-09-30T11:00:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T11:03:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+expect:
+  count_total: 2
+  activities:
+    - { title: "写代码", observations: [obs-1, obs-2] }
+    - { title: "写代码", observations: [obs-3, obs-4] }

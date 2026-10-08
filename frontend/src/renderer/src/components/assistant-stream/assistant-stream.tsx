@@ -1,0 +1,203 @@
+import { Button, Input } from '@arco-design/web-react'
+import { useI18n } from '@renderer/i18n'
+import MarkdownIt from 'markdown-it'
+import { FC, useRef, useState } from 'react'
+
+import { useAssistantConversation } from './use-assistant-conversation'
+
+const markdown = new MarkdownIt({ html: false, linkify: false, breaks: true })
+const answerClass =
+  'min-h-[44px] text-[13px] leading-6 text-[var(--color-text-1)] [&_code]:rounded [&_code]:bg-[var(--color-bg-3)] [&_code]:px-1 [&_ol]:my-1 [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-[8px] [&_pre]:bg-[var(--color-bg-1)] [&_pre]:p-3 [&_ul]:my-1 [&_ul]:pl-5'
+
+export const AssistantStream: FC = () => {
+  const { t } = useI18n()
+  const chat = useAssistantConversation()
+  const [draft, setDraft] = useState('')
+  const [copyFeedback, setCopyFeedback] = useState('')
+  const endRef = useRef<HTMLDivElement>(null)
+  const disabled = chat.busy || chat.loading
+  const live = chat.busy || !chat.text || chat.history.length === 0
+
+  const send = () => {
+    const query = draft.trim()
+    if (!query || disabled) return
+    setDraft('')
+    chat.ask(query)
+  }
+  const copy = async (answer: string) => {
+    try {
+      await navigator.clipboard.writeText(answer)
+      setCopyFeedback(t('assistant.copied'))
+    } catch {
+      setCopyFeedback(t('assistant.copyFailed'))
+    }
+  }
+
+  return (
+    <div className="assistant-stream flex h-full gap-4">
+      <aside className="flex w-[220px] flex-shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-bg-2)] p-3">
+        <Button
+          type="primary"
+          long
+          disabled={chat.busy}
+          onClick={() => {
+            chat.newConversation()
+            setDraft('')
+            setCopyFeedback('')
+          }}>
+          {t('assistant.newConversation')}
+        </Button>
+        {chat.conversations.length > 0 && (
+          <select
+            aria-label={t('assistant.conversationLabel')}
+            disabled={chat.busy}
+            value={chat.activeId ?? ''}
+            onChange={(event) =>
+              event.target.value ? void chat.switchTo(Number(event.target.value)) : chat.newConversation()
+            }
+            className="h-8 rounded-[6px] border border-[var(--color-border-2)] bg-[var(--color-bg-2)] px-2 text-[13px] text-[var(--color-text-1)]">
+            <option value="">{t('assistant.conversation.new')}</option>
+            {chat.conversations.map((conversation) => (
+              <option key={conversation.id} value={conversation.id}>
+                {conversation.title ?? String(conversation.id)}
+              </option>
+            ))}
+          </select>
+        )}
+        <div className="flex flex-1 flex-col gap-1 overflow-y-auto">
+          {chat.conversations.length === 0 ? (
+            <p className="px-1 py-2 text-xs text-[var(--color-text-3)]">{t('assistant.noConversations')}</p>
+          ) : (
+            chat.conversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                type="button"
+                disabled={chat.busy}
+                onClick={() => void chat.switchTo(conversation.id)}
+                aria-current={conversation.id === chat.activeId ? 'true' : undefined}
+                className="truncate rounded-[8px] px-3 py-2 text-left text-[13px] text-[var(--color-text-2)] hover:bg-[var(--color-bg-1)] aria-[current=true]:bg-[var(--color-primary-light-1)]">
+                {conversation.title ?? String(conversation.id)}
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        {chat.error && (
+          <div role="alert">
+            {chat.error}
+            <Button
+              onClick={() =>
+                chat.activeId !== null ? void chat.switchTo(chat.activeId) : void chat.loadConversations()
+              }
+              disabled={chat.busy}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        )}
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-bg-2)] p-4">
+          {chat.history.length > 0 && (
+            <ul data-testid="assistant-history" className="flex flex-col gap-3">
+              {chat.history.map((turn, index) => (
+                <li key={turn.id} className="flex flex-col gap-2">
+                  <div className="max-w-[80%] self-end rounded-2xl rounded-br-[4px] bg-[var(--color-primary-light-1)] px-4 py-2 text-[13px] text-[var(--color-text-1)]">
+                    {turn.query}
+                  </div>
+                  <div className="max-w-[80%] self-start rounded-2xl rounded-bl-[4px] border border-[var(--color-border-2)] bg-[var(--color-bg-2)] px-4 py-2">
+                    <div
+                      data-testid={!live && index === chat.history.length - 1 ? 'assistant-text' : undefined}
+                      className={answerClass}
+                      dangerouslySetInnerHTML={{ __html: markdown.render(turn.error ?? turn.answer) }}
+                    />
+                    {turn.sources.length > 0 && (
+                      <details className="mt-2 text-xs text-[var(--color-text-3)]">
+                        <summary>{t('assistant.sources', { count: turn.sources.length })}</summary>
+                        <ul>
+                          {turn.sources.map((source, sourceIndex) => (
+                            <li key={source.kind + source.document_id + sourceIndex}>
+                              {source.title} · {source.kind}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                      {turn.answer && (
+                        <Button size="mini" onClick={() => void copy(turn.answer)}>
+                          {t('assistant.copy')}
+                        </Button>
+                      )}
+                      {index === chat.history.length - 1 && (
+                        <Button size="mini" disabled={disabled} onClick={() => chat.ask(turn.query)}>
+                          {t('assistant.retryAnswer')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {live && (
+            <div
+              data-testid="assistant-text"
+              className={answerClass}
+              dangerouslySetInnerHTML={{ __html: markdown.render(chat.text) }}
+            />
+          )}
+          <div ref={endRef} />
+        </div>
+        {chat.progress && (
+          <details open className="text-xs text-[var(--color-text-3)]">
+            <summary>{t('assistant.progress')}</summary>
+            <p>{chat.progress}</p>
+          </details>
+        )}
+        <div data-testid="assistant-state" className="min-h-[20px] text-xs text-[var(--color-text-3)]">
+          {chat.loading
+            ? t('assistant.loadingHistory')
+            : chat.state === 'thinking'
+              ? t('assistant.thinking')
+              : chat.state === 'streaming'
+                ? t('assistant.streaming')
+                : chat.state === 'failed'
+                  ? t('assistant.failed')
+                  : chat.state === 'stopped'
+                    ? t('assistant.stopped')
+                    : ''}
+        </div>
+        {copyFeedback && <p role="status">{copyFeedback}</p>}
+        {chat.history.length > 0 && (
+          <Button size="mini" onClick={() => endRef.current?.scrollIntoView?.({ block: 'end', behavior: 'smooth' })}>
+            {t('assistant.latest')}
+          </Button>
+        )}
+        <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-bg-2)] p-3">
+          <Input.TextArea
+            aria-label={t('assistant.inputPlaceholder')}
+            placeholder={t('assistant.inputPlaceholder')}
+            autoSize={{ minRows: 1, maxRows: 4 }}
+            value={draft}
+            onChange={setDraft}
+            onPressEnter={(event) => {
+              if (!event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                send()
+              }
+            }}
+          />
+          <Button type="primary" onClick={send} disabled={!draft.trim() || disabled}>
+            {t('assistant.send')}
+          </Button>
+          {chat.busy ? (
+            <Button onClick={() => void chat.stop()}>{t('assistant.stop')}</Button>
+          ) : (
+            <Button disabled={chat.loading} onClick={() => chat.ask(t('assistant.defaultQuery'))}>
+              {t('assistant.ask')}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

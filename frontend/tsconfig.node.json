@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "composite": true,
+    "moduleResolution": "bundler",
+    "types": [
+      "node"
+    ],
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true
+  },
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "vite.config.mts",
+    "vitest.config.ts"
+  ]
+}

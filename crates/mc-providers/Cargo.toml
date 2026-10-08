@@ -1,0 +1,20 @@
+[package]
+name = "mc-providers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+mc-common = { path = "../mc-common" }
+async-trait.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+image.workspace = true
+reqwest.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+mc-testkit = { path = "../mc-testkit" }

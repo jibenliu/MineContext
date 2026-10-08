@@ -1,0 +1,20 @@
+[package]
+name = "mc-testkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+mc-common = { path = "../mc-common" }
+mc-capture = { path = "../mc-capture" }
+mc-providers = { path = "../mc-providers" }
+mc-domain = { path = "../mc-domain" }
+mc-summary = { path = "../mc-summary" }
+image.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

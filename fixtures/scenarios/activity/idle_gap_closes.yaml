@@ -1,0 +1,24 @@
+name: "空闲超过阈值 → 断开成两个活动"
+tags: [activity, idle]
+description: |
+  中间空了 9 小时。如果不判空闲，用户看到的是「连续工作了 9 小时」，
+  这正是现有产品被人吐槽的点。
+rules:
+  - id: coding
+    name: 写代码
+    triggers: { apps: [VSCode] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:03:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  # 9 小时之后又是一段工作
+  - at: "2026-09-30T18:00:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T18:03:00Z"
+    observe: { app: "VSCode", window: "main.rs" }
+expect:
+  count_total: 2
+  activities:
+    - { title: "写代码", observations: [obs-1, obs-2] }
+    - { title: "写代码", observations: [obs-3, obs-4] }

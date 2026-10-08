@@ -1,0 +1,24 @@
+name: "多条规则命中 → 按优先级取一条"
+tags: [activity, rules, priority]
+description: |
+  终端里跑 cargo test 同时满足「Terminal + 关键词 test」两条规则。
+  没有优先级就会出现「同一时段在不同机器上分类不一样」。
+rules:
+  - id: coding
+    name: 写代码
+    priority: 10
+    triggers: { apps: [Terminal] }
+  - id: debugging
+    name: 调试
+    priority: 50
+    triggers: { apps: [Terminal], keywords: [cargo test] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { app: "iTerm2", window: "cargo test" }
+  - at: "2026-09-30T09:01:00Z"
+    observe: { app: "iTerm2", window: "cargo test" }
+expect:
+  count_total: 1
+  activities:
+    - { title: "调试", origin: rule }
+  provider_calls: { vision: 0 }

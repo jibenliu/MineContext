@@ -1,0 +1,104 @@
+{
+  "note": "前端解包逻辑所依赖的响应形状样例。**由 daemon 侧测试校验**（crates/mc-server/tests/response_shapes.rs 拿真路由跑一遍比对形状），前端测试的 mock 从这里取 —— 两边漂移都会红，而不是等到界面白屏。shape 只关心键与类型，值可以改；改键/改类型必须同步改两侧。",
+  "channels": {
+    "v1:summaries": {
+      "endpoint": "GET /api/v1/summaries",
+      "sample": {
+        "summaries": [
+          {
+            "id": "sum-1",
+            "kind": "stage",
+            "stage_id": "stage-1",
+            "template_id": "work_stage",
+            "title": "09:00–09:30 阶段总结",
+            "start": "2026-09-30 09:00:00",
+            "end": "2026-09-30 09:30:00",
+            "created_at": "2026-09-30 09:30:20",
+            "quality": "model",
+            "model": "openai_compatible:qwen-max",
+            "body_markdown": "这段时间在写代码。",
+            "prompt_tokens": 100,
+            "completion_tokens": 30
+          }
+        ]
+      }
+    },
+    "v1:conversations": {
+      "endpoint": "GET /api/agent/chat/conversations/list",
+      "sample": {
+        "items": [
+          {
+            "id": 1,
+            "title": "APEX-389 我昨天查到哪里了？",
+            "page_name": "home",
+            "status": "active",
+            "metadata": "{}",
+            "created_at": "2026-09-30 09:00:00",
+            "updated_at": "2026-09-30 09:00:00",
+            "user_id": "local"
+          }
+        ],
+        "total": 1
+      }
+    },
+    "v1:search": {
+      "endpoint": "GET /api/v1/search?q=…",
+      "sample": {
+        "query": "重构",
+        "results": [
+          {
+            "id": "act-1",
+            "kind": "activity",
+            "title": "重构检索层",
+            "snippet": "把关键词与向量融合进同一层",
+            "score": 1.0,
+            "at": 1759222800000
+          }
+        ]
+      }
+    },
+    "v1:adhoc-preview": {
+      "endpoint": "GET /api/v1/summaries/adhoc/preview?from=…&to=…",
+      "sample": {
+        "range": {
+          "from": "2026-09-30T09:00:00+00:00",
+          "to": "2026-09-30T10:00:00+00:00",
+          "local_from": "2026-09-30 09:00:00",
+          "local_to": "2026-09-30 10:00:00"
+        },
+        "timezone": "Asia/Shanghai",
+        "counts": {
+          "observations": 0,
+          "blocked_observations": 0,
+          "activities": 0,
+          "stages": 0
+        },
+        "estimated_chunks": 0,
+        "estimated_tokens": 0,
+        "has_data": false
+      }
+    },
+    "backend:get-status": {
+      "endpoint": "GET /api/backend/status",
+      "sample": { "status": "running" }
+    },
+    "push:init-check-data": {
+      "endpoint": "GET /api/health（与 SSE 启动帧同源）",
+      "sample": {
+        "status": "ok",
+        "version": "0.1.5",
+        "data": {
+          "components": {
+            "llm": { "status": "unconfigured", "message": "未配置视觉模型" },
+            "vlm": { "status": "unconfigured" },
+            "embedding": { "status": "unconfigured" },
+            "storage": { "status": "ok" },
+            "capture": { "status": "not_started" }
+          },
+          "degraded": ["general.timezone"]
+        },
+        "error_code": null
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "mc-common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+chrono.workspace = true
+regex.workspace = true
+chrono-tz.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+# 运行日志（统一出口在 observability 模块）
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+mc-testkit = { path = "../mc-testkit" }
+serde_json.workspace = true

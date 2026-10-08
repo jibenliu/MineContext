@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "composite": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@interface/*": [
+        "src/interface/*"
+      ],
+      "@renderer/*": [
+        "src/renderer/src/*"
+      ],
+      "@shared/*": [
+        "packages/shared/*"
+      ],
+      "@types": [
+        "src/renderer/src/types/index.ts"
+      ]
+    },
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true
+  },
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/**/*",
+    "src/renderer/src/**/*.tsx",
+    "packages/shared/**/*",
+    "src/interface/**/*"
+  ]
+}

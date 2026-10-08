@@ -1,0 +1,28 @@
+name: "关键词规则用得上 OCR 文本"
+tags: [activity, rules, keyword, ocr]
+description: |
+  窗口标题经常只有「首页」两个字，真正能判断的是页面正文（OCR）。
+  事件 payload 里必须带上 text，否则关键词规则在真实数据上永远不命中。
+rules:
+  - id: requirement-review
+    name: 需求评审
+    category: 需求
+    triggers: { keywords: [需求评审, 验收标准] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe:
+      app: "Chrome"
+      window: "APEX-389"
+      text: "APEX-389 需求评审：讨论验收标准"
+      domain: "jira.example.com"
+  - at: "2026-09-30T09:04:00Z"
+    observe:
+      app: "Chrome"
+      window: "APEX-389"
+      text: "APEX-389 需求评审：确认验收标准"
+      domain: "jira.example.com"
+expect:
+  count_total: 1
+  activities:
+    - { title: "需求评审", origin: rule }
+  provider_calls: { vision: 0 }

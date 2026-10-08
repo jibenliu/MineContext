@@ -1,0 +1,16 @@
+name: "模型推断结果落到活动上（provenance=inferred）"
+tags: [activity, ai, provenance]
+description: |
+  problem.md #13：「AI 认为发生了什么」与「用户实际上做了什么」必须可区分。
+  推断结果必须带 model，UI 才能显示「这是猜的」。
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { id: obs-1, app: "Aurora", window: "unknown" }
+  - at: "2026-09-30T09:01:00Z"
+    observe: { id: obs-2, app: "Aurora", window: "unknown" }
+  - at: "2026-09-30T09:02:00Z"
+    inferred: { activity_id: "act-obs-1", title: "季度规划", category: "需求", confidence: 0.8 }
+expect:
+  count_total: 1
+  activities:
+    - { title: "季度规划", origin: inferred, observations: [obs-1, obs-2] }

@@ -1,0 +1,30 @@
+# 依赖升级：每周自动提 PR，避免"长期不升级 → 一次升级爆炸式变更"。
+#
+# 两个生态都覆盖：cargo（Rust workspace）与 npm（frontend）。
+# PR 会走同一套 CI 门禁（.github/workflows/rust.yml），红了就别合。
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      rust-minor-and-patch:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor-and-patch:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

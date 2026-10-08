@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Arco 图标（组件内部生成的类名，源码里不出现） */
+.arco-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-container .arco-layout-sider-children {
+  /* 隐藏侧边栏滚动条 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* 确保内容仍然可以滚动，但不显示滚动条 */
+.sidebar-container {
+  overflow: -moz-scrollbars-none; /* Firefox */
+}
+
+.arco-layout-sider.arco-layout-sider-light.sidebar-container {
+  box-shadow: none;
+}

@@ -1,0 +1,20 @@
+name: "用户修正经重放后仍然生效"
+tags: [activity, override, regression:problem-14]
+description: |
+  problem.md #14：算法升级后重算历史，用户的改名不能丢。
+  修正是事件，所以重放会重新叠加它；算法原标题保留在 original_title。
+rules:
+  - id: coding
+    name: 写代码
+    triggers: { apps: [VSCode] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { id: obs-1, app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:01:00Z"
+    observe: { id: obs-2, app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:02:00Z"
+    override_: { kind: rename, activity_id: "act-obs-1", title: "重构活动引擎" }
+expect:
+  count_total: 1
+  activities:
+    - { title: "重构活动引擎", is_user_modified: true }

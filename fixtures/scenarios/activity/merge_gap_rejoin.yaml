@@ -1,0 +1,35 @@
+name: "回到同一标题 → 并回原活动，而不是产生第三段"
+tags: [activity, merge_gap]
+description: |
+  去看了 2 分钟网页再回到 VSCode。合并间隔（merge_gap）的语义是
+  「同标题的活动在结束时点之后多久内回来就算同一个」，
+  因此结果是**两段**：写代码（含回来后那段）+ 看网页。
+
+  如果这里出现三段（写代码 / 看网页 / 写代码），用户的时间线就会被
+  同一个活动名切碎 —— 这正是防抖与合并要解决的问题。
+config:
+  activity: { debounce_secs: 45, merge_gap_secs: 300, idle_gap_secs: 3600 }
+rules:
+  - id: coding
+    name: 写代码
+    triggers: { apps: [VSCode] }
+  - id: browsing
+    name: 看网页
+    triggers: { apps: [Chrome] }
+steps:
+  - at: "2026-09-30T09:00:00Z"
+    observe: { id: obs-1, app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:01:00Z"
+    observe: { id: obs-2, app: "Chrome", window: "Hacker News" }
+  - at: "2026-09-30T09:02:00Z"
+    observe: { id: obs-3, app: "Chrome", window: "Hacker News" }
+  - at: "2026-09-30T09:03:00Z"
+    observe: { id: obs-4, app: "VSCode", window: "main.rs" }
+  - at: "2026-09-30T09:04:00Z"
+    observe: { id: obs-5, app: "VSCode", window: "main.rs" }
+expect:
+  count_total: 2
+  activities:
+    - { title: "写代码", observations: [obs-1, obs-4, obs-5] }
+    - { title: "看网页", observations: [obs-2, obs-3] }
+  provider_calls: { vision: 0 }

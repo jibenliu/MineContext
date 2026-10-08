@@ -1,0 +1,21 @@
+name: "空闲超过阈值 → 阶段关闭"
+tags: [stage, idle]
+description: |
+  干完活离开 40 分钟（空闲阈值 10 分钟）。阶段以 `idle` 结束，
+  而且**结束时刻是最后一次活动**，不是离开后的某个时刻 ——
+  否则用户的「工作时长」会被离开的时间撑大。
+config:
+  activity: { idle_gap_secs: 1200 }
+  stage: { min_activity_stable_secs: 60, idle_threshold_secs: 600, switch_grace_secs: 300, min_duration_secs: 600 }
+rules:
+  - { id: coding, name: 写代码, triggers: { apps: [VSCode] } }
+steps:
+  - { at: "2026-09-30T09:00:00Z", observe: { id: obs-1, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:02:00Z", observe: { id: obs-2, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:40:00Z", observe: { id: obs-3, app: "VSCode", window: "main.rs" } }
+  - { at: "2026-09-30T09:42:00Z", observe: { id: obs-4, app: "VSCode", window: "main.rs" } }
+expect:
+  stages:
+    count_total: 2
+    items:
+      - { end_reason: idle, activities: [act-obs-1], max_duration_secs: 600 }

@@ -1,0 +1,15 @@
+# 日志覆盖登记（棘轮：只减不增）
+#
+# 每一行 = 一个「不直接记日志」的 crate + 理由。落在别处记的，写清落在哪；
+# 一旦该 crate 自己有了日志点，请删除对应条目 —— 留着会被
+# scripts/check-log-redaction.sh 判为陈旧条目并失败。
+#
+# 规则见 docs/privacy.md。
+
+crates/mc-common    # 日志出口本身：脱敏与落点在这里实现，不给自己埋点
+crates/mc-config    # 纯解析与校验：失败以 AppError 返回，加载成功由 daemon 记 layers
+crates/mc-domain    # 纯状态机与规则：同样的输入给同样的输出，决策由调用方记
+crates/mc-search    # 纯函数检索：结果条数由 mc-server 的检索调用点记
+crates/mc-capture   # 平台采集：失败由 mc-pipeline 的 pump 记（debug）与诊断表记（warn）
+crates/mc-testkit   # 测试工具：不进交付二进制
+apps/xtask          # 开发工具：只在本地/CI 生成契约夹具，不进交付产物
