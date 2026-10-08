@@ -19,7 +19,7 @@ chrono-tz = "0.10"
 # ids
 uuid = { version = "1", features = ["v7", "v4", "serde"] }
 # errors
-thiserror = "1"
+thiserror = "2"
 # hashing (idempotency keys / content hashes)
 blake3 = "1"
 # config
