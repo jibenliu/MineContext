@@ -65,7 +65,7 @@ jobs:
         run: ./scripts/package-macos-tauri.sh
 
       - name: 上传产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: MineContext-macos-unsigned-tauri
           path: src-tauri/target/release/bundle/dmg/*.dmg
