@@ -37,7 +37,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 futures-util = "0.3"
-base64 = "0.22"
+base64 = "0.23"
 # providers
 # reqwest 0.13 的默认 TLS 在 macOS 上走 Security.framework，无需 OpenSSL
 reqwest = { version = "0.13", features = ["json"] }
