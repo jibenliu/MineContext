@@ -13,11 +13,20 @@ it('后端错误态展示重试按钮，点击会调用 onRetry', () => {
   expect(onRetry).toHaveBeenCalledTimes(1)
 })
 
+it('后端错误态提供进入设置出口，避免只剩重试死循环', () => {
+  const onContinue = vi.fn()
+  render(<LoadingComponent backendStatus="error" onRetry={() => undefined} onContinue={onContinue} />)
+
+  fireEvent.click(screen.getByTestId('backend-continue-settings'))
+  expect(onContinue).toHaveBeenCalledTimes(1)
+})
+
 it('启动等待态不展示无法连接本地服务（正常冷启动不能误报）', () => {
   render(<LoadingComponent backendStatus="starting" />)
   expect(screen.getByText(/唤醒你的上下文感知/)).toBeInTheDocument()
   expect(screen.queryByText(/无法连接本地服务/)).toBeNull()
   expect(screen.queryByTestId('backend-retry')).toBeNull()
+  expect(screen.queryByTestId('backend-continue-settings')).toBeNull()
 })
 
 it('非错误态不渲染重试按钮', () => {

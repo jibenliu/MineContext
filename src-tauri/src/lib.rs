@@ -27,6 +27,10 @@ struct ShellState {
     runtime: Option<RuntimeInfo>,
     daemon: Option<Child>,
     data_dir: PathBuf,
+    /// 打包后 `Contents/Resources`；`get_runtime` 补拉 daemon 时需要。
+    resource_dir: Option<PathBuf>,
+    /// 限制重启频率，避免迁移失败时每个 poll 都 spawn。
+    last_daemon_start: Option<Instant>,
 }
 
 /// 托盘句柄：渲染层上报的录制状态要能改到托盘上（菜单文案 + 悬停提示）。
@@ -70,19 +74,81 @@ fn read_runtime(data_dir: &std::path::Path) -> Option<RuntimeInfo> {
 }
 
 /// 起 daemon 进程；`runtime.json` 的等待由 `wait_for_runtime` 负责。
+///
+/// 找不到二进制或 spawn 失败时打日志：打包版里这是「无法连接本地服务」的主因之一，
+/// 静默 `None` 会让渲染层空等后误报硬错误。
 fn start_daemon(data_dir: &std::path::Path, resource_dir: Option<&std::path::Path>) -> Option<Child> {
-    let binary = daemon_candidates(resource_dir)
-        .into_iter()
-        .find(|path| path.is_file())?;
+    let candidates = daemon_candidates(resource_dir);
+    let Some(binary) = candidates.iter().find(|path| path.is_file()) else {
+        eprintln!(
+            "[shell] 找不到 mc-daemon（resource_dir={resource_dir:?}，candidates={candidates:?}）"
+        );
+        return None;
+    };
+    // 先清旧 runtime，避免 wait/get 读到已死进程的过期端口。
     let _ = std::fs::remove_file(data_dir.join("runtime.json"));
-    let child = Command::new(binary)
+    match Command::new(binary)
         .arg("--data-dir")
         .arg(data_dir)
         .arg("--port")
         .arg("0")
         .spawn()
-        .ok()?;
-    Some(child)
+    {
+        Ok(child) => Some(child),
+        Err(error) => {
+            eprintln!("[shell] 启动 mc-daemon 失败（{}）：{error}", binary.display());
+            None
+        }
+    }
+}
+
+fn daemon_has_exited(daemon: &mut Option<Child>) -> bool {
+    match daemon.as_mut() {
+        None => true,
+        Some(child) => match child.try_wait() {
+            Ok(None) => false,
+            Ok(Some(status)) => {
+                eprintln!("[shell] mc-daemon 已退出（{status}），将按需重启");
+                true
+            }
+            Err(error) => {
+                eprintln!("[shell] 检查 mc-daemon 状态失败：{error}");
+                true
+            }
+        },
+    }
+}
+
+/// 缓存 / 磁盘补读；若仍空且子进程已死，按间隔重启 daemon（不阻塞长等）。
+///
+/// setup 超时开窗后，旧逻辑只读盘：daemon 若已崩，渲染层会空等到硬错误。
+/// 这里让每次 `get_runtime` 都有机会把守护进程拉起来，由前端短轮询收敛。
+fn ensure_runtime(state: &mut ShellState) -> Option<RuntimeInfo> {
+    let data_dir = state.data_dir.clone();
+    if let Some(info) = runtime_from_cache_or_disk(&mut state.runtime, &data_dir) {
+        return Some(info);
+    }
+
+    let exited = daemon_has_exited(&mut state.daemon);
+    if exited {
+        state.daemon = None;
+        let cooldown = Duration::from_secs(2);
+        let allowed = state
+            .last_daemon_start
+            .map(|at| at.elapsed() >= cooldown)
+            .unwrap_or(true);
+        if allowed {
+            let resource = state.resource_dir.clone();
+            if let Some(child) = start_daemon(&data_dir, resource.as_deref()) {
+                state.daemon = Some(child);
+                state.last_daemon_start = Some(Instant::now());
+            } else {
+                state.last_daemon_start = Some(Instant::now());
+            }
+        }
+    }
+
+    runtime_from_cache_or_disk(&mut state.runtime, &data_dir)
 }
 
 fn wait_for_runtime(data_dir: &std::path::Path, timeout: Duration) -> Option<RuntimeInfo> {
@@ -115,12 +181,10 @@ fn runtime_from_cache_or_disk(
     None
 }
 
-/// 从外壳状态取 runtime：`MutexGuard` 不能同时 `&mut field` + `&field`
-/// （E0502），所以先 clone `data_dir` 再独占借 `runtime`。
+/// 从外壳状态取 runtime（含必要时重启 daemon）。
 fn take_runtime(state: &Mutex<ShellState>) -> Option<RuntimeInfo> {
     let mut guard = state.lock().ok()?;
-    let data_dir = guard.data_dir.clone();
-    runtime_from_cache_or_disk(&mut guard.runtime, &data_dir)
+    ensure_runtime(&mut guard)
 }
 
 #[tauri::command]
@@ -297,18 +361,39 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
-/// 渲染层读 `window.mcRuntime.get()`；这里把它接到上面的命令。
-const MCRUNTIME_SCRIPT: &str = r#"
-(() => {
+/// 渲染层读 `window.mcRuntime.get()`。
+///
+/// setup 若已拿到 runtime，把它**种子化进初始化脚本**：打包版上 invoke ACL
+/// 或首屏时序一旦抖动，仍能在第一次 `get()` 拿到 port/token，避免 daemon
+/// 已 listening 而界面误报「无法连接本地服务」。live invoke 优先（daemon 重启
+/// 后端口会变）；失败或空结果再回落种子。
+fn mcruntime_script(runtime: &Option<RuntimeInfo>) -> String {
+    let seeded = runtime
+        .as_ref()
+        .and_then(|info| serde_json::to_string(info).ok())
+        .unwrap_or_else(|| "null".to_string());
+    format!(
+        r#"
+(() => {{
   const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args)
-  window.mcRuntime = {
-    get: () => invoke('get_runtime'),
-    // 外壳能力声明：渲染层适配层（adapters/tauri-shell.ts）据此决定
-    // 走真系统通知，还是降级为应用内提示。
-    shell: { notification: true }
-  }
-})()
-"#;
+  const seeded = {seeded}
+  window.mcRuntime = {{
+    get: async () => {{
+      try {{
+        const live = await invoke('get_runtime')
+        if (live && live.port && live.token) return live
+      }} catch (error) {{
+        console.warn('[mcRuntime] get_runtime invoke failed, falling back to seed', error)
+      }}
+      if (seeded && seeded.port && seeded.token) return seeded
+      return null
+    }},
+    shell: {{ notification: true }}
+  }}
+}})()
+"#
+    )
+}
 
 pub fn run() {
     let dir = data_dir();
@@ -322,6 +407,8 @@ pub fn run() {
         runtime: None,
         daemon: None,
         data_dir: dir.clone(),
+        resource_dir: None,
+        last_daemon_start: None,
     };
 
     let app = tauri::Builder::default()
@@ -354,19 +441,37 @@ pub fn run() {
             {
                 let state_handle = app.state::<Mutex<ShellState>>();
                 let mut state = state_handle.lock().unwrap();
-                // 先把数据目录取出来，避免在持锁期间做 IO（daemon 要几秒才写好 runtime）
+                state.resource_dir = resource_dir.clone();
+                // 先把路径取出来再 IO：持锁空等 20s 会挡住后续 get_runtime。
                 let dir = state.data_dir.clone();
-                let daemon = start_daemon(&dir, resource_dir.as_deref());
+                let resource = state.resource_dir.clone();
+                drop(state);
+                let daemon = start_daemon(&dir, resource.as_deref());
+                let started_at = Instant::now();
                 let runtime = wait_for_runtime(&dir, Duration::from_secs(20));
+                let mut state = state_handle.lock().unwrap();
                 state.daemon = daemon;
                 state.runtime = runtime;
+                state.last_daemon_start = Some(started_at);
             }
 
+            let seeded = {
+                let state_handle = app.state::<Mutex<ShellState>>();
+                state_handle
+                    .lock()
+                    .ok()
+                    .and_then(|guard| guard.runtime.clone())
+            };
+            if seeded.is_none() {
+                eprintln!(
+                    "[shell] 开窗前仍无 runtime（daemon 可能尚未写出 runtime.json）；渲染层将轮询 get_runtime / 种子回落"
+                );
+            }
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("MineContext")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(960.0, 640.0)
-                .initialization_script(MCRUNTIME_SCRIPT)
+                .initialization_script(mcruntime_script(&seeded))
                 .build()?;
             attach_close_to_tray(&window);
             setup_tray(app.handle())?;
@@ -477,11 +582,76 @@ mod tests {
             runtime: None,
             daemon: None,
             data_dir: dir,
+            resource_dir: None,
+            last_daemon_start: None,
         });
         let got = take_runtime(&state).expect("disk via mutex");
         assert_eq!(got.port, 43119);
         assert_eq!(got.token, "mutex-path");
         assert!(state.lock().unwrap().runtime.is_some());
+    }
+
+    #[test]
+    fn daemon_has_exited_when_missing_or_finished() {
+        let mut none = None;
+        assert!(daemon_has_exited(&mut none));
+
+        let mut child = Some(Command::new("true").spawn().expect("spawn true"));
+        let _ = child.as_mut().unwrap().wait();
+        assert!(daemon_has_exited(&mut child));
+    }
+
+    #[test]
+    fn ensure_runtime_returns_disk_runtime_without_needing_child() {
+        let dir = tempfile_dir();
+        fs::write(
+            dir.join("runtime.json"),
+            r#"{"port":43122,"token":"ensure-disk"}"#,
+        )
+        .unwrap();
+        let mut state = ShellState {
+            runtime: None,
+            daemon: None,
+            data_dir: dir,
+            resource_dir: None,
+            // 冷却中：即使空子进程也不会去 spawn
+            last_daemon_start: Some(Instant::now()),
+        };
+        let got = ensure_runtime(&mut state).expect("disk");
+        assert_eq!(got.port, 43122);
+        assert!(state.daemon.is_none());
+    }
+
+    #[test]
+    fn ensure_runtime_cooldown_skips_spawn_thrash_when_still_empty() {
+        let dir = tempfile_dir();
+        let mut state = ShellState {
+            runtime: None,
+            daemon: None,
+            data_dir: dir,
+            resource_dir: Some(PathBuf::from("/no-such-minecontext-resources")),
+            last_daemon_start: Some(Instant::now()),
+        };
+        assert!(ensure_runtime(&mut state).is_none());
+        assert!(state.daemon.is_none());
+    }
+
+    #[test]
+    fn mcruntime_script_embeds_seeded_runtime_for_first_paint() {
+        let script = mcruntime_script(&Some(RuntimeInfo {
+            port: 64592,
+            token: "seed-token".into(),
+        }));
+        assert!(script.contains("64592"), "port must be in init script");
+        assert!(script.contains("seed-token"), "token must be in init script");
+        assert!(script.contains("get_runtime"), "live invoke still preferred");
+        assert!(script.contains("falling back to seed"));
+    }
+
+    #[test]
+    fn mcruntime_script_null_seed_when_setup_timed_out() {
+        let script = mcruntime_script(&None);
+        assert!(script.contains("const seeded = null"));
     }
 
     fn tempfile_dir() -> PathBuf {

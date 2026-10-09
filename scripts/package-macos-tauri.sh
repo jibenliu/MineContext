@@ -38,7 +38,23 @@ echo "== Tauri 打包（adhoc 签名，未公证） =="
 (cd src-tauri && cargo tauri build --config '{"bundle":{"resources":{"../target/release/mc-daemon":"backend/mc-daemon"},"macOS":{"signingIdentity":"-"}}}')
 
 app="$(ls -d src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1 || true)"
-if [ -n "${app}" ] && command -v codesign >/dev/null 2>&1; then
+if [ -z "${app}" ]; then
+  echo "FAIL: 没有产出 .app（无法校验包内 daemon）"
+  exit 1
+fi
+bundled_daemon="${app}/Contents/Resources/backend/mc-daemon"
+if [ ! -f "${bundled_daemon}" ]; then
+  echo "FAIL: 包内缺少 ${bundled_daemon}（打包资源配置未把 release daemon 打进 Resources）"
+  exit 1
+fi
+chmod u+x "${bundled_daemon}" 2>/dev/null || true
+if [ ! -x "${bundled_daemon}" ]; then
+  echo "FAIL: 包内 daemon 不可执行：${bundled_daemon}"
+  exit 1
+fi
+echo "PASS: 包内有可执行 daemon（${bundled_daemon}）"
+
+if command -v codesign >/dev/null 2>&1; then
   echo "== 确认 adhoc 签名：${app} =="
   codesign --force --deep --sign - "${app}"
   codesign --verify --verbose=2 "${app}" || true

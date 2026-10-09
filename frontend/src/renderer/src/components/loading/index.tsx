@@ -11,11 +11,14 @@ export type BackendStatus = 'starting' | 'running' | 'stopped' | 'error'
 
 const LoadingComponent = ({
   backendStatus,
-  onRetry
+  onRetry,
+  onContinue
 }: {
   backendStatus: BackendStatus
   /** 后端不可用时的重试；不传则不渲染按钮（避免死按钮）。 */
   onRetry?: () => void
+  /** 跳过等待、进入设置继续配置（文案已承诺此出口，不能只剩重试）。 */
+  onContinue?: () => void
 }) => {
   const { t } = useI18n()
   const [progress, setProgress] = useState(0)
@@ -96,15 +99,25 @@ const LoadingComponent = ({
         {isError ? t('common.backendUnavailable') : t('common.startingHint')}
       </Text>
 
-      {isError && onRetry ? (
-        <Button
-          type="primary"
-          data-testid="backend-retry"
-          onClick={onRetry}
-          style={{ marginTop: '24px', appRegion: 'no-drag' } as React.CSSProperties}
-          className="!bg-[rgb(var(--primary-6))] !border-[rgb(var(--primary-6))]">
-          {t('common.retry')}
-        </Button>
+      {isError && (onRetry || onContinue) ? (
+        <div
+          className="flex flex-wrap items-center justify-center gap-3"
+          style={{ marginTop: '24px', appRegion: 'no-drag' } as React.CSSProperties}>
+          {onRetry ? (
+            <Button
+              type="primary"
+              data-testid="backend-retry"
+              onClick={onRetry}
+              className="!bg-[rgb(var(--primary-6))] !border-[rgb(var(--primary-6))]">
+              {t('common.retry')}
+            </Button>
+          ) : null}
+          {onContinue ? (
+            <Button type="secondary" data-testid="backend-continue-settings" onClick={onContinue}>
+              {t('common.continueInSettings')}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )
