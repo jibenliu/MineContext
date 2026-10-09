@@ -27,6 +27,7 @@ base64.workspace = true
 image.workspace = true
 chrono.workspace = true
 tower-http = { version = "0.6", features = ["cors"] }
+reqwest.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

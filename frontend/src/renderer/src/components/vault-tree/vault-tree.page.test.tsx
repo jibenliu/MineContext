@@ -23,7 +23,7 @@
 
 import store from '@renderer/store'
 import { calledChannels, installFakeBackend } from '@renderer/test/page-setup'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
@@ -95,7 +95,9 @@ vi.mock('@renderer/hooks/use-vault', () => ({
     addVault: async () => undefined,
     renameVault: async () => undefined,
     updateVault: async () => undefined,
-    initVaults: async () => undefined
+    initVaults: async () => undefined,
+    deleteVault: async () => undefined,
+    getVaultPath: () => []
   })
 }))
 
@@ -103,7 +105,29 @@ vi.mock('@renderer/hooks/use-events', () => ({
   useEvents: () => ({ feedEvents: [], startPolling: () => {}, stopPolling: () => {} })
 }))
 
+vi.mock('@renderer/hooks/use-navigation', () => ({
+  useNavigation: () => ({
+    navigateToVault: () => undefined,
+    isVaultActive: () => false
+  })
+}))
+
 describe('笔记树渲染（rust 后端）', () => {
+  it('创建菜单提供导入链接入口', async () => {
+    installFakeBackend(
+      {
+        'database:get-all-vaults': [],
+        'database:get-vaults-by-document-type': [],
+        'database:get-vault-by-title': { id: 10, title: 'Summary', is_folder: 1 }
+      },
+      { strict: false }
+    )
+
+    renderTree()
+    fireEvent.click(await screen.findByAltText('add'))
+    expect(await screen.findByText('导入链接')).toBeInTheDocument()
+  })
+
   it('树里出现 Summary 文件夹与它下面的日报（4.53）', async () => {
     installFakeBackend(
       {

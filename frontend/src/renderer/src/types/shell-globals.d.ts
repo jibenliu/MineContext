@@ -126,6 +126,13 @@ interface serverPushAPI {
   [propName: string]: (...args: any[]) => any
 }
 
+interface LinkApi {
+  importUrl: (
+    url: string,
+    parentId?: number | null
+  ) => Promise<{ id: number; title: string; url: string; source_host: string }>
+}
+
 declare global {
   interface Window {
     /**
@@ -139,5 +146,6 @@ declare global {
     fileService: any
     serverPushAPI: serverPushAPI
     eventLoop: EventLoopAPI
+    linkApi: LinkApi
   }
 }

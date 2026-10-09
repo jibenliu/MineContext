@@ -1739,6 +1739,7 @@ dependencies = [
  "mc-storage",
  "mc-summary",
  "mc-testkit",
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",
