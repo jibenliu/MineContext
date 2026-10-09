@@ -121,6 +121,11 @@ export const CHANNEL_MAP: Record<string, RequestBuilder> = {
     method: 'GET',
     path: '/api/capture/permissions'
   }),
+  // 由 daemon 进程 Request：系统设置必须出现采集进程条目，只开外壳深链不够。
+  'screen-monitor:open-prefs': () => ({
+    method: 'POST',
+    path: '/api/capture/permissions/request'
+  }),
   'screen-monitor:get-visible-sources': () => ({
     method: 'GET',
     path: '/api/capture/targets?visible=1'
@@ -301,7 +306,6 @@ export const SHELL_CHANNELS: Record<string, string> = {
   'app:check-for-update': 'Tauri updater 插件',
   'app:quit-and-install': 'Tauri updater 插件',
   'app:cancel-download': 'Tauri updater 插件',
-  'screen-monitor:open-prefs': 'Tauri shell 打开系统设置深链（需要 OS 权限）',
   'notification:send': 'Tauri notification 插件',
   'window-show': 'Tauri 窗口事件',
   'app-activate': 'Tauri 应用激活事件',

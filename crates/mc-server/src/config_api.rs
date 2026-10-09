@@ -32,6 +32,11 @@ pub fn selection_patch(target_ids: &[String]) -> Value {
     serde_json::json!({ "capture": { "target_ids": target_ids } })
 }
 
+/// 录制开关补丁：与「开始 / 停止录制」对齐，重启后要能恢复用户上次的意图。
+pub fn enabled_patch(enabled: bool) -> Value {
+    serde_json::json!({ "capture": { "enabled": enabled } })
+}
+
 /// 从 `CaptureSource[]` / `string[]` / `{targets: [...]}` 里取出目标 id。
 ///
 /// 三种形状都真实存在：`channel-map.ts` 发的是数组，
@@ -240,6 +245,14 @@ mod tests {
         let capture = patch["capture"].as_object().unwrap();
         assert_eq!(capture.len(), 1, "只翻译出现过的字段：{capture:?}");
         assert_eq!(capture["interval_secs"], 30);
+    }
+
+    #[test]
+    fn enabled_patch_writes_capture_enabled() {
+        let on = enabled_patch(true);
+        assert_eq!(on["capture"]["enabled"], true);
+        let off = enabled_patch(false);
+        assert_eq!(off["capture"]["enabled"], false);
     }
 
     #[test]

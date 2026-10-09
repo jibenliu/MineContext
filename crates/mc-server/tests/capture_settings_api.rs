@@ -280,6 +280,39 @@ async fn patch_capture_config_updates_interval_and_hours() {
     );
 }
 
+/// 停止录制必须把 `capture.enabled=false` 落盘，否则 daemon 重启会按默认 true 再自动开录。
+#[tokio::test]
+async fn stop_persists_enabled_false_and_start_persists_true() {
+    let ctx = ctx("[capture]\nenabled = true\n");
+    assert!(ctx.state.config.current().config.capture.enabled);
+
+    // 未就绪时 start 会拒；stop 不依赖就绪度，必须始终能落盘。
+    let stopped = call(&ctx.state, "POST", "/api/capture/stop", None).await;
+    assert_eq!(stopped["code"], 0, "{stopped}");
+    assert_eq!(stopped["data"]["status"], "stopped");
+    assert!(
+        !ctx.state.config.current().config.capture.enabled,
+        "停止后内存配置必须为 enabled=false"
+    );
+    let written = std::fs::read_to_string(&ctx.config_path).unwrap();
+    assert!(
+        written.contains("enabled = false") || written.contains("enabled=false"),
+        "停止后用户配置必须落盘 enabled=false，实际：{written}"
+    );
+
+    // 就绪时再验证 start 写回 true；不就绪则跳过（与既有 start 契约一致）。
+    if mc_capture::platform::probe_readiness().available {
+        let started = call(&ctx.state, "POST", "/api/capture/start", None).await;
+        assert_eq!(started["code"], 0, "{started}");
+        assert!(ctx.state.config.current().config.capture.enabled);
+        let written = std::fs::read_to_string(&ctx.config_path).unwrap();
+        assert!(
+            written.contains("enabled = true") || written.contains("enabled=true"),
+            "开始后必须落盘 enabled=true，实际：{written}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn invalid_patch_is_rejected_and_config_is_unchanged() {
     let ctx = ctx("[capture]\ninterval_secs = 15\n");
