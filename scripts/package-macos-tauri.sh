@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tauri 外壳的 macOS 打包：release daemon → Tauri 打包。
 #
-# 签名：本仓库没有 Developer ID，产物**未签名未公证**，如实登记（不假装已签名）。
+# 签名：无 Developer ID → **adhoc 签名、未公证**（signingIdentity "-"）。
+# 不假装已公证；从网上下载后仍可能被隔离，需 xattr 清 quarantine。
 # dmg 的 resources 用 `--config` 覆盖成 **release** 版 daemon：仓库里
 # `tauri.conf.json` 默认指向 debug（开发态方便），release 包必须带 release 二进制。
 set -euo pipefail
@@ -31,13 +32,38 @@ cp -f target/release/mc-daemon target/debug/mc-daemon
 echo "== 渲染层产物 =="
 (cd frontend && npx --no-install vite build >/dev/null && echo "vite build: ok")
 
-echo "== Tauri 打包（未签名） =="
-(cd src-tauri && cargo tauri build --config '{"bundle":{"resources":{"../target/release/mc-daemon":"backend/mc-daemon"}}}')
+echo "== Tauri 打包（adhoc 签名，未公证） =="
+# signingIdentity "-"：adhoc 签名，减轻「已损坏」误报；仍无 Developer ID / 公证，
+# 从网上下载后仍可能被隔离，需 xattr 清除 quarantine（见文末说明）。
+(cd src-tauri && cargo tauri build --config '{"bundle":{"resources":{"../target/release/mc-daemon":"backend/mc-daemon"},"macOS":{"signingIdentity":"-"}}}')
+
+app="$(ls -d src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1 || true)"
+if [ -n "${app}" ] && command -v codesign >/dev/null 2>&1; then
+  echo "== 确认 adhoc 签名：${app} =="
+  codesign --force --deep --sign - "${app}"
+  codesign --verify --verbose=2 "${app}" || true
+fi
 
 dmg="$(ls -t src-tauri/target/release/bundle/dmg/*.dmg 2>/dev/null | head -1 || true)"
 if [ -z "${dmg}" ]; then
   echo "FAIL: 没有产出 release dmg"
   exit 1
+fi
+# 若 .app 在 dmg 生成后才补签，重建 dmg，避免盘里仍是未签名包
+if [ -n "${app}" ] && command -v hdiutil >/dev/null 2>&1; then
+  version="$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
+  arch="$(uname -m)"
+  case "$arch" in
+    arm64 | aarch64) arch="aarch64" ;;
+    x86_64 | amd64) arch="x86_64" ;;
+  esac
+  rebuilt="src-tauri/target/release/bundle/dmg/MineContext_${version}_${arch}.dmg"
+  stage="$(mktemp -d)"
+  cp -R "${app}" "${stage}/"
+  rm -f "${rebuilt}"
+  hdiutil create -volname "MineContext" -srcfolder "${stage}" -ov -format UDZO "${rebuilt}" >/dev/null
+  rm -rf "${stage}"
+  dmg="${rebuilt}"
 fi
 echo "产物：${dmg}（$(du -h "${dmg}" | cut -f1)）"
 shasum -a 256 "${dmg}"
@@ -57,5 +83,7 @@ else
   echo "构建完成（未运行启动验收）：${dmg}"
   echo '交付前验收：./scripts/package-macos-tauri.sh --with-smoke'
 fi
-echo "未签名（无 Developer ID）：首次打开需要右键「打开」，或"
+echo "adhoc 签名、未公证（无 Developer ID）。若提示「已损坏」："
+echo "  xattr -cr ~/Downloads/MineContext_*.dmg"
 echo "  xattr -dr com.apple.quarantine /Applications/MineContext.app"
+echo "或对 .app 右键 →「打开」。"

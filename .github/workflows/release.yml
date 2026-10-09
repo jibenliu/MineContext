@@ -136,6 +136,18 @@ jobs:
             echo "FAIL: 没有平台二进制可挂到 Release" >&2
             exit 1
           fi
+          # dmg 文件名与 tag 对齐（避免仓库版本滞后时出现 MineContext_0.1.x vs v1.0.0）
+          tag="${GITHUB_REF_NAME#v}"
+          shopt -s nullglob
+          for dmg in release-assets/*.dmg; do
+            base="$(basename "$dmg")"
+            # 保留架构后缀：MineContext_*_<arch>.dmg → MineContext_<tag>_<arch>.dmg
+            arch="$(echo "$base" | sed -n 's/.*_\([^_]*\)\.dmg$/\1/p')"
+            if [ -z "$arch" ]; then
+              arch="macos"
+            fi
+            mv "$dmg" "release-assets/MineContext_${tag}_${arch}.dmg"
+          done
           # 平台包打成 zip，Release 附件更干净
           (
             cd release-assets
@@ -154,6 +166,18 @@ jobs:
           generate_release_notes: true
           # dmg 可能因 Tauri 壳失败而缺失；平台 zip 仍应上传
           fail_on_unmatched_files: false
+          body: |
+            ## macOS 安装说明（未公证）
+
+            `.dmg` 仅做 **adhoc 签名**，没有 Apple 公证。若打开提示「已损坏」或无法验证开发者：
+
+            ```bash
+            xattr -cr ~/Downloads/MineContext_*.dmg
+            # 已拖到「应用程序」时：
+            xattr -dr com.apple.quarantine /Applications/MineContext.app
+            ```
+
+            或对 `.app` 右键 →「打开」。
           files: |
             release-assets/*.zip
             release-assets/*.dmg

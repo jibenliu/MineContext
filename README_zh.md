@@ -117,7 +117,15 @@ MineContext 非常注重用户隐私，所有数据都默认保存在本地如�
 
 ![Download APP](src/Download-App.gif)
 
-> **注意**：从 v0.1.5 版本开始，MineContext 已支持 Apple 公证，因此不再需要禁用隔离属性。如果您使用的是旧版本，请参考[之前的文档](https://github.com/volcengine/MineContext/blob/0.1.4/README_zh.md)获取相关说明。
+> **注意**：当前分发的 macOS `.dmg` **未签名、未公证**。若打开时提示「已损坏」或无法验证开发者，先清除隔离属性后再打开：
+>
+> ```bash
+> xattr -cr ~/Downloads/MineContext_*.dmg
+> # 若已拖到「应用程序」：
+> xattr -dr com.apple.quarantine /Applications/MineContext.app
+> ```
+>
+> 或对 `.app` 右键 →「打开」。有 Apple Developer ID 并完成公证后，可去掉上述步骤。
 
 ## 2. 输入您的 API 密钥
 

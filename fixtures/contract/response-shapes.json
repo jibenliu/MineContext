@@ -86,7 +86,7 @@
       "endpoint": "GET /api/health（与 SSE 启动帧同源）",
       "sample": {
         "status": "ok",
-        "version": "0.1.5",
+        "version": "1.0.0",
         "data": {
           "components": {
             "llm": { "status": "unconfigured", "message": "未配置视觉模型" },
