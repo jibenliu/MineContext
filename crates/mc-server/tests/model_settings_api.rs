@@ -334,3 +334,129 @@ async fn these_paths_no_longer_answer_with_not_implemented() {
         );
     }
 }
+
+const VISION_SECRET: &str = "sk-vision-CUSTOMKEY0123456789";
+const EMBED_SECRET: &str = "sk-embed-CUSTOMKEY9876543210";
+
+fn custom_update_body(api_key: &str, embedding_api_key: &str) -> serde_json::Value {
+    serde_json::json!({
+        "config": {
+            "modelPlatform": "custom",
+            "modelId": "my-vlm",
+            "baseUrl": "https://llm.example.internal/v1",
+            "apiKey": api_key,
+            "embeddingModelPlatform": "custom",
+            "embeddingModelId": "my-embed",
+            "embeddingBaseUrl": "https://embed.example.internal/v1",
+            "embeddingApiKey": embedding_api_key
+        }
+    })
+}
+
+/// 自建视觉密钥与向量密钥必须各有槽位：保存 B 不能抹掉 A。
+#[tokio::test]
+async fn custom_vision_and_embedding_keys_persist_independently() {
+    let ctx = ctx();
+
+    let (status, json) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(custom_update_body(VISION_SECRET, EMBED_SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+
+    let sidecar = std::fs::read_to_string(ctx.dir.path().join("model-keys.json")).unwrap();
+    assert!(
+        sidecar.contains(VISION_SECRET),
+        "视觉密钥应进 sidecar：{sidecar}"
+    );
+    assert!(
+        sidecar.contains(EMBED_SECRET),
+        "向量密钥应进 sidecar（不能被视觉槽覆盖掉）：{sidecar}"
+    );
+
+    let live = ctx.state.config.current();
+    let vision_ref = live.config.ai.vision.api_key_ref.as_deref();
+    let embed_ref = live.config.ai.embedding.api_key_ref.as_deref();
+    assert!(vision_ref.is_some(), "vision 应有 api_key_ref");
+    assert!(embed_ref.is_some(), "embedding 应有 api_key_ref");
+    assert_ne!(
+        vision_ref, embed_ref,
+        "两把不同明文时引用必须分开，不能都指向同一个 keychain 账号"
+    );
+
+    // 只更新向量密钥：视觉明文必须还在
+    let next_embed = "sk-embed-UPDATEDKEY1111111111";
+    let (status, json) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(custom_update_body("", next_embed)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+
+    let sidecar = std::fs::read_to_string(ctx.dir.path().join("model-keys.json")).unwrap();
+    assert!(
+        sidecar.contains(VISION_SECRET),
+        "只改 embedding 时 vision 密钥必须保留：{sidecar}"
+    );
+    assert!(
+        sidecar.contains(next_embed),
+        "新的 embedding 密钥应写入：{sidecar}"
+    );
+    assert!(
+        !sidecar.contains(EMBED_SECRET),
+        "旧 embedding 应被替换：{sidecar}"
+    );
+}
+
+#[tokio::test]
+async fn get_and_copy_expose_separate_masks_for_embedding_key() {
+    let ctx = ctx();
+
+    let (status, _) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(custom_update_body(VISION_SECRET, EMBED_SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, get) = call(&ctx.state, "GET", "/api/model_settings/get", None).await;
+    assert_eq!(status, StatusCode::OK, "{get}");
+    assert_eq!(get["data"]["hasApiKey"], true);
+    assert_eq!(get["data"]["hasEmbeddingApiKey"], true);
+    let vision_mask = get["data"]["apiKeyMasked"].as_str().unwrap_or_default();
+    let embed_mask = get["data"]["embeddingApiKeyMasked"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(vision_mask.contains('•'), "{vision_mask}");
+    assert!(embed_mask.contains('•'), "{embed_mask}");
+    assert_ne!(
+        vision_mask, embed_mask,
+        "两把不同密钥的脱敏串不应相同：{vision_mask} vs {embed_mask}"
+    );
+    assert!(!get.to_string().contains(VISION_SECRET));
+    assert!(!get.to_string().contains(EMBED_SECRET));
+
+    let (status, copy_vision) = call(&ctx.state, "GET", "/api/model_settings/api_key", None).await;
+    assert_eq!(status, StatusCode::OK, "{copy_vision}");
+    assert_eq!(copy_vision["data"]["apiKey"], VISION_SECRET);
+
+    let (status, copy_embed) = call(
+        &ctx.state,
+        "GET",
+        "/api/model_settings/api_key?field=embedding",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{copy_embed}");
+    assert_eq!(
+        copy_embed["data"]["apiKey"], EMBED_SECRET,
+        "复制向量密钥应返回 embedding 槽，而不是视觉槽"
+    );
+}

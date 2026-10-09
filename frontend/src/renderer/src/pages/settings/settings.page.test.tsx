@@ -126,18 +126,17 @@ it('自建平台视觉与向量密钥回填后都是可见脱敏串', async () =
   vi.mocked(getModelInfo).mockResolvedValue({
     ...selfHostedConfig,
     hasApiKey: true,
-    apiKeyMasked: 'sk-c••••••••tom1'
+    apiKeyMasked: 'sk-v••••••••ion1',
+    hasEmbeddingApiKey: true,
+    embeddingApiKeyMasked: 'sk-e••••••••bed1'
   })
   renderSettings()
 
   expect(await screen.findByText('视觉语言模型')).toBeInTheDocument()
-  await waitFor(() => {
-    const fields = screen.getAllByDisplayValue('sk-c••••••••tom1')
-    expect(fields.length).toBeGreaterThanOrEqual(2)
-    for (const field of fields) {
-      expect(field).toHaveAttribute('type', 'text')
-    }
-  })
+  const vision = await screen.findByDisplayValue('sk-v••••••••ion1')
+  const embedding = await screen.findByDisplayValue('sk-e••••••••bed1')
+  expect(vision).toHaveAttribute('type', 'text')
+  expect(embedding).toHaveAttribute('type', 'text')
 })
 
 it('点击复制时写入明文而非脱敏串', async () => {
@@ -171,8 +170,13 @@ it('自建平台视觉与向量密钥都有复制入口，点复制写入明文'
   vi.mocked(getModelInfo).mockResolvedValue({
     ...selfHostedConfig,
     hasApiKey: true,
-    apiKeyMasked: 'sk-c••••••••tom1'
+    apiKeyMasked: 'sk-v••••••••ion1',
+    hasEmbeddingApiKey: true,
+    embeddingApiKeyMasked: 'sk-e••••••••bed1'
   })
+  vi.mocked(getStoredApiKey).mockImplementation(async (field = 'vision') =>
+    field === 'embedding' ? 'sk-embed-plain-key-9999' : 'sk-vision-plain-key-1111'
+  )
   renderSettings()
 
   expect(await screen.findByText('视觉语言模型')).toBeInTheDocument()
@@ -181,13 +185,16 @@ it('自建平台视觉与向量密钥都有复制入口，点复制写入明文'
 
   fireEvent.click(copyButtons[0])
   await waitFor(() => {
-    expect(writeClipboard).toHaveBeenCalledWith('sk-live-secret-key-6789')
+    expect(getStoredApiKey).toHaveBeenCalledWith('vision')
+    expect(writeClipboard).toHaveBeenCalledWith('sk-vision-plain-key-1111')
   })
 
   vi.mocked(writeClipboard).mockClear()
+  vi.mocked(getStoredApiKey).mockClear()
   fireEvent.click(copyButtons[1])
   await waitFor(() => {
-    expect(writeClipboard).toHaveBeenCalledWith('sk-live-secret-key-6789')
+    expect(getStoredApiKey).toHaveBeenCalledWith('embedding')
+    expect(writeClipboard).toHaveBeenCalledWith('sk-embed-plain-key-9999')
   })
 })
 

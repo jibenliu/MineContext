@@ -23,6 +23,10 @@ export interface ModelInfoResponseData {
   hasApiKey?: boolean
   /** 脱敏回显，例如 sk-l••••••••6789 */
   apiKeyMasked?: string
+  /** 自建独立向量密钥是否已保存（没有则回退到视觉密钥） */
+  hasEmbeddingApiKey?: boolean
+  /** 向量密钥脱敏回显；与视觉相同时可与 apiKeyMasked 相同 */
+  embeddingApiKeyMasked?: string
 }
 
 // Complete API response structure
@@ -39,10 +43,14 @@ export const getModelInfo = async (): Promise<ModelInfoResponseData | undefined>
   return get(res, 'data.data')
 }
 
+export type StoredApiKeyField = 'vision' | 'embedding'
+
 /** 设置页「复制」：显式取已存明文（本机 + token）。找不到时返回空串，其它错误原样抛出。 */
-export const getStoredApiKey = async (): Promise<string> => {
+export const getStoredApiKey = async (field: StoredApiKeyField = 'vision'): Promise<string> => {
   try {
-    const res = await axiosInstance.get<{ apiKey?: string }>('/api/model_settings/api_key')
+    const res = await axiosInstance.get<{ apiKey?: string }>('/api/model_settings/api_key', {
+      params: field === 'embedding' ? { field: 'embedding' } : undefined
+    })
     const code = get(res, 'data.code')
     const key = String(get(res, 'data.data.apiKey') || '').trim()
     // 兼容面偶发 HTTP 200 + code≠0
