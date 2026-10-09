@@ -18,13 +18,18 @@ THREADS="${MC_TEST_THREADS:-4}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 
-# 时限：挂住的测试必须变成**可见的失败**，而不是把门禁卡到天荒地老
+# 时限：挂住的测试必须变成**可见的失败**，而不是把门禁卡到天荒地老。
+# macOS 默认没有 GNU `timeout` / `gtimeout`：丢掉秒数后直接跑命令
+# （外层 GitHub job 仍有墙钟上限）。绝不能把秒数当成可执行文件。
 timeout_cmd() {
   if command -v timeout >/dev/null 2>&1; then
     timeout "$@"
   elif command -v gtimeout >/dev/null 2>&1; then
     gtimeout "$@"
   else
+    if [ "$#" -ge 1 ] && [[ "$1" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+      shift
+    fi
     "$@"
   fi
 }

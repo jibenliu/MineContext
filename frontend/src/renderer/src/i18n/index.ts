@@ -335,7 +335,9 @@ const zh: Messages = {
   'common.startingHint': '唤醒你的上下文感知 AI 搭档还需要几秒钟',
   'common.proactiveFeed': '主动推送',
   'common.proactiveFeedHint': '这里有一些你应该知道的洞察',
-  'common.gotIt': '我知道了'
+  'common.gotIt': '我知道了',
+  'vault.notFound': '找不到这篇笔记（可能已被删除或链接失效）',
+  'vault.backHome': '返回首页'
 }
 
 const en: Messages = {
@@ -659,7 +661,9 @@ const en: Messages = {
   'common.startingHint': 'It may take a few seconds to awaken your Context-Aware AI partner',
   'common.proactiveFeed': 'Proactive Feed',
   'common.proactiveFeedHint': 'Here are some insights you should know',
-  'common.gotIt': 'I got it'
+  'common.gotIt': 'I got it',
+  'vault.notFound': 'This note was not found (it may have been deleted or the link is stale)',
+  'vault.backHome': 'Back to home'
 }
 
 // 本轮补齐：零散字面量（aria-label、右键菜单、思考提示、错误边界标题）走词条。

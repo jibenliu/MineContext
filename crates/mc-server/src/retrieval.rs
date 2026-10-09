@@ -217,13 +217,16 @@ pub fn vector_index(db: &Database) -> Result<Option<VectorIndex>, AppError> {
         .collect();
 
     let mut index = VectorIndex::unbound();
-    for record in mc_storage::vectors::load_vectors(db, "activity")? {
-        if !allowed.contains(&("activity", record.doc_id.as_str())) {
-            continue;
+    // 活动与笔记共用同一套索引：笔记向量此前被漏加载，同义改写只能靠关键词。
+    for kind in ["activity", "document"] {
+        for record in mc_storage::vectors::load_vectors(db, kind)? {
+            if !allowed.contains(&(kind, record.doc_id.as_str())) {
+                continue;
+            }
+            // 维度不一致说明索引正在重建（或者用户换了模型）：
+            // 这里只跳过，不报错 —— 向量是加分项，不该让检索整体失败。
+            let _ = index.insert(&record.doc_id, Embedding::new(record.values));
         }
-        // 维度不一致说明索引正在重建（或者用户换了模型）：
-        // 这里只跳过，不报错 —— 向量是加分项，不该让检索整体失败。
-        let _ = index.insert(&record.doc_id, Embedding::new(record.values));
     }
 
     Ok((!index.is_empty()).then_some(index))

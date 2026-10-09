@@ -145,6 +145,11 @@ fi
 if [ "${do_scripts}" -eq 1 ]; then
   check "脚本与守卫"
   [ "${LIST_ONLY}" -eq 0 ] && timed "shell 变量展开" ./scripts/checks/check-shell-vars.sh
+  case " ${changed} " in
+    *scripts/tests/rust-tests-parallel.sh* | *scripts/checks/check-timeout-cmd.sh*)
+      [ "${LIST_ONLY}" -eq 0 ] && timed "timeout_cmd 回退（macOS）" ./scripts/checks/check-timeout-cmd.sh
+      ;;
+  esac
   [ "${LIST_ONLY}" -eq 0 ] && timed "源码类门禁（10 条）" ./scripts/check-source.sh
   case " ${changed} " in
     *scripts/tests/selftest-lints.sh* | *scripts/checks/*)
