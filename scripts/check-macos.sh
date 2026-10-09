@@ -17,7 +17,7 @@ run() {
   fi
 }
 
-run "最低支持范围（macOS 13 / 覆盖 14）" ./scripts/checks/check-macos-target.sh
+run "最低支持范围（部署目标 13；CI runner ≥ 14）" ./scripts/checks/check-macos-target.sh
 if [ "${MC_RUN_SMOKE:-0}" -eq 1 ]; then
   run "产物最低版本（minos 与链接期一致）" ./scripts/checks/check-macos-artifacts.sh
 else
