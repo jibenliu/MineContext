@@ -8,6 +8,7 @@ import { useMemoizedFn, useMount, useRequest } from 'ahooks'
 import { find, get, isEmpty, pick } from 'lodash'
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
+import { ErrorBoundary } from '../../components/error-boundary'
 import {
   getModelInfo,
   getStoredApiKey,
@@ -587,7 +588,10 @@ const Settings: FC<SettingsProps> = (props) => {
           <div id="model" className="scroll-mt-6" />
           <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
             <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.privacy')}</div>
-            <AiUploadSwitch />
+            {/* 引导页也会挂载本块：局部降级，避免隐私开关把整页设置打成白屏 */}
+            <ErrorBoundary title={t('settings.privacy')}>
+              <AiUploadSwitch />
+            </ErrorBoundary>
           </div>
           <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
             <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.startup')}</div>

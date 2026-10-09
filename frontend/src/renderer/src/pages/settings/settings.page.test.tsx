@@ -171,4 +171,14 @@ it('点眼睛显示密钥时换成明文，而不是脱敏串', async () => {
   expect(screen.queryByDisplayValue('sk-l••••••••6789')).not.toBeInTheDocument()
 })
 
-// temporary debug helper removed after
+it('引导态设置页仍渲染模型表单与隐私出网入口（首屏不能空）', async () => {
+  render(
+    <Provider store={store}>
+      <Settings init closeSetting={() => undefined} />
+    </Provider>
+  )
+
+  expect(await screen.findByText('选择模型')).toBeInTheDocument()
+  expect(screen.getByText('隐私与出网')).toBeInTheDocument()
+  expect(screen.getByTestId('ai-upload-switch')).toBeInTheDocument()
+})

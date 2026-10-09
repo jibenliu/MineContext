@@ -24,6 +24,7 @@ import { NotificationProvider } from './context/notification-provider'
 import { useSystemTheme } from './hooks/use-theme'
 import Settings from './pages/settings/settings'
 import Router from './router'
+import { removeStartupSpinner } from './utils/startup-spinner'
 
 const logger = getLogger('App.tsx')
 // Arco 组件库的界面语言。业务文案目前是中文，因此这里**不能**硬编码英文 ——
@@ -32,8 +33,20 @@ const logger = getLogger('App.tsx')
 function AppContent({ backendReady }: { backendReady: boolean }): React.ReactElement {
   const [showSetting, setShowSetting] = useState<boolean>(true)
 
+  // PersistGate rehydrate 之后本组件才会挂载：这时再拆 index.html 占位，
+  // 避免「占位已拆 + React 子树仍空」的 Tauri 白屏窗口。
   useEffect(() => {
-    window.serverPushAPI.getInitCheckData((data) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => removeStartupSpinner()))
+  }, [])
+
+  useEffect(() => {
+    // 适配层未装时不要抛：否则 useEffect 异常只会进控制台，界面停在引导态更难排查。
+    const subscribe = window.serverPushAPI?.getInitCheckData
+    if (typeof subscribe !== 'function') {
+      logger.warn('[mc] serverPushAPI.getInitCheckData 未接线，保持引导/设置页')
+      return
+    }
+    return subscribe((data) => {
       // 判据在 `adapters/onboarding.ts`（纯函数、有测试）：`llm` 在现行契约里是
       // 对象而不是布尔值，直接 `!llm` 会把未配置模型的用户放进主界面。
       // 坏数据也不会抛：解析失败按「需要引导」处理，界面不会白屏。
@@ -46,9 +59,13 @@ function AppContent({ backendReady }: { backendReady: boolean }): React.ReactEle
   // 后台总结完成时提示一次：作业在服务端跑，用户可能已经切到别的页面。
   // 外壳没有通知能力时不弹窗，只在日志里说明（不影响总结本身）。
   useEffect(() => {
+    const summaryProgress = window.serverPushAPI?.summaryProgress
+    if (typeof summaryProgress !== 'function') {
+      return
+    }
     const notify = window.api?.notification?.send
     return watchSummaryProgress(
-      (handler) => window.serverPushAPI.summaryProgress(handler),
+      (handler) => summaryProgress(handler),
       notify
         ? (notification) =>
             store.getState().setting.systemNotificationsEnabled !== false ? notify(notification) : Promise.resolve()

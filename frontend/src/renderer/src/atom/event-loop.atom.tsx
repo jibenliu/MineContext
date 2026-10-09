@@ -22,7 +22,13 @@ export const ServiceProvider: FC<PropsWithChildren> = (props) => {
   })
 
   useEffect(() => {
-    window.serverPushAPI.powerMonitor(stableHandler)
+    // 适配层未装时不能抛：本 Provider 包在 ErrorBoundary 之外，异常只会弄脏控制台。
+    const subscribe = window.serverPushAPI?.powerMonitor
+    if (typeof subscribe !== 'function') {
+      logger.warn('[mc] serverPushAPI.powerMonitor 未接线，跳过电源事件订阅')
+      return
+    }
+    return subscribe(stableHandler)
   }, [stableHandler])
 
   return <>{children}</>
