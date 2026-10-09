@@ -24,6 +24,10 @@ const logger = getLogger('main')
 //    报告「后端不可用」，界面显示原因；
 // 2. bootstrap 本身抛异常时，页面上直接写出原因 —— 打包版看不到控制台，白屏等于
 //    什么都查不到。
+//
+// `#spinner` **不要**在 createRoot 后立刻拆：`PersistGate` 在 rehydrate 完成前
+// 子树是空的（loading={null}）。过早拆掉占位 = Tauri WKWebView 里一段真白屏。
+// 由 `AppContent` 首帧挂载后再 `removeStartupSpinner`。
 void (async () => {
   try {
     // 纯浏览器开发（`pnpm dev`，没有 Tauri 外壳）：装 mock 后端并直接进入界面。
@@ -50,9 +54,6 @@ void (async () => {
     }
 
     createRoot(document.getElementById('root')!).render(<App backendReady={backendReady} />)
-    // 启动占位（index.html 的 `#spinner`）不会自己消失：等 React 提交首帧后再移除，
-    // 否则它会一直盖在窗口中央。两帧是为了让首帧先画出来，避免中间闪一下空白。
-    requestAnimationFrame(() => requestAnimationFrame(() => removeStartupSpinner()))
   } catch (error) {
     renderStartupFailure(error)
   }
@@ -61,6 +62,7 @@ void (async () => {
 /** 启动失败时的最小可见反馈：不依赖适配层，也不依赖 React。 */
 function renderStartupFailure(error: unknown): void {
   logger.error('[mc] 启动失败：', error)
+  removeStartupSpinner()
   const root = document.getElementById('root')
   if (!root) return
   const box = document.createElement('div')
