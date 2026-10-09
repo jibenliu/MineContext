@@ -40,7 +40,7 @@
     "@reduxjs/toolkit": "^2.2.5",
     "@zhongyao/heatmap": "^0.0.6",
     "ahooks": "^3.9.5",
-    "ai": "^5.0.30",
+    "ai": "^7.0.128",
     "allotment": "^1.20.4",
     "axios": "^1.7.3",
     "class-variance-authority": "^0.7.1",
