@@ -11,7 +11,7 @@ cp "$root/scripts/check-macos.sh" "$fixture/scripts/check-macos.sh"
 cat > "$fixture/scripts/lib/xtask.sh" <<'SH'
 xtask_run() { return 0; }
 SH
-for script in tests/selftest-lints.sh check-source.sh check-docs.sh check-tests.sh checks/check-shell-vars.sh checks/check-macos-target.sh tests/rust-tests-parallel.sh; do
+for script in tests/selftest-lints.sh check-source.sh check-docs.sh check-tests.sh checks/check-shell-vars.sh checks/check-timeout-cmd.sh checks/check-macos-target.sh tests/rust-tests-parallel.sh; do
   printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/scripts/$script"
 done
 for script in verify-smoke.sh checks/check-macos-artifacts.sh tests/smoke-daemon.sh tests/launch-check-tauri.sh; do
