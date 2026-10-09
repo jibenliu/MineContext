@@ -105,7 +105,7 @@ const ProactiveFeedCardItem: FC<FeedCardProps> = (props) => {
               <div>
                 <img src={chatIcon} alt="chat icon" />
               </div>
-              <div className="text-[var(--color-text-3)] font-['Roboto'] text-xs font-normal leading-5">
+              <div className="text-[var(--color-text-1)] font-['Roboto'] text-xs font-medium leading-5">
                 {feedType === PushDataTypes.DAILY_SUMMARY_GENERATED ? t('home.view') : t('home.check')}
               </div>
             </div>

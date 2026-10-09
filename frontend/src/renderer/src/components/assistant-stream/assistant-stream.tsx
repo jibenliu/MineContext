@@ -3,6 +3,7 @@ import { useI18n } from '@renderer/i18n'
 import MarkdownIt from 'markdown-it'
 import { FC, useRef, useState } from 'react'
 
+import { conversationDisplayTitle } from './conversation-title'
 import { useAssistantConversation } from './use-assistant-conversation'
 
 const markdown = new MarkdownIt({ html: false, linkify: false, breaks: true })
@@ -16,7 +17,10 @@ export const AssistantStream: FC = () => {
   const [copyFeedback, setCopyFeedback] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const disabled = chat.busy || chat.loading
-  const live = chat.busy || !chat.text || chat.history.length === 0
+  const untitled = t('home.untitledConversation')
+  // 提问已乐观写入 history 时，不再另开一块空 live 气泡（否则像「字消失了」）。
+  const inFlight = chat.history.some((turn) => turn.state === 'thinking' || turn.state === 'streaming')
+  const live = chat.history.length === 0 || (chat.busy && !inFlight)
 
   const send = () => {
     const query = draft.trim()
@@ -59,7 +63,7 @@ export const AssistantStream: FC = () => {
             <option value="">{t('assistant.conversation.new')}</option>
             {chat.conversations.map((conversation) => (
               <option key={conversation.id} value={conversation.id}>
-                {conversation.title ?? String(conversation.id)}
+                {conversationDisplayTitle(conversation, untitled)}
               </option>
             ))}
           </select>
@@ -76,7 +80,7 @@ export const AssistantStream: FC = () => {
                 onClick={() => void chat.switchTo(conversation.id)}
                 aria-current={conversation.id === chat.activeId ? 'true' : undefined}
                 className="truncate rounded-[8px] px-3 py-2 text-left text-[13px] text-[var(--color-text-2)] hover:bg-[var(--color-bg-1)] aria-[current=true]:bg-[var(--color-primary-light-1)]">
-                {conversation.title ?? String(conversation.id)}
+                {conversationDisplayTitle(conversation, untitled)}
               </button>
             ))
           )}

@@ -16,6 +16,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { AIAssistantHeader } from './header'
 import { dispatchedMessage, dispatchSummaryCommand } from './summary-command'
+import { USER_BUBBLE_CLASS } from './user-bubble-class'
 
 const { Text } = Typography
 const { TextArea } = Input
@@ -282,11 +283,11 @@ const AIAssistant: FC<AIAssistantProps> = (props) => {
                 key={index}
                 className={`flex bg-white w-full select-text ${msg.role === 'user' ? 'justify-end' : 'justify-start w-full'}`}>
                 <div
-                  className={`px-4 py-3 rounded-xl leading-6 relative select-text ${
+                  className={
                     msg.role === 'user'
-                      ? 'bg-[var(--color-primary-light-1)]0 text-white rounded-br-sm'
-                      : 'bg-transparent w-full text-[var(--color-text-1)] rounded-bl-sm'
-                  }`}>
+                      ? USER_BUBBLE_CLASS
+                      : 'px-4 py-3 rounded-xl leading-6 relative select-text bg-transparent w-full text-[var(--color-text-1)] rounded-bl-sm'
+                  }>
                   {msg.role === 'assistant' ? (
                     <MarkdownContent content={msg.content} />
                   ) : (

@@ -406,6 +406,15 @@ body:not([arco-theme='dark']) .screen-monitor-capture-surface {
 }
 
 /* 助手页主区：铺满侧栏右侧可用宽度（与设置/屏幕监控同款白卡片） */
+.assistant-page,
+.assistant-page-surface,
+.assistant-stream {
+  width: 100%;
+  min-width: 0;
+}
 body:not([arco-theme='dark']) .assistant-page-surface {
   background-color: #ffffff;
+}
+body[arco-theme='dark'] .assistant-page-surface {
+  background-color: var(--color-bg-2);
 }

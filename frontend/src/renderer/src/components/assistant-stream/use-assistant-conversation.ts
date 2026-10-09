@@ -161,10 +161,14 @@ export function useAssistantConversation() {
     const query = value.trim()
     if (!query || pendingRef.current || loadingRef.current) return
     const request = ++requestRef.current
+    const turnId = `turn-${request}`
     let answer = ''
     let sources: Source[] = []
     let finished = false
     const current = () => mountedRef.current && request === requestRef.current && !finished
+    const patchTurn = (patch: Partial<Turn>) => {
+      setHistory((previous) => previous.map((turn) => (turn.id === turnId ? { ...turn, ...patch } : turn)))
+    }
     const finish = (finalState: ConversationState, failure?: string) => {
       if (!current()) return
       finished = true
@@ -172,16 +176,15 @@ export function useAssistantConversation() {
       setState(finalState)
       setText(failure ?? answer)
       setProgress('')
-      setHistory((previous) => [
-        ...previous,
-        { id: `turn-${request}`, query, answer, sources, state: finalState, error: failure }
-      ])
+      // 发送时已插入提问；这里只收尾，避免「输入被清空却要等流结束才看见自己的话」。
+      patchTurn({ answer, sources, state: finalState, error: failure })
     }
     pendingRef.current = { finish }
     setText('')
     setProgress('')
     setError('')
     setState('thinking')
+    setHistory((previous) => [...previous, { id: turnId, query, answer: '', sources: [], state: 'thinking' }])
     void chatStreamService
       .sendStreamMessage(
         { query, conversation_id: activeId ?? undefined, page_name: activeId === null ? 'assistant' : undefined },
@@ -200,6 +203,7 @@ export function useAssistantConversation() {
             answer += event.content ?? ''
             setText(answer)
             setState('streaming')
+            patchTurn({ answer, state: 'streaming' })
           } else if (event.type === 'stream_complete') {
             if (typeof event.content === 'string') answer = event.content
             sources = sourcesFrom(event.citations)
@@ -207,7 +211,10 @@ export function useAssistantConversation() {
           } else if (event.type === 'fail' || event.type === 'error')
             finish('failed', event.message ?? event.content ?? t('assistant.generationFailed'))
           else if (event.type === 'interrupted') finish('stopped')
-          else if (event.type === 'done') finish('completed')
+          else if (event.type === 'completed') {
+            if (typeof event.content === 'string' && event.content.trim()) answer = event.content
+            finish('completed')
+          } else if (event.type === 'done') finish('completed')
         },
         () => finish('failed', t('assistant.generationFailed')),
         () => finish('completed')
