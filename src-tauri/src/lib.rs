@@ -115,10 +115,17 @@ fn runtime_from_cache_or_disk(
     None
 }
 
+/// 从外壳状态取 runtime：`MutexGuard` 不能同时 `&mut field` + `&field`
+/// （E0502），所以先 clone `data_dir` 再独占借 `runtime`。
+fn take_runtime(state: &Mutex<ShellState>) -> Option<RuntimeInfo> {
+    let mut guard = state.lock().ok()?;
+    let data_dir = guard.data_dir.clone();
+    runtime_from_cache_or_disk(&mut guard.runtime, &data_dir)
+}
+
 #[tauri::command]
 fn get_runtime(state: tauri::State<'_, Mutex<ShellState>>) -> Option<RuntimeInfo> {
-    let mut guard = state.lock().ok()?;
-    runtime_from_cache_or_disk(&mut guard.runtime, &guard.data_dir)
+    take_runtime(&state)
 }
 
 /// 渲染层上报录制状态：更新托盘提示与菜单文案。
@@ -455,6 +462,26 @@ mod tests {
         let mut cached = None;
         assert!(runtime_from_cache_or_disk(&mut cached, &dir).is_none());
         assert!(cached.is_none());
+    }
+
+    /// 钉住 get_runtime 同款路径：经 MutexGuard 取 runtime 时不得 E0502。
+    #[test]
+    fn take_runtime_through_mutex_reads_disk_when_cache_empty() {
+        let dir = tempfile_dir();
+        fs::write(
+            dir.join("runtime.json"),
+            r#"{"port":43119,"token":"mutex-path"}"#,
+        )
+        .unwrap();
+        let state = Mutex::new(ShellState {
+            runtime: None,
+            daemon: None,
+            data_dir: dir,
+        });
+        let got = take_runtime(&state).expect("disk via mutex");
+        assert_eq!(got.port, 43119);
+        assert_eq!(got.token, "mutex-path");
+        assert!(state.lock().unwrap().runtime.is_some());
     }
 
     fn tempfile_dir() -> PathBuf {
