@@ -132,3 +132,27 @@ it('后端 base_url 既不是豆包也不是 OpenAI 时落到自建平台，表�
   expect(await screen.findByText('视觉语言模型')).toBeInTheDocument()
   expect(screen.queryByText('选择模型')).not.toBeInTheDocument()
 })
+
+it('自建平台视觉与向量密钥都有复制入口，点复制写入明文', async () => {
+  vi.mocked(getModelInfo).mockResolvedValue({
+    ...selfHostedConfig,
+    hasApiKey: true,
+    apiKeyMasked: 'sk-c••••••••tom1'
+  })
+  renderSettings()
+
+  expect(await screen.findByText('视觉语言模型')).toBeInTheDocument()
+  const copyButtons = screen.getAllByText('复制')
+  expect(copyButtons.length).toBeGreaterThanOrEqual(2)
+
+  fireEvent.click(copyButtons[0])
+  await waitFor(() => {
+    expect(writeClipboard).toHaveBeenCalledWith('sk-live-secret-key-6789')
+  })
+
+  vi.mocked(writeClipboard).mockClear()
+  fireEvent.click(copyButtons[1])
+  await waitFor(() => {
+    expect(writeClipboard).toHaveBeenCalledWith('sk-live-secret-key-6789')
+  })
+})

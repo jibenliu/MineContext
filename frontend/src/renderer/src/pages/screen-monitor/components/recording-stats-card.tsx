@@ -10,6 +10,8 @@ export interface RecordingStats {
   /** 其中分析出结果的张数（没配模型时为 0） */
   processed_screenshots: number
   failed_screenshots: number
+  /** 仍为 pending 的截图分析条数 */
+  pending_analyses?: number
   generated_activities: number
   next_activity_eta_seconds: number
   recent_errors: Array<{
@@ -18,6 +20,8 @@ export interface RecordingStats {
     timestamp: string
   }>
   recent_screenshots: string[]
+  /** 采到了但已分析为 0 时的可行动原因（配置 / 隐私 / 管道） */
+  analysis_blocker?: { code: string; message: string } | null
 }
 
 interface RecordingStatsCardProps {
@@ -88,6 +92,14 @@ const RecordingStatsCard: React.FC<RecordingStatsCardProps> = ({ stats }) => {
           </>
         )}
       </div>
+      {stats.analysis_blocker?.message ? (
+        <div
+          className="mt-1 max-w-[720px] text-xs leading-5 text-[rgb(var(--warning-6))]"
+          data-testid="analysis-blocker"
+          title={stats.analysis_blocker.code}>
+          {stats.analysis_blocker.message}
+        </div>
+      ) : null}
     </div>
   )
 }

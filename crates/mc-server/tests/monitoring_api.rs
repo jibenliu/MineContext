@@ -120,12 +120,14 @@ async fn stats_have_every_field_the_card_reads() {
         "captured_screenshots",
         "processed_screenshots",
         "failed_screenshots",
+        "pending_analyses",
         "generated_activities",
         "next_activity_eta_seconds",
         "last_activity_time",
         "session_start_time",
         "recent_errors",
         "recent_screenshots",
+        "analysis_blocker",
     ] {
         assert!(
             stats.get(field).is_some(),
@@ -135,6 +137,10 @@ async fn stats_have_every_field_the_card_reads() {
 
     assert_eq!(stats["captured_screenshots"], 0);
     assert_eq!(stats["processed_screenshots"], 0);
+    assert!(
+        stats["analysis_blocker"].is_null(),
+        "没采集时不应给 blocker"
+    );
     assert!(stats["recent_errors"].as_array().unwrap().is_empty());
     assert!(stats["recent_screenshots"].as_array().unwrap().is_empty());
     assert!(stats["last_activity_time"].is_null(), "还没有活动时为 null");
@@ -307,6 +313,18 @@ async fn captures_and_analyses_are_counted_separately() {
     let stats = data(&call(&ctx.state, "GET", "/api/monitoring/recording-stats").await);
     assert_eq!(stats["captured_screenshots"], 2);
     assert_eq!(stats["processed_screenshots"], 0, "排队中不算处理完");
+    assert_eq!(stats["pending_analyses"], 2);
+    let blocker = &stats["analysis_blocker"];
+    assert!(blocker.is_object(), "采到但未分析时应给出原因：{blocker}");
+    // 默认 privacy.ai_upload = false，这是「采到但已分析为 0」最常见的可行动原因。
+    assert_eq!(blocker["code"], "ai_upload_disabled");
+    assert!(
+        blocker["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("ai_upload"),
+        "blocker 必须点名配置项：{blocker}"
+    );
 
     // 只把第一张标成分析完成
     ctx.state
@@ -325,5 +343,10 @@ async fn captures_and_analyses_are_counted_separately() {
     assert_eq!(
         stats["processed_screenshots"], 1,
         "只有 done/degraded 才算分析出结果"
+    );
+    assert!(
+        stats["analysis_blocker"].is_null(),
+        "已有分析完成时不再展示 blocker：{}",
+        stats["analysis_blocker"]
     );
 }

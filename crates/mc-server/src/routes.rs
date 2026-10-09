@@ -678,6 +678,11 @@ fn mask_api_key(key: &str) -> String {
     format!("{head}••••••••{tail}")
 }
 
+/// 诊断 / 录制统计用：能否读到已存明文（不回传内容）。
+pub(crate) fn read_stored_model_api_key_for_diagnostics(state: &ServerState) -> bool {
+    matches!(read_stored_model_api_key(state), Ok(Some(_)))
+}
+
 /// 已存密钥：优先读 0600 sidecar，再尝试钥匙串引用。
 fn read_stored_model_api_key(state: &ServerState) -> Result<Option<String>, AppError> {
     if let Some(from_sidecar) = read_model_key_sidecar(state)? {

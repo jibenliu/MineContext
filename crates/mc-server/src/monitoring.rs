@@ -65,6 +65,9 @@ pub fn build_stats(state: &ServerState) -> Result<Value, AppError> {
     let elapsed_secs = (now.as_millis() - reference_ms).max(0) / 1000;
     let eta = (interval - elapsed_secs).max(0);
 
+    let pending_analyses = state.db.pending_analysis_count().unwrap_or(0);
+    let analysis_blocker = analysis_blocker(state, &counts, pending_analyses);
+
     let recent_screenshots = counts.recent_screenshot_paths;
 
     let recent_errors: Vec<Value> = counts
@@ -85,6 +88,7 @@ pub fn build_stats(state: &ServerState) -> Result<Value, AppError> {
         "captured_screenshots": counts.captured_screenshots,
         "processed_screenshots": counts.processed_screenshots,
         "failed_screenshots": counts.failed_screenshots,
+        "pending_analyses": pending_analyses,
         "generated_activities": counts.generated_activities,
         "next_activity_eta_seconds": eta,
         "last_activity_time": counts
@@ -93,5 +97,73 @@ pub fn build_stats(state: &ServerState) -> Result<Value, AppError> {
         "session_start_time": session.to_rfc3339(),
         "recent_errors": recent_errors,
         "recent_screenshots": recent_screenshots,
+        "analysis_blocker": analysis_blocker,
     }))
+}
+
+/// 采到了但「已分析」为 0 时，给前端一句可行动的原因（配置 / 隐私 / 管道未接线）。
+fn analysis_blocker(
+    state: &ServerState,
+    counts: &mc_storage::monitoring::RecordingCounts,
+    pending_analyses: i64,
+) -> Value {
+    if counts.processed_screenshots > 0 || counts.captured_screenshots == 0 {
+        return Value::Null;
+    }
+
+    let config = state.config.current();
+    let vision = &config.config.ai.vision;
+    let vision_ok = !vision.base_url.trim().is_empty() && !vision.model.trim().is_empty();
+    let key_readable = crate::routes::read_stored_model_api_key_for_diagnostics(state);
+
+    if !config.config.privacy.ai_upload {
+        return json!({
+            "code": "ai_upload_disabled",
+            "message": "privacy.ai_upload 未开启（默认不出网），截图不会送模型分析。请在配置中允许 AI 出网后再观察「已分析」计数。",
+        });
+    }
+    if !config.config.ai.enabled {
+        return json!({
+            "code": "ai_disabled",
+            "message": "ai.enabled = false，视觉分析已关闭。",
+        });
+    }
+    if !vision_ok {
+        return json!({
+            "code": "vision_unconfigured",
+            "message": "未配置视觉模型（缺少 base_url 或 model）。请到设置页填写模型平台与模型 ID。",
+        });
+    }
+    if !key_readable {
+        return json!({
+            "code": "api_key_missing",
+            "message": "视觉模型已配但读不到 API Key（sidecar / 钥匙串为空）。请到设置页重新保存 API Key。",
+        });
+    }
+    if counts.failed_screenshots > 0 {
+        let detail = counts
+            .recent_errors
+            .first()
+            .map(|error| error.message.as_str())
+            .unwrap_or("见 recent_errors");
+        return json!({
+            "code": "analysis_failed",
+            "message": format!(
+                "已有 {n} 次采集/视觉失败。最近一条：{detail}",
+                n = counts.failed_screenshots
+            ),
+        });
+    }
+    if pending_analyses > 0 {
+        return json!({
+            "code": "analyses_pending_unwired",
+            "message": format!(
+                "有 {pending_analyses} 条截图分析仍为 pending：截图视觉分析作业尚未接线（队列消费者目前只处理补偿推断），因此「已分析」会一直为 0。配置本身看起来可用。"
+            ),
+        });
+    }
+    json!({
+        "code": "no_completed_analyses",
+        "message": "本会话有采集但没有任何 done/degraded 分析记录。请检查诊断页 /api/diagnostics 与 pipeline_failures。",
+    })
 }
