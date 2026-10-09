@@ -587,10 +587,6 @@ impl ModelSettingsBody {
         }
     }
 
-    fn has_api_key(&self, config: &mc_config::Config) -> bool {
-        config.ai.vision.api_key_ref.is_some() || config.ai.embedding.api_key_ref.is_some()
-    }
-
     /// 形状校验。**不**调用远程模型：那需要网络与真实密钥，
     /// 失败原因也未必是配置错（可能是限流）。真正的连通性看诊断页。
     fn shape_problem(&self) -> Option<String> {
@@ -632,11 +628,13 @@ pub struct ModelSettingsRequest {
 pub async fn model_settings_get(State(state): State<Arc<ServerState>>) -> Response {
     let config = state.config.current();
     let body = ModelSettingsBody::from_config(&config.config);
-    let has_api_key = body.has_api_key(&config.config);
-    let masked = read_stored_model_api_key(&state)
-        .ok()
-        .flatten()
-        .map(|key| mask_api_key(&key))
+    // hasApiKey 以「能读到明文」为准：仅有 api_key_ref 但 sidecar/钥匙串都空时，
+    // 复制接口也会 404，UI 不应假装「已配置可复制」。
+    let stored = read_stored_model_api_key(&state).ok().flatten();
+    let has_api_key = stored.is_some();
+    let masked = stored
+        .as_ref()
+        .map(|key| mask_api_key(key))
         .unwrap_or_default();
 
     Json(json!({

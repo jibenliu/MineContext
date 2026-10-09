@@ -8,7 +8,14 @@ import { useMemoizedFn, useMount, useRequest } from 'ahooks'
 import { find, get, isEmpty, pick } from 'lodash'
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getModelInfo, getStoredApiKey, ModelConfigProps, updateModelSettingsAPI } from '../../services/settings'
+import {
+  getModelInfo,
+  getStoredApiKey,
+  isPlainApiKeyCandidate,
+  ModelConfigProps,
+  updateModelSettingsAPI
+} from '../../services/settings'
+import { writeClipboard } from '../../utils/write-clipboard'
 import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
@@ -321,16 +328,25 @@ const Settings: FC<SettingsProps> = (props) => {
 
   const copyStoredApiKey = useMemoizedFn(async () => {
     try {
-      const key = await getStoredApiKey()
+      // 刚输入、尚未被 get 回填成脱敏串时，优先用表单里的明文，避免再走一轮请求
+      const platform = String(form.getFieldValue('modelPlatform') || '')
+      const field = `${platform}-apiKey` as keyof SettingsFormProps
+      const fromForm = String(form.getFieldValue(field) ?? '')
+      let key = ''
+      if (isPlainApiKeyCandidate(fromForm, maskedRef.current)) {
+        key = fromForm.trim()
+      } else {
+        key = await getStoredApiKey()
+      }
       if (!key) {
         Message.error(t('settings.apiKeyCopyFailed'))
         return
       }
-      await navigator.clipboard.writeText(key)
+      await writeClipboard(key)
       Message.success(t('settings.apiKeyCopied'))
     } catch (error) {
       logger.error('[settings] 复制 API Key 失败', error)
-      Message.error(t('settings.apiKeyCopyFailed'))
+      Message.error(t('settings.apiKeyClipboardFailed'))
     }
   })
 

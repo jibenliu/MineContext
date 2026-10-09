@@ -9,16 +9,33 @@
 //   2. 任何情况下都必须渲染出某个平台的表单，不允许空白。
 
 import store from '@renderer/store'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { beforeEach, expect, it, vi } from 'vitest'
 
-import { getModelInfo, ModelInfoResponseData } from '../../services/settings'
+import { getModelInfo, getStoredApiKey, ModelInfoResponseData } from '../../services/settings'
+import { writeClipboard } from '../../utils/write-clipboard'
 import Settings from './settings'
 
 vi.mock('../../services/settings', async () => {
   const actual = await vi.importActual<typeof import('../../services/settings')>('../../services/settings')
-  return { ...actual, getModelInfo: vi.fn() }
+  return { ...actual, getModelInfo: vi.fn(), getStoredApiKey: vi.fn() }
+})
+
+vi.mock('../../utils/write-clipboard', () => ({
+  writeClipboard: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock('@arco-design/web-react', async () => {
+  const actual = await vi.importActual<typeof import('@arco-design/web-react')>('@arco-design/web-react')
+  return {
+    ...actual,
+    Message: {
+      ...actual.Message,
+      success: vi.fn(),
+      error: vi.fn()
+    }
+  }
 })
 
 const doubaoConfig: ModelInfoResponseData = {
@@ -69,6 +86,8 @@ function renderSettings() {
 
 beforeEach(() => {
   vi.mocked(getModelInfo).mockResolvedValue(doubaoConfig)
+  vi.mocked(getStoredApiKey).mockResolvedValue('sk-live-secret-key-6789')
+  vi.mocked(writeClipboard).mockClear()
 })
 
 it('默认平台是 Doubao，模型选择与 API Key 输入框都在', async () => {
@@ -85,6 +104,16 @@ it('已保存密钥时脱敏回显，并提供复制入口', async () => {
   expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
   expect(screen.getByText('复制')).toBeInTheDocument()
   expect(screen.getByText(/已保存密钥/)).toBeInTheDocument()
+})
+
+it('点击复制时写入明文而非脱敏串', async () => {
+  renderSettings()
+  expect(await screen.findByText('复制')).toBeInTheDocument()
+  fireEvent.click(screen.getByText('复制'))
+  await waitFor(() => {
+    expect(getStoredApiKey).toHaveBeenCalled()
+    expect(writeClipboard).toHaveBeenCalledWith('sk-live-secret-key-6789')
+  })
 })
 
 it('后端 base_url 是 OpenAI 时落到 OpenAI 平台，表单不空', async () => {
