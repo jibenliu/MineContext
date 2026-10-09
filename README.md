@@ -117,7 +117,15 @@ Click [Github Latest Release](https://github.com/volcengine/MineContext/releases
 
 ![Download APP](src/Download-App.gif)
 
-> **Note**: Starting from v0.1.5, MineContext supports Apple notarization, so you no longer need to disable the quarantine attribute. If you're using an older version, please refer to the [previous documentation](https://github.com/volcengine/MineContext/blob/0.1.4/README.md) for instructions.
+> **Note**: The distributed macOS `.dmg` is **unsigned and not notarized**. If macOS says the app is “damaged” or cannot verify the developer, clear the quarantine attribute first:
+>
+> ```bash
+> xattr -cr ~/Downloads/MineContext_*.dmg
+> # if already copied to Applications:
+> xattr -dr com.apple.quarantine /Applications/MineContext.app
+> ```
+>
+> Or right-click the `.app` → Open. Once you have an Apple Developer ID and notarize builds, these steps can go away.
 
 ## 2. Enter Your API Key
 

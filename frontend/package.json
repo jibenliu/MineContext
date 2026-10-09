@@ -1,6 +1,6 @@
 {
   "name": "MineContext",
-  "version": "0.1.5",
+  "version": "1.0.0",
   "description": "MineContext 桌面端：Tauri 外壳 + React/TypeScript 渲染层",
   "author": "example.com",
   "workspaces": {

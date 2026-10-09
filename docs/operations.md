@@ -46,11 +46,12 @@ cd src-tauri && cargo tauri dev
 ./scripts/package-macos-tauri.sh --with-smoke
 ```
 
-**安装包**：`src-tauri/target/release/bundle/dmg/MineContext_<版本>_x64.dmg`
-（实测 15 MB；哈希每次打包都变，以脚本输出为准）。**未签名、未公证**（本机无
-Developer ID），首次打开需要右键「打开」，或：
+**安装包**：`src-tauri/target/release/bundle/dmg/MineContext_<版本>_aarch64.dmg`
+（哈希每次打包都变，以脚本输出为准）。**adhoc 签名、未公证**（无 Developer ID），
+从网上下载后若提示「已损坏」，先清隔离属性：
 
 ```bash
+xattr -cr ~/Downloads/MineContext_*.dmg
 xattr -dr com.apple.quarantine "/Applications/MineContext.app"
 ```
 
@@ -230,8 +231,14 @@ token）与文件系统路径 —— 由 `scripts/check-source.sh` 里的日志�
 
 1. 在 `macos-14` / `ubuntu-22.04` / `windows-latest` 构建 `mc-daemon` + `mc-cli`
    （脚本：`./scripts/package-release-binaries.sh`，产物进 `dist/release/<os>-<arch>/`）；
-2. 在 `macos-14` 打未签名 Tauri `.dmg`（`./scripts/package-macos-tauri.sh`）；
-3. 汇总为 **draft GitHub Release**（zip + dmg；未签名，需维护者确认后再发布）。
+2. 在 `macos-14` 打 Tauri `.dmg`（`./scripts/package-macos-tauri.sh`；adhoc 签名、**未公证**）；
+3. 汇总为 **draft GitHub Release**（zip + dmg；dmg 文件名带 tag 版本，如 `MineContext_1.0.0_aarch64.dmg`）。
+
+**打 tag 前**先把 Cargo.toml / src-tauri / frontend / tauri.conf 四处版本改成与即将打的 `vX.Y.Z` 一致
+（`create-release-tag.sh` 会校验；勿绕过脚本直接推一个与仓库版本不符的 tag）。
+
+macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
+`xattr -dr com.apple.quarantine /Applications/MineContext.app`。
 
 也可对 `release.yml` 手动 `workflow_dispatch` 只打包、不打标签。
 
