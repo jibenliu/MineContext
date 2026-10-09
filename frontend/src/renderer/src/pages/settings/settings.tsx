@@ -72,11 +72,9 @@ const ApiKeyField: FC<{
             <Button type="text" onClick={onOpenDocs} className="!px-1">
               {docsLabel}
             </Button>
-            {hasStoredKey ? (
-              <Button type="text" onClick={onCopy} className="!px-1">
-                {t('settings.apiKeyCopy')}
-              </Button>
-            ) : null}
+            <Button type="text" onClick={onCopy} className="!px-1">
+              {t('settings.apiKeyCopy')}
+            </Button>
           </div>
         </div>
       }
@@ -107,7 +105,7 @@ export interface CustomFormItemsProps {
   prefix: string
   hasStoredKey: boolean
   maskedValue: string
-  onCopyApiKey: () => void
+  onCopyApiKey: (field: keyof SettingsFormProps) => void
 }
 const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
   const { t } = useI18n()
@@ -160,14 +158,15 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
             ]}
             requiredSymbol={false}
             extra={
-              hasStoredKey ? (
-                <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
-                  <span>{t('settings.apiKeyConfiguredHint')}</span>
-                  <Button type="text" size="mini" onClick={onCopyApiKey}>
-                    {t('settings.apiKeyCopy')}
-                  </Button>
-                </div>
-              ) : null
+              <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
+                {hasStoredKey ? <span>{t('settings.apiKeyConfiguredHint')}</span> : null}
+                <Button
+                  type="text"
+                  size="mini"
+                  onClick={() => onCopyApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}>
+                  {t('settings.apiKeyCopy')}
+                </Button>
+              </div>
             }>
             <Input.Password
               addBefore={<InputPrefix label={t('common.apiKey')} />}
@@ -221,7 +220,18 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
                 }
               }
             ]}
-            requiredSymbol={false}>
+            requiredSymbol={false}
+            extra={
+              <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
+                {hasStoredKey ? <span>{t('settings.apiKeyConfiguredHint')}</span> : null}
+                <Button
+                  type="text"
+                  size="mini"
+                  onClick={() => onCopyApiKey(`${prefix}-embeddingApiKey` as keyof SettingsFormProps)}>
+                  {t('settings.apiKeyCopy')}
+                </Button>
+              </div>
+            }>
             <Input.Password
               addBefore={<InputPrefix label={t('common.apiKey')} />}
               placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
@@ -240,7 +250,7 @@ export interface StandardFormItemsProps {
   prefix: string
   hasStoredKey: boolean
   maskedValue: string
-  onCopyApiKey: () => void
+  onCopyApiKey: (field: keyof SettingsFormProps) => void
 }
 const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
   const { t } = useI18n()
@@ -274,7 +284,7 @@ const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
         autoFocus
         hasStoredKey={hasStoredKey}
         maskedValue={maskedValue}
-        onCopy={onCopyApiKey}
+        onCopy={() => onCopyApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
         docsLabel={
           modelPlatform === ModelTypeList.Doubao ? t('settings.getDoubaoApiKey') : t('settings.getOpenaiApiKey')
         }
@@ -326,12 +336,13 @@ const Settings: FC<SettingsProps> = (props) => {
     }
   })
 
-  const copyStoredApiKey = useMemoizedFn(async () => {
+  const copyStoredApiKey = useMemoizedFn(async (field?: keyof SettingsFormProps) => {
     try {
-      // 刚输入、尚未被 get 回填成脱敏串时，优先用表单里的明文，避免再走一轮请求
+      // Doubao / OpenAI / Custom 视觉与向量密钥字段都走这里；
+      // 刚输入、尚未被 get 回填成脱敏串时，优先用表单里的明文。
       const platform = String(form.getFieldValue('modelPlatform') || '')
-      const field = `${platform}-apiKey` as keyof SettingsFormProps
-      const fromForm = String(form.getFieldValue(field) ?? '')
+      const target = field ?? (`${platform}-apiKey` as keyof SettingsFormProps)
+      const fromForm = String(form.getFieldValue(target) ?? '')
       let key = ''
       if (isPlainApiKeyCandidate(fromForm, maskedRef.current)) {
         key = fromForm.trim()
