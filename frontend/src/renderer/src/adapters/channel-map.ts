@@ -230,6 +230,11 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
     method: 'GET',
     path: `/api/agent/chat/conversations/${enc(args[0])}/messages`
   }),
+  // 软删除会话：与旧 axios 面同一路径，列表默认只返回 active
+  'v1:conversation-delete': (args) => ({
+    method: 'DELETE',
+    path: `/api/agent/chat/conversations/${enc(args[0])}/update`
+  }),
   // 搜索页：关键词 + 时间窗；被拦截内容搜不到由服务端保证
   'v1:search': (args) => ({
     method: 'GET',

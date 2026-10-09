@@ -65,7 +65,8 @@ export function installAdapters(options: InstallOptions): void {
   })
   install('chatApi', {
     listConversations: async (limit?: number) => unwrapConversations(await backend.invoke('v1:conversations', limit)),
-    listMessages: (conversationId: number) => backend.invoke('v1:conversation-messages', conversationId)
+    listMessages: (conversationId: number) => backend.invoke('v1:conversation-messages', conversationId),
+    deleteConversation: (conversationId: number) => backend.invoke('v1:conversation-delete', conversationId)
   })
   install('searchApi', {
     query: async (text: string, start?: number, end?: number) =>

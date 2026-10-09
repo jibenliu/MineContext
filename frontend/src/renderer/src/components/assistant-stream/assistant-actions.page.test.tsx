@@ -162,3 +162,44 @@ it('无标题会话显示未命名文案，不用裸数字 id', async () => {
   expect(screen.queryByRole('button', { name: '2' })).toBeNull()
   expect(screen.queryByRole('button', { name: '1' })).toBeNull()
 })
+
+it('删除会话会确认后调用持久化接口，并从列表移除；删当前会话回到新会话', async () => {
+  const { Modal } = await import('@arco-design/web-react')
+  vi.spyOn(Modal, 'confirm').mockImplementation(((config: { onOk?: () => void }) => {
+    config.onOk?.()
+    return { update: () => undefined, close: () => undefined }
+  }) as typeof Modal.confirm)
+
+  const deleted: number[] = []
+  let listed = [
+    { id: 1, title: '会话一' },
+    { id: 2, title: '会话二' }
+  ]
+  ;(window as unknown as Record<string, unknown>).chatApi = {
+    listConversations: async () => listed,
+    listMessages: async (id: number) =>
+      id === 1
+        ? [
+            { id: 10, role: 'user', content: '第一个问题' },
+            { id: 11, role: 'assistant', content: '第一个回答' }
+          ]
+        : [],
+    deleteConversation: async (id: number) => {
+      deleted.push(id)
+      listed = listed.filter((row) => row.id !== id)
+      return { success: true, id }
+    }
+  }
+
+  render(<AssistantStream />)
+  expect(await screen.findByRole('button', { name: '会话一' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '会话一' }))
+  await waitFor(() => expect(screen.getByTestId('assistant-history')).toHaveTextContent('第一个回答'))
+
+  fireEvent.click(screen.getByRole('button', { name: '删除 会话一' }))
+  await waitFor(() => expect(deleted).toEqual([1]))
+  await waitFor(() => expect(screen.queryByRole('button', { name: '会话一' })).toBeNull())
+  expect(screen.getByRole('button', { name: '会话二' })).toBeInTheDocument()
+  expect(screen.queryByTestId('assistant-history')).toBeNull()
+  expect(screen.getByLabelText('会话')).toHaveValue('')
+})

@@ -19,7 +19,7 @@ const MOCK_NOW = '2026-01-01T10:00:00Z'
 
 /** 基于接口契约的最小 mock 后端。渠道名见 `adapters/channel-map.ts`。 */
 function createMockBackend(): Backend {
-  const invoke = async (channel: string): Promise<unknown> => {
+  const invoke = async (channel: string, ...args: unknown[]): Promise<unknown> => {
     switch (channel) {
       case 'v1:summaries':
         return {
@@ -58,6 +58,8 @@ function createMockBackend(): Backend {
           { id: 1, role: 'user', content: '我今天做了什么？' },
           { id: 2, role: 'assistant', content: '上午在写导入脚本，下午梳理了前端样式。' }
         ]
+      case 'v1:conversation-delete':
+        return { success: true, id: args[0] }
       case 'v1:search':
         return {
           results: [

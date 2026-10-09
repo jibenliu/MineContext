@@ -115,6 +115,9 @@ const zh: Messages = {
   'assistant.inputPlaceholder': '输入问题，回车发送',
   'assistant.send': '发送',
   'assistant.noConversations': '还没有对话',
+  'assistant.deleteConfirmTitle': '删除会话？',
+  'assistant.deleteConfirmBody': '删除后无法恢复',
+  'assistant.deleteFailed': '删除会话失败，请重试',
 
   'settings.title': '设置',
   'settings.heading': '选择 AI 模型后开始使用',
@@ -461,6 +464,9 @@ const en: Messages = {
   'assistant.inputPlaceholder': 'Type your question and press Enter',
   'assistant.send': 'Send',
   'assistant.noConversations': 'No conversations yet',
+  'assistant.deleteConfirmTitle': 'Delete conversation?',
+  'assistant.deleteConfirmBody': 'This cannot be undone',
+  'assistant.deleteFailed': 'Could not delete conversation. Please retry.',
 
   'settings.title': 'Settings',
   'settings.heading': 'Pick an AI model to get started',

@@ -33,6 +33,7 @@ export interface Turn {
 interface ChatApi {
   listConversations?: () => Promise<Conversation[] | { items?: Conversation[] }>
   listMessages?: (id: number) => Promise<StoredMessage[]>
+  deleteConversation?: (id: number) => Promise<unknown>
 }
 const api = () => (window as unknown as { chatApi?: ChatApi }).chatApi
 
@@ -111,6 +112,23 @@ export function useAssistantConversation() {
     setProgress('')
     setError('')
     setState('idle')
+  }
+
+  const deleteConversation = async (id: number) => {
+    if (pendingRef.current) return
+    const remove = api()?.deleteConversation
+    if (!remove) {
+      if (mountedRef.current) setError(t('assistant.deleteFailed'))
+      return
+    }
+    try {
+      await remove(id)
+      if (!mountedRef.current) return
+      setConversations((previous) => previous.filter((conversation) => conversation.id !== id))
+      if (activeId === id) newConversation()
+    } catch {
+      if (mountedRef.current) setError(t('assistant.deleteFailed'))
+    }
   }
 
   const switchTo = async (id: number) => {
@@ -248,6 +266,7 @@ export function useAssistantConversation() {
     stop,
     switchTo,
     newConversation,
+    deleteConversation,
     loadConversations
   }
 }
