@@ -140,3 +140,25 @@ it('复制失败显示反馈，不产生未处理拒绝', async () => {
   fireEvent.click(screen.getByRole('button', { name: '复制回答' }))
   expect(await screen.findByRole('status')).toHaveTextContent('复制失败')
 })
+
+it('发送后立刻在历史里看到用户提问（不能等流结束，否则像输入消失）', async () => {
+  render(<AssistantStream />)
+  const input = screen.getByLabelText('输入问题，回车发送')
+  fireEvent.change(input, { target: { value: '我的活动呢' } })
+  fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
+  await waitFor(() => expect(screen.getByTestId('assistant-history')).toHaveTextContent('我的活动呢'))
+  expect(input).toHaveValue('')
+})
+
+it('无标题会话显示未命名文案，不用裸数字 id', async () => {
+  ;(window as unknown as Record<string, unknown>).chatApi = {
+    listConversations: async () => [
+      { id: 2, title: null },
+      { id: 1, title: '   ' }
+    ]
+  }
+  render(<AssistantStream />)
+  expect(await screen.findAllByRole('button', { name: '未命名会话' })).toHaveLength(2)
+  expect(screen.queryByRole('button', { name: '2' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '1' })).toBeNull()
+})

@@ -59,10 +59,12 @@ const AIToggleButton: React.FC<AIToggleButtonProps> = ({ onClick, isActive = fal
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: isActive ? 'rgb(var(--primary-6))' : 'var(--color-bg-5)',
-          color: isActive ? 'var(--color-bg-2)' : 'var(--color-text-1)'
+          // 激活态必须用实心白字：曾用 `--color-bg-2` 当前景，亮底下若表面被洗成浅色会近乎看不见。
+          background: isActive ? 'rgb(var(--primary-6))' : 'var(--color-fill-2)',
+          color: isActive ? 'rgb(255, 255, 255)' : 'var(--color-text-1)',
+          border: isActive ? 'none' : '1px solid var(--color-border-2)'
         }}>
-        <span style={{ fontWeight: 500 }}>{t('home.chatWithAi')}</span>
+        <span style={{ fontWeight: 500, color: 'inherit' }}>{t('home.chatWithAi')}</span>
       </Button>
     </Tooltip>
   )
