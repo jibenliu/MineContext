@@ -195,6 +195,23 @@ it('引导态可点「稍后再说」离开，不依赖保存成功', async () =
   expect(closeSetting).toHaveBeenCalledTimes(1)
 })
 
+it('非引导态不展示「稍后再说」', async () => {
+  renderSettings()
+  expect(await screen.findByText('选择模型')).toBeInTheDocument()
+  expect(screen.queryByTestId('settings-skip-onboarding')).toBeNull()
+})
+
+it('引导态也会回填已存密钥（可沿用密钥点开始使用，不必重填）', async () => {
+  render(
+    <Provider store={store}>
+      <Settings init closeSetting={() => undefined} />
+    </Provider>
+  )
+
+  expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
+  expect(screen.getByText(/已保存密钥/)).toBeInTheDocument()
+})
+
 it('引导态加载中不盖遮罩：开始使用按钮仍可点', async () => {
   // getModelInfo 挂起时整页 loading mask 不得吞掉 CTA 点击（否则无日志、无反馈）。
   vi.mocked(getModelInfo).mockImplementation(() => new Promise(() => undefined))

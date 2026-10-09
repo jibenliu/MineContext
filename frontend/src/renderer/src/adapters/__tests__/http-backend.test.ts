@@ -276,3 +276,24 @@ test('init-check 启动帧在晚订阅时重放（PersistGate 外先开 SSE 不�
 
   assert.deepEqual(received, [payload], '晚订阅必须立刻拿到已缓存的启动帧')
 })
+
+test('init-check 启动帧在无人订阅该渠道时也缓存，晚到的订阅者仍能拿到', () => {
+  const { factory, streams } = fakeStreams()
+  const backend = createHttpBackend({
+    runtime: RUNTIME,
+    fetch: fakeFetch(null).fetch,
+    streamFactory: factory
+  })
+
+  backend.subscribe('push:power-monitor', () => undefined)
+  const payload = '{"data":{"components":{"llm":{"status":"unconfigured"}}}}'
+  streams[0].__push('push:init-check-data', payload)
+
+  const first: unknown[] = []
+  const second: unknown[] = []
+  backend.subscribe('push:get-init-check-data', (data) => first.push(data))
+  backend.subscribe('push:get-init-check-data', (data) => second.push(data))
+
+  assert.deepEqual(first, [payload])
+  assert.deepEqual(second, [payload], '每个晚订阅者都应立刻收到同一份缓存帧')
+})
