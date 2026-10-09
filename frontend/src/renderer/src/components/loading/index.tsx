@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Progress, Typography } from '@arco-design/web-react'
+import { Button, Progress, Typography } from '@arco-design/web-react'
 import { useI18n } from '@renderer/i18n'
 import { useEffect, useState } from 'react'
 const { Title, Text } = Typography
@@ -9,10 +9,18 @@ import logo from '/src/assets/images/logo.png'
 
 export type BackendStatus = 'starting' | 'running' | 'stopped' | 'error'
 
-const LoadingComponent = ({ backendStatus }: { backendStatus: BackendStatus }) => {
+const LoadingComponent = ({
+  backendStatus,
+  onRetry
+}: {
+  backendStatus: BackendStatus
+  /** 后端不可用时的重试；不传则不渲染按钮（避免死按钮）。 */
+  onRetry?: () => void
+}) => {
   const { t } = useI18n()
   const [progress, setProgress] = useState(0)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const isError = backendStatus === 'error'
 
   // Calculate target progress based on backend status
   const getProgressByStatus = (status: BackendStatus): number => {
@@ -73,19 +81,31 @@ const LoadingComponent = ({ backendStatus }: { backendStatus: BackendStatus }) =
         {t('common.welcome')}
       </Title>
 
-      {/* Dynamic progress bar */}
-      <Progress
-        percent={progress}
-        width={400}
-        color={'var(--color-text-1)'}
-        animation={backendStatus === 'starting' || backendStatus === 'running'}
-        showText={true}
-        formatText={(percent) => `${Math.round(percent || 0)}%`}
-      />
+      {!isError ? (
+        <Progress
+          percent={progress}
+          width={400}
+          color={'var(--color-text-1)'}
+          animation={backendStatus === 'starting' || backendStatus === 'running'}
+          showText={true}
+          formatText={(percent) => `${Math.round(percent || 0)}%`}
+        />
+      ) : null}
 
       <Text className="text-[var(--color-text-2)] text-14" style={{ marginTop: '16px' }}>
-        {t('common.startingHint')}
+        {isError ? t('common.backendUnavailable') : t('common.startingHint')}
       </Text>
+
+      {isError && onRetry ? (
+        <Button
+          type="primary"
+          data-testid="backend-retry"
+          onClick={onRetry}
+          style={{ marginTop: '24px', appRegion: 'no-drag' } as React.CSSProperties}
+          className="!bg-[rgb(var(--primary-6))] !border-[rgb(var(--primary-6))]">
+          {t('common.retry')}
+        </Button>
+      ) : null}
     </div>
   )
 }
