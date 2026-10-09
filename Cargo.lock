@@ -1764,7 +1764,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mc-capture"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1780,7 +1780,7 @@ dependencies = [
 
 [[package]]
 name = "mc-cli"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "mc-capture",
  "mc-common",
@@ -1796,7 +1796,7 @@ dependencies = [
 
 [[package]]
 name = "mc-common"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -1813,7 +1813,7 @@ dependencies = [
 
 [[package]]
 name = "mc-config"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "mc-common",
  "mc-domain",
@@ -1826,7 +1826,7 @@ dependencies = [
 
 [[package]]
 name = "mc-daemon"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "axum",
  "mc-capture",
@@ -1843,7 +1843,7 @@ dependencies = [
 
 [[package]]
 name = "mc-domain"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "chrono",
  "mc-common",
@@ -1857,7 +1857,7 @@ dependencies = [
 
 [[package]]
 name = "mc-memory"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "chrono",
  "mc-common",
@@ -1874,7 +1874,7 @@ dependencies = [
 
 [[package]]
 name = "mc-pipeline"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "async-trait",
  "blake3",
@@ -1898,7 +1898,7 @@ dependencies = [
 
 [[package]]
 name = "mc-providers"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1914,7 +1914,7 @@ dependencies = [
 
 [[package]]
 name = "mc-search"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "mc-common",
  "mc-domain",
@@ -1926,7 +1926,7 @@ dependencies = [
 
 [[package]]
 name = "mc-server"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "async-trait",
  "axum",
@@ -1961,7 +1961,7 @@ dependencies = [
 
 [[package]]
 name = "mc-storage"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "blake3",
  "chrono",
@@ -1977,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "mc-summary"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1996,7 +1996,7 @@ dependencies = [
 
 [[package]]
 name = "mc-testkit"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "async-trait",
  "image",
@@ -4427,7 +4427,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "regex",
  "serde",
