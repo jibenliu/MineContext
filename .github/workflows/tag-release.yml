@@ -1,0 +1,54 @@
+name: Tag release
+
+# 打新的 `v*` 发版标签并推送；不打包。
+# 推送后由 `release.yml`（on: push tags: v*）自动打包：
+#   - 各环境 mc-daemon / mc-cli（macos / linux / windows）
+#   - 未签名 macOS dmg
+#   - draft GitHub Release
+#
+# 手动触发：Actions → Tag release → Run workflow
+#   - version 留空：用仓库四处一致的 workspace 版本
+#   - dry_run=true：只校验并打印标签名
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'SemVer without v prefix (empty = read from Cargo.toml)'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Validate and print tag only; do not create or push'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          # 需要完整历史与已有 tags，避免误打重复标签
+          fetch-depth: 0
+
+      - name: Create and push tag
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "${DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          if [ -n "${VERSION_INPUT}" ]; then
+            args+=("${VERSION_INPUT}")
+          fi
+          ./scripts/create-release-tag.sh "${args[@]+"${args[@]}"}"

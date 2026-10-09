@@ -207,7 +207,35 @@ token）与文件系统路径 —— 由 `scripts/check-source.sh` 里的日志�
   拉黑应用」尚未拦截。完整口径见
   [`privacy.md`](privacy.md)。
 
-## 5. 发布前还差什么
+## 5. 发版标签与 CI 打包
+
+版本号以 workspace `Cargo.toml` 为准，并与 `src-tauri/Cargo.toml`、
+`frontend/package.json`、`src-tauri/tauri.conf.json` 四处一致
+（守卫：`./scripts/checks/check-version-consistency.sh`）。
+
+打新的 `v*` 标签（**不**打包）：
+
+```bash
+# 本机预览
+./scripts/create-release-tag.sh --dry-run
+
+# 本机创建并推送（会触发下面的 Release workflow）
+./scripts/create-release-tag.sh
+```
+
+或在 GitHub：**Actions → Tag release → Run workflow**
+（`tag-release.yml`；`version` 留空则用仓库版本，`dry_run` 只校验不推送）。
+
+推送 `v*` 后由 **Release (binaries + macOS dmg)**（`release.yml`）自动：
+
+1. 在 `macos-14` / `ubuntu-22.04` / `windows-latest` 构建 `mc-daemon` + `mc-cli`
+   （脚本：`./scripts/package-release-binaries.sh`，产物进 `dist/release/<os>-<arch>/`）；
+2. 在 `macos-14` 打未签名 Tauri `.dmg`（`./scripts/package-macos-tauri.sh`）；
+3. 汇总为 **draft GitHub Release**（zip + dmg；未签名，需维护者确认后再发布）。
+
+也可对 `release.yml` 手动 `workflow_dispatch` 只打包、不打标签。
+
+## 5.1 发布前还差什么
 
 自动部分已经固化在 `verify-all.sh`（门禁 + 产物 + 启动检查）与
 `verify-external.sh`（外部条件项）。**人在回路的三件事**：
