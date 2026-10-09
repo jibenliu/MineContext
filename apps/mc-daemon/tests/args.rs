@@ -1,4 +1,4 @@
-use mc_daemon::{generate_token, parse_args, Args};
+use mc_daemon::{generate_token, parse_args, should_auto_start_capture, Args};
 
 #[test]
 fn parse_args_defaults_to_system_port() {
@@ -69,4 +69,18 @@ fn args_helper_sets_data_dir() {
         Args::with_data_dir("/tmp/x").data_dir,
         std::path::PathBuf::from("/tmp/x")
     );
+}
+
+#[test]
+fn auto_start_requires_enabled_and_ready() {
+    assert!(should_auto_start_capture(true, true));
+    assert!(
+        !should_auto_start_capture(false, true),
+        "用户停过录制后不得自动开录"
+    );
+    assert!(
+        !should_auto_start_capture(true, false),
+        "缺权限时不得把 running 置 true（避免「停止录制」与「缺少权限」并存）"
+    );
+    assert!(!should_auto_start_capture(false, false));
 }

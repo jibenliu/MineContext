@@ -43,22 +43,32 @@ export const useScreen = () => {
   const [hasPermission, setHasPermission] = useState(false)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
 
-  const checkPermissions = useMemoizedFn(async () => {
+  const checkPermissions = useMemoizedFn(async (opts?: { quiet?: boolean }) => {
     // 后端返回的是结构体（screen_recording / permission），不是裸 boolean；
     // 直接 `if (result)` 会把「已拒绝」也当成有权限。
     const result = await window.screenMonitorAPI.checkPermissions()
     const granted = isScreenRecordingGranted(result)
-    if (!granted) {
+    setHasPermission(granted)
+    if (!granted && !opts?.quiet) {
       Message.error('Screen recording permission is required.')
-      setHasPermission(false)
-    } else {
-      setHasPermission(true)
     }
+    return granted
   })
 
-  const grantPermission = useMemoizedFn(() => {
-    window.screenMonitorAPI.openPrefs()
-    setTimeout(checkPermissions, 5000)
+  const grantPermission = useMemoizedFn(async () => {
+    // openPrefs → daemon Request + 打开系统设置，让采集进程出现在 TCC 列表。
+    try {
+      const result = await window.screenMonitorAPI.openPrefs()
+      if (isScreenRecordingGranted(result)) {
+        setHasPermission(true)
+        return
+      }
+    } catch (error) {
+      logger.error('Failed to request screen recording permission', error)
+    }
+    setTimeout(() => {
+      void checkPermissions({ quiet: true })
+    }, 5000)
   })
 
   const setIsMonitoring = useMemoizedFn((isMonitoring: boolean) => {

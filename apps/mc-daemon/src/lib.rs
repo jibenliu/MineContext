@@ -239,10 +239,13 @@ pub async fn run(args: Args) -> Result<(), AppError> {
         );
     }
 
-    // 采集环：**产品最核心的那条循环**，必须由这里启动 ——
-    // 不启动，daemon 就只剩「按需截一张」这一条路径，时间线永远不会自己长出来。
-    if loaded_capture_enabled(&state) {
-        if let Some(controls) = state.capture.as_ref() {
+    // 采集环：仅在「用户上次要录」且本机就绪时自动恢复。
+    // 用户点过停止后 capture.enabled=false，重开不得再自动开录；
+    // 未就绪时也不要把 running 置 true（否则 UI 会「停止录制」+「缺少权限」并存）。
+    if let Some(controls) = state.capture.as_ref() {
+        let enabled = loaded_capture_enabled(&state);
+        let ready = mc_capture::platform::probe_readiness().available;
+        if should_auto_start_capture(enabled, ready) {
             controls.start();
             info!(
                 component = "capture",
@@ -250,6 +253,14 @@ pub async fn run(args: Args) -> Result<(), AppError> {
                 interval_secs = interval_secs(&state),
                 source = controls.source_id(),
                 "采集已启动"
+            );
+        } else {
+            info!(
+                component = "capture",
+                event = "not_auto_started",
+                enabled = enabled,
+                ready = ready,
+                "启动时未自动开录（尊重上次停止或本机未就绪）"
             );
         }
     }
@@ -370,6 +381,13 @@ async fn shutdown_signal() {
 /// 配置里是否允许采集（`capture.enabled`）。
 fn loaded_capture_enabled(state: &std::sync::Arc<mc_server::ServerState>) -> bool {
     state.config.current().config.capture.enabled
+}
+
+/// 启动时是否自动开录：必须同时「用户要录」且「本机可录」。
+///
+/// 拆成纯函数是为了钉住「停止后重开不得自动开录」与「缺权限不得谎报 running」。
+pub fn should_auto_start_capture(enabled: bool, ready: bool) -> bool {
+    enabled && ready
 }
 
 /// 采集间隔（秒），用于启动日志。

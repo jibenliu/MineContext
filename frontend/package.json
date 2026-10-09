@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "lint": "node scripts/check-file-names.mjs && eslint --cache . --max-warnings 0",
     "test": "npm run test:adapters && npm run test:shared && npm run test:pages",
-    "test:adapters": "node --test src/renderer/src/adapters/__tests__/*.test.ts",
+    "test:adapters": "node --experimental-strip-types --test src/renderer/src/adapters/__tests__/*.test.ts",
     "test:pages": "vitest run --config vitest.config.ts",
     "test:shared": "node --test packages/shared/**/__tests__/*.test.ts",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",

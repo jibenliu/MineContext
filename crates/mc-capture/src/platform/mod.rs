@@ -52,6 +52,30 @@ pub fn probe_readiness() -> CaptureReadiness {
     }
 }
 
+/// 请求屏幕录制权限（macOS 可能弹系统对话框；其它平台返回 Unknown）。
+pub fn request_permission() -> super::source::PermissionState {
+    #[cfg(target_os = "macos")]
+    {
+        macos::permission::request()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        super::source::PermissionState::Unknown
+    }
+}
+
+/// 打开系统设置的屏幕录制面板（非 macOS 为 no-op 成功）。
+pub fn open_screen_recording_settings() -> Result<(), mc_common::error::AppError> {
+    #[cfg(target_os = "macos")]
+    {
+        macos::permission::open_system_settings()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(())
+    }
+}
+
 /// 采集不可用时给出带 remediation 的错误。
 ///
 /// 上层（CLI / HTTP / daemon）共用同一份构造逻辑，

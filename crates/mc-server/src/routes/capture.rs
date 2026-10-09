@@ -208,6 +208,12 @@ pub async fn start(State(state): State<Arc<ServerState>>) -> Response {
         return envelope::compat_failure(&mc_capture::platform::readiness_error(&readiness));
     }
 
+    // 落盘「用户要录」：daemon 重启后按 capture.enabled 决定是否自动恢复。
+    // 只改内存开关的话，用户点停止再重开仍会自动开录。
+    if let Err(error) = persist_capture_enabled(&state, true) {
+        return envelope::compat_failure(&error);
+    }
+
     // 推「开始录制」：渲染层的屏幕监控页靠它把状态切到 running。
     // 托盘切换录制时页面本身没有动作，不推事件页面就会一直显示旧状态。
     if !controls.is_running() {
@@ -225,6 +231,10 @@ pub async fn start(State(state): State<Arc<ServerState>>) -> Response {
 pub async fn stop(State(state): State<Arc<ServerState>>) -> Response {
     match state.capture.as_ref() {
         Some(controls) => {
+            // 先落盘再停：重启后必须保持停止，不能因默认 enabled=true 又自动开录。
+            if let Err(error) = persist_capture_enabled(&state, false) {
+                return envelope::compat_failure(&error);
+            }
             if controls.is_running() {
                 controls.stop();
                 state.publish(
@@ -241,6 +251,34 @@ pub async fn stop(State(state): State<Arc<ServerState>>) -> Response {
             "本实例未挂载采集控制",
         )),
     }
+}
+
+/// 把「是否在录」写进用户配置，供下次启动恢复。
+///
+/// 无写配置能力时（测试夹具）直接成功：本会话仍由 `CaptureControls` 的
+/// running 位控制；持久化只对挂了用户配置层的 daemon 有意义。
+fn persist_capture_enabled(state: &ServerState, enabled: bool) -> Result<(), AppError> {
+    if state.config_write().is_none() {
+        return Ok(());
+    }
+    crate::config_api::apply_patch(state, crate::config_api::enabled_patch(enabled)).map(|_| ())
+}
+
+/// `POST /api/capture/permissions/request` —— 触发系统授权并打开设置面板。
+///
+/// 采集跑在 `mc-daemon`：必须由它 Request，系统设置里才会出现采集进程条目；
+/// 只勾外壳 MineContext.app 时 Preflight 在 daemon 里仍可能是 false。
+pub async fn request_permissions(State(_state): State<Arc<ServerState>>) -> Response {
+    let permission = mc_capture::platform::request_permission();
+    let _ = mc_capture::platform::open_screen_recording_settings();
+    let readiness = mc_capture::platform::probe_readiness();
+    envelope::ok(json!({
+        "screen_recording": permission == mc_capture::source::PermissionState::Granted,
+        "permission": permission_label(permission),
+        "ready": readiness.available,
+        "monitor_count": readiness.monitor_count,
+        "message": readiness.message,
+    }))
 }
 
 /// `GET /api/capture/screenshots?date=YYYY-MM-DD`
@@ -602,6 +640,10 @@ pub fn router() -> axum::Router<Arc<ServerState>> {
 
     axum::Router::new()
         .route("/api/capture/permissions", get(permissions))
+        .route(
+            "/api/capture/permissions/request",
+            post(request_permissions),
+        )
         .route("/api/capture/targets", get(targets))
         .route("/api/capture/now", post(now))
         .route(

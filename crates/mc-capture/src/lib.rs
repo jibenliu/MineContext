@@ -10,6 +10,7 @@ pub mod change;
 pub mod clipboard;
 pub mod composite;
 pub mod geometry;
+pub mod permission_resolve;
 pub mod platform;
 pub mod scheduler;
 pub mod source;
