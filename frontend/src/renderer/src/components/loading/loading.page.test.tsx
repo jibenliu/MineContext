@@ -13,7 +13,15 @@ it('后端错误态展示重试按钮，点击会调用 onRetry', () => {
   expect(onRetry).toHaveBeenCalledTimes(1)
 })
 
-it('非错误态不渲染重试按钮', () => {
+it('启动等待态不展示无法连接本地服务（正常冷启动不能误报）', () => {
   render(<LoadingComponent backendStatus="starting" />)
+  expect(screen.getByText(/唤醒你的上下文感知/)).toBeInTheDocument()
+  expect(screen.queryByText(/无法连接本地服务/)).toBeNull()
   expect(screen.queryByTestId('backend-retry')).toBeNull()
+})
+
+it('非错误态不渲染重试按钮', () => {
+  render(<LoadingComponent backendStatus="running" />)
+  expect(screen.queryByTestId('backend-retry')).toBeNull()
+  expect(screen.queryByText(/无法连接本地服务/)).toBeNull()
 })
