@@ -8,6 +8,9 @@
 //! 采集跑在 `mc-daemon` 里，而系统设置里勾选的常常是外壳 `MineContext.app`：
 //! Preflight 可能对已授权的采集能力返回 false（错 bundle / 授权后未刷新）。
 //! 因此 Preflight 为 false 时再用一次轻量截屏交叉验证，避免假「缺少权限」。
+//!
+//! 交叉截屏必须带超时：部分 macOS 版本在无权限时 `capture_image` 会长时间挂起，
+//! 若在 HTTP/采集热路径上同步等待，整 app 会表现为卡死且重启无效。
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -15,7 +18,10 @@ use std::time::{Duration, Instant};
 use mc_common::error::{AppError, ErrorCode};
 
 use crate::change::{rgb_to_luma, ChangeDetector, DHashDetector, HashPolicy};
-use crate::permission_resolve::{resolve_screen_permission, EmpiricalCapture};
+use crate::permission_resolve::{
+    empirical_cache_ttl_secs, empirical_from_worker_timeout, resolve_screen_permission,
+    EmpiricalCapture,
+};
 use crate::source::PermissionState;
 
 use super::rgba_to_rgb;
@@ -25,14 +31,17 @@ use super::rgba_to_rgb;
 unsafe extern "C" {
     /// 只查询、不弹窗
     fn CGPreflightScreenCaptureAccess() -> bool;
-    /// 查询，必要时弹系统授权对话框
+    /// 查询，必要时弹系统对话框
     fn CGRequestScreenCaptureAccess() -> bool;
 }
 
+/// 交叉截屏最长等待。超时按缺权限处理，避免拖死 daemon。
+pub const EMPIRICAL_CAPTURE_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// 查询当前权限状态（不弹窗）。
 ///
-/// Preflight 为 false 时会做一次带短缓存的截屏交叉验证，消除「系统设置已开、
-/// UI 仍报缺权限」的假阴性。
+/// Preflight 为 false 时会做一次带短缓存与超时的截屏交叉验证，消除「系统设置已开、
+/// UI 仍报缺权限」的假阴性；超时则 fail-closed。
 pub fn preflight() -> PermissionState {
     let preflight_granted = unsafe { CGPreflightScreenCaptureAccess() };
     if preflight_granted {
@@ -80,8 +89,6 @@ pub fn open_system_settings() -> Result<(), AppError> {
     Ok(())
 }
 
-const EMPIRICAL_CACHE_TTL: Duration = Duration::from_secs(8);
-
 struct EmpiricalCache {
     checked_at: Instant,
     result: EmpiricalCapture,
@@ -98,12 +105,13 @@ fn invalidate_empirical_cache() {
 fn empirical_capture_cached() -> EmpiricalCapture {
     if let Ok(slot) = EMPIRICAL_CACHE.lock() {
         if let Some(cache) = slot.as_ref() {
-            if cache.checked_at.elapsed() < EMPIRICAL_CACHE_TTL {
+            let ttl = Duration::from_secs(empirical_cache_ttl_secs(cache.result));
+            if cache.checked_at.elapsed() < ttl {
                 return cache.result;
             }
         }
     }
-    let result = empirical_capture_once();
+    let result = empirical_capture_with_timeout(EMPIRICAL_CAPTURE_TIMEOUT);
     if let Ok(mut slot) = EMPIRICAL_CACHE.lock() {
         *slot = Some(EmpiricalCache {
             checked_at: Instant::now(),
@@ -113,8 +121,12 @@ fn empirical_capture_cached() -> EmpiricalCapture {
     result
 }
 
+fn empirical_capture_with_timeout(timeout: Duration) -> EmpiricalCapture {
+    empirical_from_worker_timeout(timeout, empirical_capture_blocking)
+}
+
 /// 采一帧主屏并做黑帧判定。无显示器或枚举失败 → Unknown（不把无头环境误判成 Denied）。
-fn empirical_capture_once() -> EmpiricalCapture {
+fn empirical_capture_blocking() -> EmpiricalCapture {
     let Ok(monitors) = xcap::Monitor::all() else {
         return EmpiricalCapture::Unknown;
     };

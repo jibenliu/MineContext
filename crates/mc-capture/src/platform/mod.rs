@@ -20,7 +20,10 @@ pub struct CaptureReadiness {
     pub message: Option<String>,
 }
 
-/// 探测当前平台的采集就绪度（不弹窗、不采集）。
+/// 探测当前平台的采集就绪度（不弹窗）。
+///
+/// macOS 上若 `CGPreflight` 为 false，可能做一次**带超时**的交叉截屏以消除假阴性；
+/// 超时或黑帧按缺权限处理，避免同步挂起拖死 daemon。
 pub fn probe_readiness() -> CaptureReadiness {
     #[cfg(target_os = "macos")]
     {
@@ -34,7 +37,7 @@ pub fn probe_readiness() -> CaptureReadiness {
             message: if available {
                 None
             } else if permission == super::source::PermissionState::Denied {
-                Some("缺少屏幕录制权限".to_string())
+                Some("缺少屏幕录制权限：请在「系统设置 → 隐私与安全性 → 屏幕录制」中勾选 MineContext 与 mc-daemon（或助手进程），然后完全退出并重开应用".to_string())
             } else {
                 Some("没有检测到显示器".to_string())
             },

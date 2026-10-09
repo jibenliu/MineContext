@@ -23,6 +23,8 @@ pub struct FakeCaptureSourceBuilder {
     capabilities: Option<SourceCapabilities>,
     image_size: Option<(u32, u32)>,
     changing: bool,
+    /// 若设置则整帧填充该 RGB（用于黑帧 / 权限失败场景）。
+    solid_rgb: Option<[u8; 3]>,
 }
 
 impl FakeCaptureSourceBuilder {
@@ -64,6 +66,12 @@ impl FakeCaptureSourceBuilder {
         self
     }
 
+    /// 整帧纯色（如 `[0,0,0]` 模拟 macOS 无屏幕录制权限时的黑帧）。
+    pub fn solid_rgb(mut self, rgb: [u8; 3]) -> Self {
+        self.solid_rgb = Some(rgb);
+        self
+    }
+
     pub fn build(self) -> Result<FakeCaptureSource, AppError> {
         let kind = self.kind.unwrap_or(SourceKind::Screen);
         let capabilities = self.capabilities.unwrap_or(match kind {
@@ -90,6 +98,7 @@ impl FakeCaptureSourceBuilder {
             image_size: self.image_size.unwrap_or((64, 40)),
             poll_count: AtomicU64::new(0),
             changing: self.changing,
+            solid_rgb: self.solid_rgb,
         })
     }
 }
@@ -104,6 +113,7 @@ pub struct FakeCaptureSource {
     image_size: (u32, u32),
     poll_count: AtomicU64,
     changing: bool,
+    solid_rgb: Option<[u8; 3]>,
 }
 
 impl FakeCaptureSource {
@@ -119,6 +129,9 @@ impl FakeCaptureSource {
     /// 每帧生成一张确定性的小图；内容随 target 序号变化，便于断言「不同屏内容不同」。
     fn render(&self, target: &CaptureTarget, poll: u64) -> RgbImage {
         let (width, height) = self.image_size;
+        if let Some(rgb) = self.solid_rgb {
+            return RgbImage::from_fn(width, height, |_, _| Rgb(rgb));
+        }
         let base = self
             .targets
             .iter()
