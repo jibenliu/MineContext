@@ -33,11 +33,15 @@ const Application: FC<ApplicationProps> = (props) => {
                   style={{ left: `${index * 20}px` }}>
                   <div className="w-[28px] h-[28px] rounded-[28px] flex items-center justify-center bg-[var(--color-fill-2)]">
                     {item.type === 'window' ? (
-                      <img
-                        src={item.appIcon || item.thumbnail || ''}
-                        alt={item.name || ''}
-                        className="w-[18px] h-[18px]"
-                      />
+                      item.appIcon || item.thumbnail ? (
+                        <img
+                          src={item.appIcon || item.thumbnail || ''}
+                          alt={item.name || ''}
+                          className="w-[18px] h-[18px]"
+                        />
+                      ) : (
+                        <span className="w-[18px] h-[18px] rounded-[4px] bg-[var(--color-fill-2)]" />
+                      )
                     ) : null}
                     {item.type === 'screen' ? <img src={screenIcon} alt="" className="w-[16px] h-[16px]" /> : null}
                   </div>

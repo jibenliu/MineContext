@@ -214,20 +214,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
               <Form.Item field="windowSources">
                 <Checkbox.Group className="flex flex-col space-y-4">
-                  {appAllSources.map((source) => (
-                    <Checkbox key={source.id} value={source.id}>
-                      <div className="flex items-center space-x-[4px]">
-                        <img
-                          src={source.appIcon || source.thumbnail || ''}
-                          alt=""
-                          className="w-[14px] h-[14px] inline-block object-cover"
-                        />
-                        <div className="text-[13px] leading-[22px] text-[var(--color-text-1)] !ml-[4px] line-clamp-1">
-                          {source.name}
+                  {appAllSources.map((source) => {
+                    const icon = source.appIcon || source.thumbnail
+                    return (
+                      <Checkbox key={source.id} value={source.id}>
+                        <div className="flex items-center space-x-[4px]">
+                          {icon ? (
+                            <img src={icon} alt="" className="w-[14px] h-[14px] inline-block object-cover" />
+                          ) : (
+                            <span className="w-[14px] h-[14px] inline-block rounded-[3px] bg-[var(--color-fill-2)]" />
+                          )}
+                          <div className="text-[13px] leading-[22px] text-[var(--color-text-1)] !ml-[4px] line-clamp-1">
+                            {source.name}
+                          </div>
                         </div>
-                      </div>
-                    </Checkbox>
-                  ))}
+                      </Checkbox>
+                    )
+                  })}
                 </Checkbox.Group>
               </Form.Item>
             </div>
