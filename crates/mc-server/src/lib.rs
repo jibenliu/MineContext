@@ -15,6 +15,7 @@ pub mod embedding;
 pub mod envelope;
 pub mod events;
 pub mod failures;
+pub mod file_ingest;
 pub mod jobs;
 pub mod jobs_worker;
 pub mod latest_activity;
@@ -128,6 +129,9 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/files",
     "/api/files/copy",
     "/api/files/{name}/data",
+    // 文件上传进笔记树（P1；与链接上传同形，不属于旧兼容面）
+    "/api/v1/files/import",
+    "/api/v1/links",
     "/api/settings/{key}",
     // 首页「最新活动」推送开关
     "/api/v1/latest-activity/poll",
@@ -143,6 +147,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::threads::router())
         .merge(routes::vaults::router())
         .merge(routes::links::router())
+        .merge(routes::file_import::router())
         .merge(routes::home::router())
         .merge(routes::files::router())
         .merge(routes::settings::router())

@@ -28,6 +28,9 @@ image.workspace = true
 chrono.workspace = true
 tower-http = { version = "0.6", features = ["cors"] }
 reqwest.workspace = true
+pdf-extract = "0.12"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+calamine = "0.26"
 
 [dev-dependencies]
 tempfile.workspace = true

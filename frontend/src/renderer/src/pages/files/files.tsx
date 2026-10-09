@@ -19,7 +19,7 @@ const Files: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
   const savingRef = useRef(false)
-  const { analyzedDocs, addFile, saveFile, loadFiles, loading, loadFailed } = useFiles()
+  const { analyzedDocs, addFile, importFile, loadFiles, loading, loadFailed } = useFiles()
 
   const uploadFile = async (file) => {
     if (!file.originFile) {
@@ -52,14 +52,14 @@ const Files: React.FC = () => {
         reader.onabort = () => reject(new Error('Read aborted'))
         reader.readAsArrayBuffer(selectedDoc.file)
       })
-      const result = await saveFile(selectedDoc.name, new Uint8Array(fileData))
-      if (!result.success) throw new Error('Save failed')
+      const result = await importFile(selectedDoc.name, new Uint8Array(fileData))
+      if (!result?.id || !result.file_path) throw new Error('Import failed')
       addFile({
         name: selectedDoc.name,
         source: selectedDoc.source,
         icon: selectedDoc.icon,
-        filePath: result.filePath,
-        status: 'Uploaded',
+        filePath: result.file_path,
+        status: 'Analyzed',
         prompt: ''
       })
       setAnalyzeVisible(false)
@@ -92,7 +92,7 @@ const Files: React.FC = () => {
             drag
             autoUpload={false}
             disabled={saving}
-            accept=".ppt,.pptx,.pdf,.docx,.doc,.xls,.xlsx,.csv,.txt,.md,.markdown,.faq"
+            accept=".pptx,.pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,.faq,.html,.htm,.png,.jpg,.jpeg,.gif,.webp"
             showUploadList={false}
             onChange={(_, file) => {
               if (file.status === 'init') {
@@ -167,7 +167,7 @@ const Files: React.FC = () => {
                   </div>
                   <div className="flex items-center text-xs mt-2 px-2 py-1 rounded-md w-fit text-[rgb(var(--success-6))] bg-[var(--color-success-light-1)]">
                     <IconCheckCircleFill style={{ marginRight: 6, color: 'rgb(var(--success-6))' }} />
-                    <span>{t('files.uploaded')}</span>
+                    <span>{doc.status === 'Analyzed' ? t('files.analysisSuccess') : t('files.uploaded')}</span>
                   </div>
                 </div>
               </Col>
@@ -191,7 +191,7 @@ const Files: React.FC = () => {
               {t('common.cancel')}
             </Button>
             <Button type="primary" loading={saving} onClick={() => analyzeDocument()}>
-              {t('files.save')}
+              {t('files.importAction')}
             </Button>
           </>
         }
