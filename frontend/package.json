@@ -68,7 +68,7 @@
   "devDependencies": {
     "@eslint-react/eslint-plugin": "^2.0.0",
     "@eslint/js": "^9.33.0",
-    "@swc/plugin-styled-components": "^7.1.5",
+    "@swc/plugin-styled-components": "^15.0.0",
     "@tailwindcss/vite": "^4.1.11",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
