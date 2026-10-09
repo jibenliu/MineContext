@@ -39,10 +39,34 @@ export const getModelInfo = async (): Promise<ModelInfoResponseData | undefined>
   return get(res, 'data.data')
 }
 
-/** 设置页「复制」：显式取已存明文（本机 + token）。 */
+/** 设置页「复制」：显式取已存明文（本机 + token）。找不到时返回空串，其它错误原样抛出。 */
 export const getStoredApiKey = async (): Promise<string> => {
-  const res = await axiosInstance.get<{ apiKey?: string }>('/api/model_settings/api_key')
-  return get(res, 'data.data.apiKey') || ''
+  try {
+    const res = await axiosInstance.get<{ apiKey?: string }>('/api/model_settings/api_key')
+    const code = get(res, 'data.code')
+    const key = String(get(res, 'data.data.apiKey') || '').trim()
+    // 兼容面偶发 HTTP 200 + code≠0
+    if (code !== undefined && code !== 0) {
+      return ''
+    }
+    return key
+  } catch (error: unknown) {
+    const status = get(error, 'response.status')
+    if (status === 404) {
+      return ''
+    }
+    throw error
+  }
+}
+
+/** 输入框里是否已是可复制的明文（不是脱敏回显）。 */
+export const isPlainApiKeyCandidate = (value: string, masked: string): boolean => {
+  const text = value.trim()
+  if (!text) return false
+  if (masked && text === masked) return false
+  // 脱敏串中间是 •；误把脱敏串当明文复制没有意义
+  if (text.includes('•')) return false
+  return true
 }
 
 // 模型设置写入接口的响应形状

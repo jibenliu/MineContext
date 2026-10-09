@@ -153,6 +153,7 @@ const zh: Messages = {
   'settings.apiKeyCopy': '复制',
   'settings.apiKeyCopied': '已复制 API Key',
   'settings.apiKeyCopyFailed': '复制失败：未找到已保存的密钥',
+  'settings.apiKeyClipboardFailed': '复制失败：无法写入剪贴板，请手动选择输入框中的内容',
   'settings.apiKeyConfiguredHint': '已保存密钥（脱敏显示）。可复制，或输入新密钥覆盖。',
   'settings.embeddingModel': '向量模型',
   'settings.embeddingModelPlaceholder': '填写向量模型名称',
@@ -483,6 +484,8 @@ const en: Messages = {
   'settings.apiKeyCopy': 'Copy',
   'settings.apiKeyCopied': 'API Key copied',
   'settings.apiKeyCopyFailed': 'Copy failed: no saved key found',
+  'settings.apiKeyClipboardFailed':
+    'Copy failed: could not write to the clipboard. Select the field contents manually.',
   'settings.apiKeyConfiguredHint': 'A key is saved (shown masked). Copy it, or enter a new key to replace it.',
   'settings.embeddingModel': 'Embedding model',
   'settings.embeddingModelPlaceholder': 'Enter your embedding model name',
