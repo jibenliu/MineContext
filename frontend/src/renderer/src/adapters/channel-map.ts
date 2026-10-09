@@ -267,6 +267,16 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
   'v1:adhoc-job-cancel': (args) => ({
     method: 'POST',
     path: `/api/v1/summaries/adhoc/jobs/${enc(args[0])}/cancel`
+  }),
+  // 补偿推断作业：入队 + 查状态（设置页「补推断」入口）
+  'v1:jobs-backfill': (args) => ({
+    method: 'POST',
+    path: '/api/v1/jobs/backfill',
+    body: { from: args[0], to: args[1] }
+  }),
+  'v1:jobs-status': (args) => ({
+    method: 'GET',
+    path: `/api/v1/jobs/${enc(args[0])}`
   })
 }
 

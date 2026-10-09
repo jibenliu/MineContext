@@ -8,6 +8,7 @@ import { blobImageUrls, persistBlobImages } from '@renderer/adapters/markdown-im
 import AIAssistant from '@renderer/components/ai-assistant'
 import AIToggleButton from '@renderer/components/ai-toggle-button'
 import MarkdownEditor from '@renderer/components/markdown-editor'
+import { toEditorFileUrl } from '@renderer/components/markdown-editor/images'
 import StatusBar from '@renderer/components/status-bar/status-bar'
 import { useAllotment } from '@renderer/hooks/use-allotment'
 import { useVaults } from '@renderer/hooks/use-vault'
@@ -94,7 +95,8 @@ const VaultPage = () => {
             | { success?: boolean; filePath?: string }
             | undefined
           if (!result?.success || !result.filePath) throw new Error('图片保存失败')
-          return result.filePath
+          // 与 Crepe `persistEditorImage` 同一契约：markdown 写 `file://`，重启才能读回。
+          return toEditorFileUrl(result.filePath)
         }
       })
         .then((outcome) => {

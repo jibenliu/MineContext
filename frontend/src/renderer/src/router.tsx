@@ -9,6 +9,7 @@ import { HashRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { useObservableTask } from './atom/event-loop.atom'
 import Sidebar from './components/sidebar'
 import { useEvents } from './hooks/use-events'
+import { useTrayRecordingSync } from './hooks/use-tray-recording-sync'
 import AIDemo from './pages/ai-demo/ai-demo'
 import { AssistantPage } from './pages/assistant/assistant-page'
 import Files from './pages/files/files'
@@ -26,6 +27,8 @@ const AppContent: FC = () => {
     active: startPolling,
     inactive: stopPolling
   })
+  // 托盘录制指示：生命周期跟 app shell，不跟屏幕监控页
+  useTrayRecordingSync()
 
   // 托盘菜单「屏幕监控」：点击后导航过去
   useEffect(() => {

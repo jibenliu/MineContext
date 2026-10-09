@@ -13,20 +13,20 @@ test('识别 Blob URL（去重、保持顺序）', () => {
   assert.deepEqual(blobImageUrls('没有图片'), [])
 })
 
-test('全部上传成功：替换成落库后仍有效的路径', async () => {
+test('全部上传成功：替换成落库后仍有效的 file:// 地址', async () => {
   const saved: string[] = []
   const result = await persistBlobImages(markdown, {
     read: async () => bytes,
     save: async (name, data) => {
       saved.push(`${name}:${data.length}`)
-      return '/uploads/note-image-1.png'
+      return 'file:///uploads/note-image-1.png'
     }
   })
 
   assert.equal(result.failed, 0)
   assert.equal(result.replaced, 1)
   assert.ok(!result.markdown.includes('blob:'), '不许留下 Blob URL')
-  assert.ok(result.markdown.includes('/uploads/note-image-1.png'))
+  assert.ok(result.markdown.includes('file:///uploads/note-image-1.png'))
   assert.deepEqual(saved, ['note-image-1.png:3'])
 })
 

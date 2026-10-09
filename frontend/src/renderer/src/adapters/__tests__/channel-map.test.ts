@@ -149,3 +149,16 @@ test('新增面：会话列表映射到兼容路径', () => {
   assert.ok(fallback)
   assert.equal(fallback.path, '/api/agent/chat/conversations/list?limit=20')
 })
+
+test('新增面：补偿推断作业入队与查状态', () => {
+  const enqueue = resolveChannel('v1:jobs-backfill', ['2026-10-01', '2026-10-08'])
+  assert.ok(enqueue)
+  assert.equal(enqueue.method, 'POST')
+  assert.equal(enqueue.path, '/api/v1/jobs/backfill')
+  assert.deepEqual(enqueue.body, { from: '2026-10-01', to: '2026-10-08' })
+
+  const status = resolveChannel('v1:jobs-status', [42])
+  assert.ok(status)
+  assert.equal(status.method, 'GET')
+  assert.equal(status.path, '/api/v1/jobs/42')
+})

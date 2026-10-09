@@ -217,8 +217,8 @@ pub fn vector_index(db: &Database) -> Result<Option<VectorIndex>, AppError> {
         .collect();
 
     let mut index = VectorIndex::unbound();
-    // 活动与笔记共用同一套索引：笔记向量此前被漏加载，同义改写只能靠关键词。
-    for kind in ["activity", "document"] {
+    // 活动 / 笔记 / 总结共用同一套索引：漏加载任一类都会让同义改写退化为关键词。
+    for kind in ["activity", "document", "summary"] {
         for record in mc_storage::vectors::load_vectors(db, kind)? {
             if !allowed.contains(&(kind, record.doc_id.as_str())) {
                 continue;

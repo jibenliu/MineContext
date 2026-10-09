@@ -139,7 +139,7 @@ fi
 if [ "${do_contract}" -eq 1 ]; then
   check "契约新鲜度"
   [ "${LIST_ONLY}" -eq 0 ] && timed "extract-used-ipc-channels + git diff" \
-    bash -c 'xtask_run extract-used-ipc-channels && git diff --quiet fixtures/contract/'
+    bash -c '. ./scripts/lib/xtask.sh && xtask_run extract-used-ipc-channels && git diff --quiet fixtures/contract/'
 fi
 
 if [ "${do_scripts}" -eq 1 ]; then

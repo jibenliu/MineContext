@@ -31,4 +31,12 @@ describe('编辑器本地图片', () => {
     await expect(resolveEditorImage('blob:expired')).rejects.toThrow()
     expect(backend.calls).toHaveLength(0)
   })
+
+  it('历史裸绝对路径也能读回（与 file:// 同一契约）', async () => {
+    const backend = installFakeBackend({
+      'file:read': { success: true, data: 'aGk=' }
+    })
+    expect(await resolveEditorImage('/uploads/note-image.png')).toBe('data:image/png;base64,aGk=')
+    expect(backend.calls[0].args).toEqual(['note-image.png', 'base64'])
+  })
 })
