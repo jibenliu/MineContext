@@ -146,7 +146,11 @@ jobs:
             if [ -z "$arch" ]; then
               arch="macos"
             fi
-            mv "$dmg" "release-assets/MineContext_${tag}_${arch}.dmg"
+            dest="release-assets/MineContext_${tag}_${arch}.dmg"
+            # 仓库版本已与 tag 对齐时源名即目标名，mv 同路径会失败
+            if [ "$dmg" != "$dest" ]; then
+              mv "$dmg" "$dest"
+            fi
           done
           # 平台包打成 zip，Release 附件更干净
           (
