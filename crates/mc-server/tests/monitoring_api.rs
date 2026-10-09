@@ -45,6 +45,31 @@ fn ctx() -> Ctx {
     ctx_with_session(SESSION)
 }
 
+/// 越过「未同意出网 / 未配模型 / 无密钥」三道门，专门测 provider 侧失败（401/429/余额）。
+fn ctx_ready_for_provider_calls() -> Ctx {
+    let dir = tempfile::tempdir().unwrap();
+    let db = Arc::new(Database::open(dir.path().join("minecontext.db")).unwrap());
+    let mut loaded = mc_config::load::load(&mc_config::load::LoadRequest::default()).unwrap();
+    loaded.config.privacy.ai_upload = true;
+    loaded.config.ai.enabled = true;
+    loaded.config.ai.vision.base_url = "https://api.example.com/v1".to_string();
+    loaded.config.ai.vision.model = "qwen3-vl".to_string();
+    loaded.config.ai.vision.api_key_ref = Some("sidecar:model-keys".to_string());
+    std::fs::write(
+        dir.path().join("model-keys.json"),
+        r#"{"api_key":"sk-live-wrong-but-present"}"#,
+    )
+    .unwrap();
+    let state = Arc::new(ServerState::new(
+        mc_config::ConfigHandle::new(loaded),
+        db,
+        TOKEN.to_string(),
+        Timestamp::from_millis(SESSION),
+        dir.path().to_path_buf(),
+    ));
+    Ctx { _dir: dir, state }
+}
+
 fn request(method: &str, uri: &str, body: Option<serde_json::Value>) -> Request<Body> {
     let mut builder = Request::builder()
         .method(method)
@@ -348,5 +373,103 @@ async fn captures_and_analyses_are_counted_separately() {
         stats["analysis_blocker"].is_null(),
         "已有分析完成时不再展示 blocker：{}",
         stats["analysis_blocker"]
+    );
+}
+
+#[tokio::test]
+async fn analysis_blocker_names_invalid_api_key_from_401() {
+    let ctx = ctx_ready_for_provider_calls();
+    seed_screenshot(
+        &ctx.state,
+        "obs-auth",
+        SESSION + MINUTE,
+        "20260930/auth.png",
+    );
+    ctx.state
+        .db
+        .record_failure(
+            Timestamp::from_millis(SESSION + 2 * MINUTE),
+            "activities",
+            &mc_common::error::AppError::new(
+                ErrorCode::ProviderAuthFailed,
+                "HTTP 401: invalid api key",
+            ),
+            "warn",
+        )
+        .unwrap();
+
+    let stats = data(&call(&ctx.state, "GET", "/api/monitoring/recording-stats").await);
+    assert_eq!(stats["captured_screenshots"], 1);
+    assert_eq!(stats["processed_screenshots"], 0);
+    let blocker = &stats["analysis_blocker"];
+    assert_eq!(blocker["code"], "api_key_invalid", "{blocker}");
+    let message = blocker["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains("API Key") || message.contains("密钥"),
+        "必须点名密钥问题：{blocker}"
+    );
+}
+
+#[tokio::test]
+async fn analysis_blocker_names_rate_limit_from_429() {
+    let ctx = ctx_ready_for_provider_calls();
+    seed_screenshot(&ctx.state, "obs-429", SESSION + MINUTE, "20260930/429.png");
+    ctx.state
+        .db
+        .record_failure(
+            Timestamp::from_millis(SESSION + 2 * MINUTE),
+            "embedding",
+            &mc_common::error::AppError::new(ErrorCode::ProviderRateLimited, "HTTP 429"),
+            "warn",
+        )
+        .unwrap();
+
+    let stats = data(&call(&ctx.state, "GET", "/api/monitoring/recording-stats").await);
+    let blocker = &stats["analysis_blocker"];
+    assert_eq!(blocker["code"], "provider_rate_limited", "{blocker}");
+    assert!(
+        blocker["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("限流"),
+        "{blocker}"
+    );
+}
+
+#[tokio::test]
+async fn analysis_blocker_names_quota_or_balance_exhaustion() {
+    let ctx = ctx_ready_for_provider_calls();
+    seed_screenshot(
+        &ctx.state,
+        "obs-quota",
+        SESSION + MINUTE,
+        "20260930/quota.png",
+    );
+    ctx.state
+        .db
+        .record_failure(
+            Timestamp::from_millis(SESSION + 2 * MINUTE),
+            "activities",
+            &mc_common::error::AppError::new(
+                ErrorCode::ProviderInvalidResponse,
+                "HTTP 400: 余额不足，请充值后重试",
+            ),
+            "warn",
+        )
+        .unwrap();
+
+    let stats = data(&call(&ctx.state, "GET", "/api/monitoring/recording-stats").await);
+    let blocker = &stats["analysis_blocker"];
+    assert_eq!(blocker["code"], "quota_exhausted", "{blocker}");
+    assert!(
+        blocker["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("余额")
+            || blocker["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("额度"),
+        "{blocker}"
     );
 }

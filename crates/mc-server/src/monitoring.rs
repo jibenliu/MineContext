@@ -101,7 +101,7 @@ pub fn build_stats(state: &ServerState) -> Result<Value, AppError> {
     }))
 }
 
-/// 采到了但「已分析」为 0 时，给前端一句可行动的原因（配置 / 隐私 / 管道未接线）。
+/// 采到了但「已分析」为 0 时，给前端一句可行动的原因（配置 / 隐私 / 管道 / 鉴权）。
 fn analysis_blocker(
     state: &ServerState,
     counts: &mc_storage::monitoring::RecordingCounts,
@@ -140,6 +140,14 @@ fn analysis_blocker(
             "message": "视觉模型已配但读不到 API Key（sidecar / 钥匙串为空）。请到设置页重新保存 API Key。",
         });
     }
+    // 密钥能读到但仍失败：401/403、429、余额不足 —— 比「pending 未接线」更可行动。
+    if let Ok(Some(hint)) =
+        mc_storage::monitoring::latest_provider_failure(&state.db, state.started_at.as_millis())
+    {
+        if let Some(blocker) = provider_failure_blocker(&hint) {
+            return blocker;
+        }
+    }
     if counts.failed_screenshots > 0 {
         let detail = counts
             .recent_errors
@@ -166,4 +174,84 @@ fn analysis_blocker(
         "code": "no_completed_analyses",
         "message": "本会话有采集但没有任何 done/degraded 分析记录。请检查诊断页 /api/diagnostics 与 pipeline_failures。",
     })
+}
+
+fn provider_failure_blocker(hint: &mc_storage::monitoring::ProviderFailureHint) -> Option<Value> {
+    let blob = format!(
+        "{} {} {}",
+        hint.message,
+        hint.remediation.as_deref().unwrap_or(""),
+        hint.context.as_deref().unwrap_or("")
+    );
+    let looks_like_quota = looks_like_quota_exhaustion(&blob);
+
+    match hint.error_code.as_str() {
+        "provider_auth_failed" => Some(json!({
+            "code": "api_key_invalid",
+            "message": format!(
+                "{}请到设置页更新 API Key 后重试。{}",
+                hint.message,
+                hint.remediation
+                    .as_deref()
+                    .map(|text| format!(" {text}"))
+                    .unwrap_or_default()
+            ),
+        })),
+        "provider_rate_limited" => Some(json!({
+            "code": "provider_rate_limited",
+            "message": format!(
+                "{}{}",
+                hint.message,
+                hint.remediation
+                    .as_deref()
+                    .map(|text| format!(" {text}"))
+                    .unwrap_or_default()
+            ),
+        })),
+        "budget_exceeded" => Some(json!({
+            "code": "budget_exceeded",
+            "message": format!(
+                "{}{}",
+                hint.message,
+                hint.remediation
+                    .as_deref()
+                    .map(|text| format!(" {text}"))
+                    .unwrap_or_default()
+            ),
+        })),
+        "provider_not_found" => Some(json!({
+            "code": "model_not_found",
+            "message": format!(
+                "{}{}",
+                hint.message,
+                hint.remediation
+                    .as_deref()
+                    .map(|text| format!(" {text}"))
+                    .unwrap_or_default()
+            ),
+        })),
+        "provider_invalid_response" | "provider_server_error" if looks_like_quota => Some(json!({
+            "code": "quota_exhausted",
+            "message": format!(
+                "模型服务返回额度/余额不足（{}）。请充值或更换可用的 API Key 后再观察「已分析」计数。",
+                hint.context
+                    .as_deref()
+                    .filter(|text| !text.is_empty())
+                    .unwrap_or(hint.message.as_str())
+            ),
+        })),
+        _ => None,
+    }
+}
+
+fn looks_like_quota_exhaustion(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    lower.contains("余额")
+        || lower.contains("欠费")
+        || lower.contains("额度")
+        || lower.contains("充值")
+        || lower.contains("insufficient")
+        || lower.contains("quota")
+        || lower.contains("billing")
+        || lower.contains("credit")
 }
