@@ -141,6 +141,18 @@ fn permissions_endpoint_reports_readiness() {
         data["monitor_count"].as_u64().is_some(),
         "必须报告显示器数量：{data}"
     );
+    assert!(
+        data["screen_recording_tcc"].is_boolean(),
+        "必须区分 TCC 原值与经验证后的 screen_recording：{data}"
+    );
+    assert!(
+        data["enabled"].is_boolean(),
+        "必须报告 capture.enabled，否则前端无法说明「录制尚未开始」：{data}"
+    );
+    assert!(
+        data.get("windows_reason").is_some(),
+        "必须带 windows_reason（可为 null）：{data}"
+    );
 }
 
 #[test]

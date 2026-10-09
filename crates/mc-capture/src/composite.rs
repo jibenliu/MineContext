@@ -132,6 +132,8 @@ impl CaptureSource for CompositeSource {
     async fn poll(&self, ctx: &CaptureContext) -> Result<Vec<RawCapture>, AppError> {
         let mut merged = Vec::new();
         let mut errors = BTreeMap::new();
+        let mut permission_error: Option<AppError> = None;
+        let mut first_error: Option<AppError> = None;
 
         // 并发轮询：一次 tick 的耗时应该是**最慢的那个源**，而不是所有源之和
         // （屏幕截图 + 窗口元数据 + 剪贴板串起来就是三份等待）。
@@ -143,14 +145,29 @@ impl CaptureSource for CompositeSource {
         for (source, result) in self.sources.iter().zip(results) {
             match result {
                 Ok(mut captures) => merged.append(&mut captures),
-                // 剪贴板权限问题不该让截图停摆：记住原因，继续下一个源
+                // 单源失败不拖垮其它源：记住原因，继续合并成功的源。
+                // 但**全部**失败时必须向上抛错——否则采集环记 0 失败、UI 永远「0 张截图」。
                 Err(error) => {
                     errors.insert(source.id().to_string(), error.detail().to_string());
+                    if error.code() == mc_common::error::ErrorCode::CapturePermissionDenied
+                        || error.code() == mc_common::error::ErrorCode::CaptureBlackFrame
+                    {
+                        if permission_error.is_none() {
+                            permission_error = Some(error);
+                        }
+                    } else if first_error.is_none() {
+                        first_error = Some(error);
+                    }
                 }
             }
         }
 
         self.update_errors(errors);
+        if merged.is_empty() {
+            if let Some(error) = permission_error.or(first_error) {
+                return Err(error);
+            }
+        }
         Ok(merged)
     }
 

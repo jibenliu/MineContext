@@ -4,6 +4,8 @@
 //! 系统设置勾选的常常是外壳 app：Preflight 可能对实际可采的画面仍返回 false。
 //! 交叉验证（能采到非黑帧）用于消除这类假阴性。
 
+use std::time::Duration;
+
 use crate::source::PermissionState;
 
 /// Preflight 为 false 时的交叉探测结果。
@@ -15,11 +17,14 @@ pub enum EmpiricalCapture {
     Works,
     /// 采到黑帧或采集失败 → 权限仍不可用
     Denied,
+    /// 交叉截屏超时（macOS 13 上无权限时 `capture_image` 可能挂起）→ 按不可用处理，避免拖死 daemon
+    TimedOut,
 }
 
 /// Preflight + 经验证的合成规则。
 ///
 /// Preflight 为 true 时直接信任；为 false 时若经验证能采到画面，按已授权处理。
+/// 超时与未知一律 fail-closed：宁可提示缺权限，也不能让同步截屏挂起整条采集环。
 pub const fn resolve_screen_permission(
     preflight_granted: bool,
     empirical: EmpiricalCapture,
@@ -29,7 +34,81 @@ pub const fn resolve_screen_permission(
     }
     match empirical {
         EmpiricalCapture::Works => PermissionState::Granted,
-        EmpiricalCapture::Denied | EmpiricalCapture::Unknown => PermissionState::Denied,
+        EmpiricalCapture::Denied | EmpiricalCapture::Unknown | EmpiricalCapture::TimedOut => {
+            PermissionState::Denied
+        }
+    }
+}
+
+/// 经验证结果的缓存 TTL：否决/超时缓存更久，避免每几秒再堵一次同步截屏。
+pub const fn empirical_cache_ttl_secs(result: EmpiricalCapture) -> u64 {
+    match result {
+        EmpiricalCapture::Works => 30,
+        EmpiricalCapture::Denied | EmpiricalCapture::TimedOut => 60,
+        EmpiricalCapture::Unknown => 8,
+    }
+}
+
+/// 窗口列表 / 窗口元数据路径的权限：只信 TCC Preflight，不走经验证。
+///
+/// 经验证可能因「只有壁纸的非黑帧」把屏幕路径判成 Granted，但 `Window::all`
+/// 仍会因 TCC 失败而空列表 —— 若窗口也跟经验证，UI 会误显示「没有打开的应用」。
+pub const fn resolve_window_permission(tcc_granted: bool) -> PermissionState {
+    if tcc_granted {
+        PermissionState::Granted
+    } else {
+        PermissionState::Denied
+    }
+}
+
+/// 窗口选择器为空时的原因（给设置页 Alert 用）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowListReason {
+    Ok,
+    ScreenRecordingPermission,
+    Empty,
+}
+
+impl WindowListReason {
+    pub const fn as_api_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::ScreenRecordingPermission => "screen_recording_permission",
+            Self::Empty => "empty",
+        }
+    }
+}
+
+/// TCC + 枚举到的窗口数 → 列表状态。
+pub const fn window_list_status(tcc_granted: bool, window_count: usize) -> WindowListReason {
+    if !tcc_granted {
+        WindowListReason::ScreenRecordingPermission
+    } else if window_count == 0 {
+        WindowListReason::Empty
+    } else {
+        WindowListReason::Ok
+    }
+}
+
+/// 在独立线程跑交叉探测，超时返回 [`EmpiricalCapture::TimedOut`]。
+///
+/// 平台实现把真正的 `capture_image` 放进 `worker`；本函数保证调用方不会无限等待。
+pub fn empirical_from_worker_timeout<F>(timeout: Duration, worker: F) -> EmpiricalCapture
+where
+    F: FnOnce() -> EmpiricalCapture + Send + 'static,
+{
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = std::thread::Builder::new()
+        .name("mc-empirical-capture".into())
+        .spawn(move || {
+            let _ = tx.send(worker());
+        });
+    if handle.is_err() {
+        return EmpiricalCapture::Unknown;
+    }
+    match rx.recv_timeout(timeout) {
+        Ok(result) => result,
+        Err(_) => EmpiricalCapture::TimedOut,
     }
 }
 
@@ -71,6 +150,79 @@ mod tests {
         assert_eq!(
             resolve_screen_permission(false, EmpiricalCapture::Unknown),
             PermissionState::Denied
+        );
+    }
+
+    #[test]
+    fn empirical_timeout_is_denied_fail_closed() {
+        assert_eq!(
+            resolve_screen_permission(false, EmpiricalCapture::TimedOut),
+            PermissionState::Denied,
+            "截屏交叉验证超时不得当成已授权，否则会继续堵在采集路径上"
+        );
+    }
+
+    #[test]
+    fn denied_empirical_caches_longer_than_unknown() {
+        assert!(
+            empirical_cache_ttl_secs(EmpiricalCapture::Denied)
+                > empirical_cache_ttl_secs(EmpiricalCapture::Unknown)
+        );
+        assert!(
+            empirical_cache_ttl_secs(EmpiricalCapture::TimedOut)
+                >= empirical_cache_ttl_secs(EmpiricalCapture::Denied)
+        );
+    }
+
+    #[test]
+    fn empirical_worker_timeout_maps_to_timed_out() {
+        let result = empirical_from_worker_timeout(Duration::from_millis(30), || {
+            std::thread::sleep(Duration::from_secs(10));
+            EmpiricalCapture::Works
+        });
+        assert_eq!(
+            result,
+            EmpiricalCapture::TimedOut,
+            "挂起的交叉截屏必须在超时后返回 TimedOut，不能一直堵着调用方"
+        );
+        assert_eq!(
+            resolve_screen_permission(false, result),
+            PermissionState::Denied
+        );
+    }
+
+    #[test]
+    fn empirical_worker_completes_before_timeout() {
+        let result =
+            empirical_from_worker_timeout(Duration::from_secs(2), || EmpiricalCapture::Works);
+        assert_eq!(result, EmpiricalCapture::Works);
+    }
+
+    #[test]
+    fn window_permission_trusts_tcc_only() {
+        assert_eq!(
+            resolve_window_permission(false),
+            PermissionState::Denied,
+            "经验证把屏幕判成可用时，窗口路径仍必须看 TCC"
+        );
+        assert_eq!(resolve_window_permission(true), PermissionState::Granted);
+    }
+
+    #[test]
+    fn window_list_status_distinguishes_permission_from_empty() {
+        assert_eq!(
+            window_list_status(false, 0),
+            WindowListReason::ScreenRecordingPermission
+        );
+        assert_eq!(
+            window_list_status(false, 3),
+            WindowListReason::ScreenRecordingPermission
+        );
+        assert_eq!(window_list_status(true, 0), WindowListReason::Empty);
+        assert_eq!(window_list_status(true, 2), WindowListReason::Ok);
+        assert_eq!(
+            WindowListReason::ScreenRecordingPermission.as_api_str(),
+            "screen_recording_permission"
         );
     }
 }

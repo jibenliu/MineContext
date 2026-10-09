@@ -83,16 +83,23 @@ pub async fn permissions(State(state): State<Arc<ServerState>>) -> Response {
         .as_ref()
         .map(|c| c.is_running())
         .unwrap_or(false);
+    let enabled = state.config.current().config.capture.enabled;
+    let tcc_granted = mc_capture::platform::probe_tcc_granted();
+    let windows_reason = mc_capture::platform::probe_windows_reason();
 
     envelope::ok(json!({
         // 兼容面的老字段是一个裸 boolean；这里给出更完整的结构，
         // 并保留 `screen_recording` 这个名字，前端不必改调用点。
+        // screen_recording = 屏幕路径有效权限（可含经验证）；tcc 是进程 TCC 原值。
         "screen_recording": readiness.permission == mc_capture::source::PermissionState::Granted,
+        "screen_recording_tcc": tcc_granted,
+        "windows_reason": windows_reason,
         "accessibility": false,
         "permission": permission_label(readiness.permission),
         "ready": readiness.available,
         "monitor_count": readiness.monitor_count,
         "running": running,
+        "enabled": enabled,
         "message": readiness.message,
     }))
 }
@@ -186,10 +193,16 @@ pub async fn status(State(state): State<Arc<ServerState>>) -> Response {
         }))
     };
 
+    // enabled=false（用户停过录）时 interval 配置仍在：前端据此显示
+    // 「录制尚未开始」，不能只靠滑块上的 5s 推断采集环在跑。
+    let enabled = state.config.current().config.capture.enabled;
+
     envelope::ok(json!({
         "canRecord": ready,
         "status": if running { "running" } else { "stopped" },
+        "enabled": enabled,
         "reason": reason,
+        "windows_reason": mc_capture::platform::probe_windows_reason(),
     }))
 }
 

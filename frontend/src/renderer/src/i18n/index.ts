@@ -315,7 +315,11 @@ const zh: Messages = {
   'screenMonitor.settings.screenSection': '屏幕',
   'screenMonitor.settings.windowSection': '窗口',
   'screenMonitor.settings.onlyOpenedApps': '只能选择当前已打开的应用程序',
-  'screenMonitor.empty.startHint': '开始屏幕录制后，每 {minutes} 分钟会截图并整理你的工作记录',
+  'screenMonitor.settings.recordingNotStarted': '录制尚未开始，请点「开始录制」。间隔设置只在开始录制后生效。',
+  'screenMonitor.settings.windowPermissionBlocked':
+    '窗口列表需要屏幕录制权限。请在系统设置中勾选 MineContext 与 mc-daemon，然后完全退出并重开。',
+  'screenMonitor.settings.openScreenRecording': '打开系统设置',
+  'screenMonitor.empty.startHint': '录制尚未开始，请点「开始录制」。开始后约每 {minutes} 分钟会整理你的工作记录',
   'screenMonitor.empty.noData': '暂无数据',
   'screenMonitor.empty.permissionHint': '开启屏幕录制权限，每 {minutes} 分钟用 AI 生成总结',
   'screenMonitor.empty.enablePermission': '开启权限',
@@ -672,8 +676,13 @@ const en: Messages = {
   'screenMonitor.settings.screenSection': 'Screen',
   'screenMonitor.settings.windowSection': 'Window',
   'screenMonitor.settings.onlyOpenedApps': 'Only opened applications can be selected',
+  'screenMonitor.settings.recordingNotStarted':
+    'Recording has not started. Click Start Recording. The interval applies only after recording starts.',
+  'screenMonitor.settings.windowPermissionBlocked':
+    'The window list needs Screen Recording permission. Enable MineContext and mc-daemon in System Settings, then quit fully and reopen.',
+  'screenMonitor.settings.openScreenRecording': 'Open System Settings',
   'screenMonitor.empty.startHint':
-    'Start screen recording, and then it will take screenshots and summarize your work records every {minutes} minutes',
+    'Recording has not started. Click Start Recording. After it starts, work is summarized about every {minutes} minutes',
   'screenMonitor.empty.noData': 'No data available',
   'screenMonitor.empty.permissionHint': 'Enable screen recording permission, summary with AI every {minutes} minutes',
   'screenMonitor.empty.enablePermission': 'Enable Permission',

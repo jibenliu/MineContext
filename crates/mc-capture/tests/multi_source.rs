@@ -11,6 +11,7 @@ use mc_capture::source::{
     CaptureContext, CaptureSource, CaptureTarget, PermissionState, RawCapture, SourceCapabilities,
     SourceHealth, SourceKind, TargetKind, TextEvidence, TextOrigin,
 };
+use mc_common::error::ErrorCode;
 use mc_common::time::Timestamp;
 use mc_testkit::capture::FakeCaptureSource;
 
@@ -124,6 +125,40 @@ async fn one_denied_source_does_not_stop_the_others() {
     assert!(
         composite.last_errors().contains_key("fake:window"),
         "失败来源要留下原因，实际 {:?}",
+        composite.last_errors()
+    );
+}
+
+#[tokio::test]
+async fn all_sources_denied_surfaces_permission_error() {
+    // 双源都缺屏幕录制权限时，不能 Ok([]) 把失败吞掉——否则采集环记 0 失败、
+    // UI「0 张截图已采集」且没有任何权限提示，重启也看不出原因。
+    let screen = Arc::new(
+        FakeCaptureSource::builder()
+            .screen("display-1", "内建显示器", 2.0)
+            .permission(PermissionState::Denied)
+            .build()
+            .unwrap(),
+    ) as Arc<dyn CaptureSource>;
+    let window = Arc::new(
+        FakeCaptureSource::builder()
+            .kind(SourceKind::Window)
+            .window("win-1", "Safari", "Safari")
+            .permission(PermissionState::Denied)
+            .build()
+            .unwrap(),
+    ) as Arc<dyn CaptureSource>;
+    let composite = CompositeSource::new(vec![screen, window]);
+
+    let error = composite
+        .poll(&CaptureContext::at(at(0)))
+        .await
+        .expect_err("全部源失败必须向上抛错");
+
+    assert_eq!(error.code(), ErrorCode::CapturePermissionDenied);
+    assert!(
+        composite.last_errors().len() >= 2,
+        "每个失败源都应留下原因，实际 {:?}",
         composite.last_errors()
     );
 }

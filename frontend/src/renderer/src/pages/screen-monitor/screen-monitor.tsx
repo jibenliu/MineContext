@@ -177,10 +177,14 @@ const ScreenMonitor: React.FC = () => {
   const [canRecord, setCanRecord] = useState(false)
   // 不能录制时把原因一起存下来（后端 /api/capture/status 的 reason），界面直接告诉用户
   const [recordBlockReason, setRecordBlockReason] = useState<string | undefined>(undefined)
+  const [captureEnabled, setCaptureEnabled] = useState<boolean | undefined>(undefined)
+  const [windowsReason, setWindowsReason] = useState<string | null | undefined>(undefined)
   const checkCanRecord = useMemoizedFn(async () => {
     const result = await window.screenMonitorAPI.checkCanRecord()
     setCanRecord(result.canRecord)
     setRecordBlockReason(result.reason)
+    setCaptureEnabled(result.enabled)
+    setWindowsReason(result.windows_reason)
     setIsMonitoring(result.status === 'running')
     return result
   })
@@ -408,7 +412,7 @@ const ScreenMonitor: React.FC = () => {
     // Refresh the application list before opening settings
     try {
       setSettingsVisible(true)
-      await refreshSourcesRead()
+      await Promise.all([refreshSourcesRead(), checkCanRecord()])
     } catch (error) {
       logger.error('Failed to refresh application list', { error })
     }
@@ -601,6 +605,9 @@ const ScreenMonitor: React.FC = () => {
           tempEnableRecordingHours={tempEnableRecordingHours}
           tempRecordingHours={tempRecordingHours}
           tempApplyToDays={tempApplyToDays}
+          isMonitoring={isMonitoring}
+          captureEnabled={captureEnabled}
+          windowsReason={windowsReason}
           onCancel={handleCancelSettings}
           onSave={handleSave}
           onSetApplicationVisible={setApplicationVisible}
@@ -608,6 +615,7 @@ const ScreenMonitor: React.FC = () => {
           onSetTempEnableRecordingHours={setTempEnableRecordingHours}
           onSetTempRecordingHours={setTempRecordingHours}
           onSetTempApplyToDays={setTempApplyToDays}
+          onRequestPermission={handleRequestPermission}
         />
       </div>
     </div>

@@ -20,7 +20,10 @@ pub struct CaptureReadiness {
     pub message: Option<String>,
 }
 
-/// 探测当前平台的采集就绪度（不弹窗、不采集）。
+/// 探测当前平台的采集就绪度（不弹窗）。
+///
+/// macOS 上若 `CGPreflight` 为 false，可能做一次**带超时**的交叉截屏以消除假阴性；
+/// 超时或黑帧按缺权限处理，避免同步挂起拖死 daemon。
 pub fn probe_readiness() -> CaptureReadiness {
     #[cfg(target_os = "macos")]
     {
@@ -34,7 +37,7 @@ pub fn probe_readiness() -> CaptureReadiness {
             message: if available {
                 None
             } else if permission == super::source::PermissionState::Denied {
-                Some("缺少屏幕录制权限".to_string())
+                Some("缺少屏幕录制权限：请在「系统设置 → 隐私与安全性 → 屏幕录制」中勾选 MineContext 与 mc-daemon（或助手进程），然后完全退出并重开应用".to_string())
             } else {
                 Some("没有检测到显示器".to_string())
             },
@@ -49,6 +52,41 @@ pub fn probe_readiness() -> CaptureReadiness {
             monitor_count: 0,
             message: Some("当前平台尚未实现屏幕采集".to_string()),
         }
+    }
+}
+
+/// 当前进程的 TCC Preflight 是否已授权（不做交叉截屏）。
+///
+/// 窗口列表必须用这个信号；屏幕路径的 `probe_readiness` 可能因经验证更宽。
+pub fn probe_tcc_granted() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        macos::permission::tcc_preflight() == super::source::PermissionState::Granted
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+/// 窗口选择器状态原因（API 字符串）；非 macOS 为 `None`。
+pub fn probe_windows_reason() -> Option<&'static str> {
+    use crate::permission_resolve::window_list_status;
+
+    #[cfg(target_os = "macos")]
+    {
+        let tcc = probe_tcc_granted();
+        let window_count = if tcc {
+            xcap::Window::all().map(|w| w.len()).unwrap_or(0)
+        } else {
+            0
+        };
+        Some(window_list_status(tcc, window_count).as_api_str())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window_list_status;
+        None
     }
 }
 

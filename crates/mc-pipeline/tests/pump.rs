@@ -210,6 +210,33 @@ async fn skipped_observations_are_counted_not_silent() {
     assert_eq!(stats.unchanged, 3, "其余三帧应被记为「没变化」");
 }
 
+#[tokio::test]
+async fn black_frames_are_capture_failures_not_persisted() {
+    // macOS 无屏幕录制权限时常静默返回全黑帧；若当正常画面落盘/记 unchanged，
+    // 用户会看到「0 张有内容」或假进度。必须记 failed 且不写盘。
+    let source = FakeCaptureSource::builder()
+        .screen("display-1", "Display 1", 2.0)
+        .image_size(320, 200)
+        .solid_rgb([0, 0, 0])
+        .build()
+        .unwrap();
+    let mut h = harness(source, default_policy());
+
+    h.pump
+        .tick(
+            h.clock.now(),
+            &mc_capture::scheduler::CaptureSignals::RUNNING,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(h.frames.calls.load(Ordering::SeqCst), 0, "黑帧不得落盘");
+    assert_eq!(h.sink.count(), 0, "黑帧不得落库");
+    assert_eq!(h.pump.stats().failed, 1, "黑帧应计为采集失败");
+    let err = h.pump.last_error().expect("应留下最近错误");
+    assert_eq!(err.code(), ErrorCode::CaptureBlackFrame);
+}
+
 // ---------------------------------------------------------------- 隐私
 
 #[tokio::test]

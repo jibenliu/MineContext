@@ -69,6 +69,46 @@ fn target_from_monitor(monitor: &Monitor) -> Result<CaptureTarget, AppError> {
     })
 }
 
+/// 按显示器下标截一帧 RGB，带超时。超时 → [`ErrorCode::CaptureTimeout`]。
+fn capture_monitor_rgb_timed(
+    index: usize,
+    timeout: std::time::Duration,
+) -> Result<image::RgbImage, AppError> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let spawned = std::thread::Builder::new()
+        .name("mc-screen-capture".into())
+        .spawn(move || {
+            let result = (|| {
+                let monitors = MacScreenSource::monitors()?;
+                let monitor = monitors.get(index).ok_or_else(|| {
+                    AppError::new(ErrorCode::CaptureNoDisplay, "显示器在采集前消失了")
+                })?;
+                let frame = monitor
+                    .capture_image()
+                    .map_err(|e| map_xcap_error(&e.to_string()))?;
+                rgba_to_rgb(frame.width(), frame.height(), frame.as_raw())
+            })();
+            let _ = tx.send(result);
+        });
+    if spawned.is_err() {
+        return Err(AppError::new(
+            ErrorCode::CaptureIo,
+            "无法启动屏幕采集线程".to_string(),
+        ));
+    }
+    match rx.recv_timeout(timeout) {
+        Ok(result) => result,
+        Err(_) => Err(AppError::new(
+            ErrorCode::CaptureTimeout,
+            format!(
+                "屏幕采集超时（{}s）：常见于未授予屏幕录制权限，请在系统设置中勾选后完全退出并重开",
+                timeout.as_secs().max(1)
+            ),
+        )
+        .with_context("platform", "macos")),
+    }
+}
+
 /// `xcap` 的错误文本 → typed error。
 ///
 /// 抽成纯函数是为了在没有权限的机器（以及 CI）上也能测试映射逻辑 ——
@@ -156,7 +196,7 @@ impl CaptureSource for MacScreenSource {
         }
 
         let mut captures = Vec::new();
-        for monitor in &monitors {
+        for (index, monitor) in monitors.iter().enumerate() {
             let target = match target_from_monitor(monitor) {
                 Ok(target) => target,
                 Err(_) => continue,
@@ -165,11 +205,9 @@ impl CaptureSource for MacScreenSource {
                 continue;
             }
 
-            let frame = monitor
-                .capture_image()
-                .map_err(|e| map_xcap_error(&e.to_string()))?;
-
-            let image = rgba_to_rgb(frame.width(), frame.height(), frame.as_raw())?;
+            // 按显示器下标在带超时的线程里截屏：无权限时部分系统上
+            // `capture_image` 会挂起；堵在异步 worker 上会让整个 daemon/UI 卡死。
+            let image = capture_monitor_rgb_timed(index, permission::EMPIRICAL_CAPTURE_TIMEOUT)?;
 
             captures.push(RawCapture::from_source(
                 self,
@@ -206,20 +244,22 @@ impl CaptureSource for MacScreenSource {
         &self,
         max_width: u32,
     ) -> std::collections::HashMap<String, String> {
-        use crate::thumbnail::rgba_to_data_url;
+        use crate::thumbnail::rgb_to_data_url;
 
         let mut out = std::collections::HashMap::new();
         let Ok(monitors) = Self::monitors() else {
             return out;
         };
-        for monitor in &monitors {
+        for (index, monitor) in monitors.iter().enumerate() {
             let Ok(target) = target_from_monitor(monitor) else {
                 continue;
             };
-            let Ok(frame) = monitor.capture_image() else {
+            // 预览与采集共用超时：设置页枚举目标时也不该把 UI 卡死。
+            let Ok(rgb) = capture_monitor_rgb_timed(index, permission::EMPIRICAL_CAPTURE_TIMEOUT)
+            else {
                 continue;
             };
-            if let Some(url) = rgba_to_data_url(&frame, max_width) {
+            if let Some(url) = rgb_to_data_url(&rgb, max_width) {
                 out.insert(target.id, url);
             }
         }

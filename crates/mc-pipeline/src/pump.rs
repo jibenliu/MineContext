@@ -329,6 +329,16 @@ impl CapturePump {
 
         let luma = rgb_to_luma(&image);
         let stats = self.detector.analyze(&luma);
+        // 全黑帧通常是 macOS 屏幕录制权限未生效：不得当正常画面落盘或记 unchanged。
+        if self.detector.is_black_frame(&stats) {
+            self.stats.failed += 1;
+            self.last_error = Some(AppError::new(
+                mc_common::error::ErrorCode::CaptureBlackFrame,
+                "截图内容为空（可能是屏幕录制权限未生效）",
+            ));
+            self.scheduler.drain_pending(1);
+            return;
+        }
         let previous = self.previous.get(&capture.target.id);
         let change_kind = self.detector.classify(previous, &stats, false);
         self.previous.insert(capture.target.id.clone(), stats);
