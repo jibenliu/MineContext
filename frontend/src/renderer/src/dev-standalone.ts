@@ -179,11 +179,16 @@ function createMockBackend(): Backend {
  */
 function installAxiosMock(): void {
   // 纯浏览器：把保存过的模型配置留在内存里，设置页才能回显脱敏密钥与复制。
+  const maskKey = (key: string) => (key.length <= 8 ? '••••••••' : `${key.slice(0, 4)}••••••••${key.slice(-4)}`)
+
   const stored: {
     config: Record<string, string>
     hasApiKey: boolean
     apiKeyMasked: string
     apiKeyPlain: string
+    hasEmbeddingApiKey: boolean
+    embeddingApiKeyMasked: string
+    embeddingApiKeyPlain: string
   } = {
     config: {
       modelPlatform: '',
@@ -196,33 +201,50 @@ function installAxiosMock(): void {
     },
     hasApiKey: false,
     apiKeyMasked: '',
-    apiKeyPlain: ''
+    apiKeyPlain: '',
+    hasEmbeddingApiKey: false,
+    embeddingApiKeyMasked: '',
+    embeddingApiKeyPlain: ''
   }
 
   axiosInstance.defaults.adapter = async (config) => {
     const url = config.url ?? ''
     let data: unknown = { code: 0, data: {} }
     if (url.includes('/api/model_settings/api_key')) {
-      data = stored.apiKeyPlain
-        ? { code: 0, data: { apiKey: stored.apiKeyPlain } }
-        : { code: 1, message: '尚未保存 API Key', data: null }
+      const wantEmbed =
+        String(config.params?.field || '').toLowerCase() === 'embedding' || url.includes('field=embedding')
+      const plain = wantEmbed ? stored.embeddingApiKeyPlain || stored.apiKeyPlain : stored.apiKeyPlain
+      data = plain ? { code: 0, data: { apiKey: plain } } : { code: 1, message: '尚未保存 API Key', data: null }
     } else if (url.includes('/api/model_settings/get')) {
       data = {
         code: 0,
         data: {
           config: { ...stored.config, apiKey: '', embeddingApiKey: '' },
           hasApiKey: stored.hasApiKey,
-          apiKeyMasked: stored.apiKeyMasked
+          apiKeyMasked: stored.apiKeyMasked,
+          hasEmbeddingApiKey: stored.hasEmbeddingApiKey || stored.hasApiKey,
+          embeddingApiKeyMasked: stored.embeddingApiKeyMasked || stored.apiKeyMasked
         }
       }
     } else if (url.includes('/api/model_settings/update')) {
       const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data
       const next = (body?.config ?? {}) as Record<string, string>
-      const key = String(next.apiKey || next.embeddingApiKey || '').trim()
-      if (key) {
-        stored.apiKeyPlain = key
+      const vision = String(next.apiKey || '').trim()
+      const embed = String(next.embeddingApiKey || '').trim()
+      if (vision) {
+        stored.apiKeyPlain = vision
         stored.hasApiKey = true
-        stored.apiKeyMasked = key.length <= 8 ? '••••••••' : `${key.slice(0, 4)}••••••••${key.slice(-4)}`
+        stored.apiKeyMasked = maskKey(vision)
+      }
+      if (embed) {
+        stored.embeddingApiKeyPlain = embed
+        stored.hasEmbeddingApiKey = true
+        stored.embeddingApiKeyMasked = maskKey(embed)
+      } else if (vision && !stored.embeddingApiKeyPlain) {
+        // 标准平台：向量与视觉共用
+        stored.embeddingApiKeyPlain = vision
+        stored.hasEmbeddingApiKey = true
+        stored.embeddingApiKeyMasked = stored.apiKeyMasked
       }
       stored.config = {
         ...stored.config,

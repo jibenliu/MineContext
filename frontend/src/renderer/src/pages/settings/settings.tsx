@@ -198,13 +198,24 @@ export interface CustomFormItemsProps {
   prefix: string
   hasStoredKey: boolean
   maskedValue: string
+  hasStoredEmbeddingKey: boolean
+  embeddingMaskedValue: string
   form: any
   onCopyApiKey: (field: keyof SettingsFormProps) => void
   onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { prefix, hasStoredKey, maskedValue, form, onCopyApiKey, onRevealApiKey } = props
+  const {
+    prefix,
+    hasStoredKey,
+    maskedValue,
+    hasStoredEmbeddingKey,
+    embeddingMaskedValue,
+    form,
+    onCopyApiKey,
+    onRevealApiKey
+  } = props
   return (
     <>
       <div className="flex flex-col gap-6 mb-6">
@@ -309,7 +320,7 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
               {
                 validator(value, callback) {
                   const text = typeof value === 'string' ? value.trim() : ''
-                  if (text || hasStoredKey) {
+                  if (text || hasStoredEmbeddingKey) {
                     callback()
                     return
                   }
@@ -320,7 +331,7 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
             requiredSymbol={false}
             extra={
               <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
-                {hasStoredKey ? (
+                {hasStoredEmbeddingKey ? (
                   <span data-testid="api-key-configured-hint">{t('settings.apiKeyConfiguredHint')}</span>
                 ) : null}
                 <Button
@@ -334,8 +345,8 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
             <PrefixedApiKeyPassword
               field={`${prefix}-embeddingApiKey`}
               form={form}
-              hasStoredKey={hasStoredKey}
-              maskedValue={maskedValue}
+              hasStoredKey={hasStoredEmbeddingKey}
+              maskedValue={embeddingMaskedValue}
               onReveal={() => onRevealApiKey(`${prefix}-embeddingApiKey` as keyof SettingsFormProps)}
             />
           </FormItem>
@@ -432,6 +443,9 @@ const Settings: FC<SettingsProps> = (props) => {
   const [hasStoredKey, setHasStoredKey] = useState(false)
   const [maskedValue, setMaskedValue] = useState('')
   const maskedRef = useRef('')
+  const [hasStoredEmbeddingKey, setHasStoredEmbeddingKey] = useState(false)
+  const [embeddingMaskedValue, setEmbeddingMaskedValue] = useState('')
+  const embeddingMaskedRef = useRef('')
 
   const { run: updateModelSettings, loading: updateLoading } = useRequest(updateModelSettingsAPI, {
     manual: true,
@@ -448,6 +462,12 @@ const Settings: FC<SettingsProps> = (props) => {
     }
   })
 
+  const storedFieldForFormField = (field: string): 'vision' | 'embedding' =>
+    field.includes('embeddingApiKey') ? 'embedding' : 'vision'
+
+  const maskForFormField = (field: string): string =>
+    storedFieldForFormField(field) === 'embedding' ? embeddingMaskedRef.current : maskedRef.current
+
   const copyStoredApiKey = useMemoizedFn(async (field?: keyof SettingsFormProps) => {
     try {
       // Doubao / OpenAI / Custom 视觉与向量密钥字段都走这里；
@@ -455,11 +475,12 @@ const Settings: FC<SettingsProps> = (props) => {
       const platform = String(form.getFieldValue('modelPlatform') || '')
       const target = field ?? (`${platform}-apiKey` as keyof SettingsFormProps)
       const fromForm = String(form.getFieldValue(target) ?? '')
+      const mask = maskForFormField(String(target))
       let key = ''
-      if (isPlainApiKeyCandidate(fromForm, maskedRef.current)) {
+      if (isPlainApiKeyCandidate(fromForm, mask)) {
         key = fromForm.trim()
       } else {
-        key = await getStoredApiKey()
+        key = await getStoredApiKey(storedFieldForFormField(String(target)))
       }
       if (!key) {
         Message.error(t('settings.apiKeyCopyFailed'))
@@ -476,11 +497,12 @@ const Settings: FC<SettingsProps> = (props) => {
   /** 眼睛打开：脱敏回显换成明文，便于核对与手动复制。 */
   const revealStoredApiKey = useMemoizedFn(async (field: keyof SettingsFormProps) => {
     const fromForm = String(form.getFieldValue(field) ?? '')
-    if (isPlainApiKeyCandidate(fromForm, maskedRef.current)) {
+    const mask = maskForFormField(String(field))
+    if (isPlainApiKeyCandidate(fromForm, mask)) {
       return
     }
     try {
-      const key = await getStoredApiKey()
+      const key = await getStoredApiKey(storedFieldForFormField(String(field)))
       if (!key) {
         return
       }
@@ -526,7 +548,9 @@ const Settings: FC<SettingsProps> = (props) => {
       if (isCustom) {
         const embField = `${ModelTypeList.Custom}-embeddingApiKey` as keyof SettingsFormProps
         const embRaw = String(values[embField] ?? '').trim()
-        data[`${ModelTypeList.Custom}-embeddingApiKey`] = !embRaw || embRaw === maskedRef.current ? '' : embRaw
+        // 脱敏串（视觉或向量）都表示「未改」；向量槽与视觉槽独立落盘
+        const embUnchanged = !embRaw || embRaw === embeddingMaskedRef.current || embRaw === maskedRef.current
+        data[`${ModelTypeList.Custom}-embeddingApiKey`] = embUnchanged ? '' : embRaw
       }
       const formatData = Object.fromEntries(
         Object.entries(data).map(([key, value]) => [key.replace(`${values.modelPlatform}-`, ''), value])
@@ -578,9 +602,14 @@ const Settings: FC<SettingsProps> = (props) => {
     const config = get(modelInfo, 'config')
     const hasKey = Boolean(get(modelInfo, 'hasApiKey'))
     const masked = String(get(modelInfo, 'apiKeyMasked') || '')
+    const hasEmbKey = Boolean(get(modelInfo, 'hasEmbeddingApiKey'))
+    const embMasked = String(get(modelInfo, 'embeddingApiKeyMasked') || '')
     setHasStoredKey(hasKey)
     setMaskedValue(masked)
     maskedRef.current = masked
+    setHasStoredEmbeddingKey(hasEmbKey)
+    setEmbeddingMaskedValue(embMasked)
+    embeddingMaskedRef.current = embMasked
     // 引导态也要回填：SSE 丢帧时用户仍停在 init 页，若跳过回填则「开始使用」
     // 会用默认豆包字段覆盖已有 OpenAI/自建配置。无配置的新用户 config 为空，走 initialValues。
     if (!getInfoLoading && !isEmpty(config)) {
@@ -596,8 +625,12 @@ const Settings: FC<SettingsProps> = (props) => {
       // get 的 apiKey 恒为空；用脱敏串回填，用户能看见「已有密钥」
       if (hasKey && masked) {
         settingsValue.set(`${prefix}-apiKey` as keyof SettingsFormProps, masked)
-        if (prefix === ModelTypeList.Custom) {
-          settingsValue.set(`${prefix}-embeddingApiKey` as keyof SettingsFormProps, masked)
+      }
+      if (prefix === ModelTypeList.Custom) {
+        // 独立向量脱敏优先；没有则回退视觉脱敏（共用一把钥匙时）
+        const embFill = hasEmbKey && embMasked ? embMasked : hasKey && masked ? masked : ''
+        if (embFill) {
+          settingsValue.set(`${prefix}-embeddingApiKey` as keyof SettingsFormProps, embFill)
         }
       }
       form.setFieldsValue(Object.fromEntries(settingsValue))
@@ -650,6 +683,8 @@ const Settings: FC<SettingsProps> = (props) => {
                       prefix={ModelTypeList.Custom}
                       hasStoredKey={hasStoredKey}
                       maskedValue={maskedValue}
+                      hasStoredEmbeddingKey={hasStoredEmbeddingKey}
+                      embeddingMaskedValue={embeddingMaskedValue}
                       form={form}
                       onCopyApiKey={copyStoredApiKey}
                       onRevealApiKey={revealStoredApiKey}
