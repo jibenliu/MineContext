@@ -7,6 +7,7 @@ import { getLogger } from '@shared/logger/renderer'
 import { createRoot } from 'react-dom/client'
 
 import { installHttpBackendFromRuntime } from './adapters/install'
+import { installRendererLogSink } from './adapters/renderer-log-sink'
 import App from './app'
 import { bootstrapBackend } from './bootstrap-backend'
 import { installDevStandalone } from './dev-standalone'
@@ -37,13 +38,21 @@ void (async () => {
       installDevStandalone()
       backendReady = true
     } else {
+      // 先挂落盘：否则 get_runtime 失败时界面能画错误页，renderer.log 却完全无新行。
+      installRendererLogSink(globalThis)
+      logger.info('[mc] 开始 bootstrap（日志出口已挂到外壳）')
       const result = await bootstrapBackend({
         loadRuntime: async () => {
+          if (typeof window.mcRuntime?.get !== 'function') {
+            logger.warn('[mc] window.mcRuntime.get 未注入（初始化脚本/外壳桥未接线）')
+            return null
+          }
           try {
-            const runtime = await window.mcRuntime?.get?.()
+            const runtime = await window.mcRuntime.get()
             return runtime ?? null
           } catch (error) {
-            logger.error('[mc] 读取运行时信息失败（外壳桥未接线）：', error)
+            // 常见于 Tauri 2 ACL 未放行 get_runtime：daemon 已听端口，invoke 仍被拒。
+            logger.error('[mc] 读取运行时信息失败（get_runtime invoke）：', error)
             return null
           }
         },

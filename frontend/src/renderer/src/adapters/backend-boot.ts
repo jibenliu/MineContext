@@ -21,3 +21,8 @@ export function loadingStatusForBootPhase(phase: BackendBootPhase): 'starting' |
 export function shouldShowBackendUnavailable(phase: BackendBootPhase): boolean {
   return phase === 'failed'
 }
+
+/** 硬错误文案承诺了「从设置继续配置」——UI 必须给出出口，不能只剩重试。 */
+export function shouldOfferSettingsEscape(phase: BackendBootPhase): boolean {
+  return phase === 'failed'
+}

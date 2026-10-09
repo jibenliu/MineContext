@@ -175,6 +175,7 @@ fi
 
 if [ "${do_tauri}" -eq 1 ]; then
   check "Tauri 外壳"
+  [ "${LIST_ONLY}" -eq 0 ] && timed "外壳 capabilities（含 get_runtime）" ./scripts/checks/check-tauri-shell-capabilities.sh
   [ "${LIST_ONLY}" -eq 0 ] && timed "src-tauri cargo check" bash -c 'cd src-tauri && cargo check --quiet'
 fi
 

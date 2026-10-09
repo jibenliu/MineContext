@@ -15,7 +15,7 @@ import React, { useEffect, useState } from 'react'
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 
-import { type BackendBootPhase, loadingStatusForBootPhase } from './adapters/backend-boot'
+import { type BackendBootPhase, loadingStatusForBootPhase, shouldOfferSettingsEscape } from './adapters/backend-boot'
 import { fetchInitCheckFromHealth } from './adapters/init-check-health'
 import { installHttpBackendFromRuntime } from './adapters/install'
 import { shouldShowOnboarding } from './adapters/onboarding'
@@ -42,6 +42,8 @@ function AppContent({ backendReady: initialReady }: { backendReady: boolean }): 
   const [showSetting, setShowSetting] = useState<boolean>(true)
   const [bootPhase, setBootPhase] = useState<BackendBootPhase>(() => (initialReady ? 'ready' : 'waiting'))
   const [recoveryNonce, setRecoveryNonce] = useState(0)
+  // 本地服务迟迟不起时仍允许进设置：文案已写「从设置继续配置」，不能只剩重试死循环。
+  const [enterUiWithoutBackend, setEnterUiWithoutBackend] = useState(false)
 
   // PersistGate rehydrate 之后本组件才会挂载：这时再拆 index.html 占位，
   // 避免「占位已拆 + React 子树仍空」的 Tauri 白屏窗口。
@@ -155,13 +157,27 @@ function AppContent({ backendReady: initialReady }: { backendReady: boolean }): 
 
   const retryBackend = useMemoizedFn(() => {
     logger.warn('[mc] 用户重试连接本地服务（再等外壳 runtime，不整页误报）')
+    setEnterUiWithoutBackend(false)
     setBootPhase('waiting')
     setRecoveryNonce((n) => n + 1)
   })
 
-  if (bootPhase !== 'ready') {
+  const continueInSettings = useMemoizedFn(() => {
+    logger.warn('[mc] 用户跳过等待本地服务，进入设置继续配置')
+    setEnterUiWithoutBackend(true)
+    setShowSetting(true)
+  })
+
+  if (bootPhase !== 'ready' && !enterUiWithoutBackend) {
     const status = loadingStatusForBootPhase(bootPhase)
-    return <LoadingComponent backendStatus={status} onRetry={bootPhase === 'failed' ? retryBackend : undefined} />
+    const offerEscape = shouldOfferSettingsEscape(bootPhase)
+    return (
+      <LoadingComponent
+        backendStatus={status}
+        onRetry={bootPhase === 'failed' ? retryBackend : undefined}
+        onContinue={offerEscape ? continueInSettings : undefined}
+      />
+    )
   }
 
   return (

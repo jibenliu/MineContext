@@ -1,0 +1,28 @@
+# 渲染层经 `window.mcRuntime` / 适配层调用的外壳命令。
+# Tauri 2 默认拒绝未授权命令：漏掉 get_runtime 时 daemon 已监听，
+# 界面却永远「无法连接本地服务」。
+
+[[permission]]
+identifier = "allow-get-runtime"
+description = "允许渲染层读取 daemon 的 port/token（mcRuntime.get）。"
+commands.allow = ["get_runtime"]
+
+[[permission]]
+identifier = "allow-renderer-log"
+description = "允许渲染层日志写入外壳日志目录（打包版排查依赖）。"
+commands.allow = ["renderer_log"]
+
+[[permission]]
+identifier = "allow-tray-recording-status"
+description = "允许渲染层更新托盘录制状态文案与悬停提示。"
+commands.allow = ["tray_recording_status"]
+
+[[permission]]
+identifier = "allow-launch-at-login"
+description = "允许渲染层读取开机自启状态。"
+commands.allow = ["launch_at_login"]
+
+[[permission]]
+identifier = "allow-set-launch-at-login"
+description = "允许渲染层开关开机自启。"
+commands.allow = ["set_launch_at_login"]

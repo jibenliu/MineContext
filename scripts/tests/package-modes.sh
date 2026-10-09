@@ -4,9 +4,15 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/scripts/tests" "$fixture/frontend" "$fixture/src-tauri/target/release/bundle/dmg" "$fixture/bin"
+mkdir -p "$fixture/scripts/tests" "$fixture/frontend" \
+  "$fixture/src-tauri/target/release/bundle/dmg" \
+  "$fixture/src-tauri/target/release/bundle/macos/MineContext.app/Contents/Resources/backend" \
+  "$fixture/bin"
 cp "$root/scripts/package-macos-tauri.sh" "$fixture/scripts/"
 touch "$fixture/src-tauri/target/release/bundle/dmg/test.dmg"
+# 包内 daemon：打包脚本在出 dmg 前会校验可执行位
+: > "$fixture/src-tauri/target/release/bundle/macos/MineContext.app/Contents/Resources/backend/mc-daemon"
+chmod +x "$fixture/src-tauri/target/release/bundle/macos/MineContext.app/Contents/Resources/backend/mc-daemon"
 cat > "$fixture/bin/cargo" <<'SH'
 #!/usr/bin/env bash
 echo build >> "$MC_TEST_BUILD_LOG"

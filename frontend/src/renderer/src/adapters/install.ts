@@ -10,6 +10,7 @@ import { createEventLoop } from './event-loop.ts'
 import { createFileService } from './file-service.ts'
 import { createHttpBackend, type HttpBackendOptions } from './http-backend.ts'
 import { createIpcRendererShim } from './ipc-renderer-shim.ts'
+import { installRendererLogSink } from './renderer-log-sink.ts'
 import { createScreenMonitorApi } from './screen-monitor-api.ts'
 import { createServerPushApi } from './server-push-api.ts'
 import { createSseStreamFactory } from './sse-stream.ts'
@@ -101,16 +102,16 @@ export function installAdapters(options: InstallOptions): void {
       }>
   })
 
-  // 渲染层日志落盘：打包版看不到 webview 控制台，有外壳就把日志同时转给外壳写文件。
-  // 转发失败只当没有（sink 自己吞异常，绝不反过来影响业务），因此这里不 await。
-  const forward = shellCapabilities?.invoke
-  setLogSink(
-    forward
-      ? (level, message) => {
-          void forward('renderer_log', { level, message }).catch(() => undefined)
-        }
-      : undefined
-  )
+  // 落盘出口：优先用调用方注入的 shellCapabilities；否则按 target 再探测一次。
+  // main 已在 bootstrap 前装过一次；这里再装保证 installAdapters 单独调用时也有出口。
+  if (shellCapabilities?.invoke) {
+    const forward = shellCapabilities.invoke
+    setLogSink((level, message) => {
+      void forward('renderer_log', { level, message }).catch(() => undefined)
+    })
+  } else {
+    installRendererLogSink(target)
+  }
 }
 
 /**
