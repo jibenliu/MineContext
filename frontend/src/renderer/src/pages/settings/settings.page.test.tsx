@@ -182,3 +182,55 @@ it('引导态设置页仍渲染模型表单与隐私出网入口（首屏不能�
   expect(screen.getByText('隐私与出网')).toBeInTheDocument()
   expect(screen.getByTestId('ai-upload-switch')).toBeInTheDocument()
 })
+
+it('引导态可点「稍后再说」离开，不依赖保存成功', async () => {
+  const closeSetting = vi.fn()
+  render(
+    <Provider store={store}>
+      <Settings init closeSetting={closeSetting} />
+    </Provider>
+  )
+
+  fireEvent.click(await screen.findByTestId('settings-skip-onboarding'))
+  expect(closeSetting).toHaveBeenCalledTimes(1)
+})
+
+it('非引导态不展示「稍后再说」', async () => {
+  renderSettings()
+  expect(await screen.findByText('选择模型')).toBeInTheDocument()
+  expect(screen.queryByTestId('settings-skip-onboarding')).toBeNull()
+})
+
+it('引导态也会回填已存密钥（可沿用密钥点开始使用，不必重填）', async () => {
+  render(
+    <Provider store={store}>
+      <Settings init closeSetting={() => undefined} />
+    </Provider>
+  )
+
+  expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
+  expect(screen.getByText(/已保存密钥/)).toBeInTheDocument()
+})
+
+it('引导态加载中不盖遮罩：开始使用按钮仍可点', async () => {
+  // getModelInfo 挂起时整页 loading mask 不得吞掉 CTA 点击（否则无日志、无反馈）。
+  vi.mocked(getModelInfo).mockImplementation(() => new Promise(() => undefined))
+  render(
+    <Provider store={store}>
+      <Settings init closeSetting={() => undefined} />
+    </Provider>
+  )
+
+  expect(await screen.findByTestId('settings-loading-hint')).toBeInTheDocument()
+  const submit = screen.getByTestId('settings-submit')
+  expect(submit).toBeEnabled()
+  fireEvent.click(submit)
+  // 点击进了 handler：校验失败会 Toast「保存设置失败」或字段「不能为空」（二者任一即可）。
+  await waitFor(() => {
+    const feedback =
+      screen.queryByText('不能为空') ||
+      screen.queryByText('保存设置失败') ||
+      document.body.textContent?.includes('不能为空')
+    expect(feedback).toBeTruthy()
+  })
+})

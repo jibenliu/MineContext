@@ -2,8 +2,11 @@
 //
 // 所有请求都带 `X-MC-Token`（健康检查除外）。
 
-import { resolveChannel, subscriptionEvent } from './channel-map.ts'
+import { resolveChannel, SUBSCRIBED_CHANNELS, subscriptionEvent } from './channel-map.ts'
 import type { Backend, BackendError, FetchLike, RuntimeInfo, StreamFactory, StreamHandle } from './types.ts'
+
+/** 连接建立时只推一次的帧：若订阅晚于首帧（PersistGate 外先打开 SSE），必须重放。 */
+const REPLAY_LAST_CHANNELS = new Set<string>(['push:get-init-check-data'])
 
 export interface HttpBackendOptions {
   runtime: RuntimeInfo
@@ -26,6 +29,8 @@ export function createHttpBackend(options: HttpBackendOptions): Backend {
 
   // ---- 订阅状态：单条 SSE 流，多路分发 ----
   const handlers = new Map<string, Set<(payload: unknown) => void>>()
+  /** 晚订阅时重放的最近一帧（仅 REPLAY_LAST_CHANNELS）。 */
+  const lastPayloadByChannel = new Map<string, unknown>()
   let stream: StreamHandle | undefined
   let reconnects = 0
 
@@ -34,6 +39,12 @@ export function createHttpBackend(options: HttpBackendOptions): Backend {
     // 不复位的话，daemon 一生中累计断开 10 次之后，前端就再也不重连了 ——
     // 界面上的表现是"某些地方永远不再刷新"，没有任何提示。
     reconnects = 0
+    // 先缓存再分发：哪怕当时还没有订阅者，晚到的 getInitCheckData 仍能拿到启动帧。
+    for (const [channel, sseName] of Object.entries(SUBSCRIBED_CHANNELS)) {
+      if (sseName === event && REPLAY_LAST_CHANNELS.has(channel)) {
+        lastPayloadByChannel.set(channel, payload)
+      }
+    }
     for (const channel of handlers.keys()) {
       if (subscriptionEvent(channel) !== event) continue
       for (const handler of handlers.get(channel) ?? []) handler(payload)
@@ -118,6 +129,9 @@ export function createHttpBackend(options: HttpBackendOptions): Backend {
       set.add(handler)
       handlers.set(channel, set)
       ensureStream()
+      if (REPLAY_LAST_CHANNELS.has(channel) && lastPayloadByChannel.has(channel)) {
+        handler(lastPayloadByChannel.get(channel))
+      }
 
       return () => {
         const current = handlers.get(channel)

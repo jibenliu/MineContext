@@ -257,3 +257,43 @@ test('no_stream_is_opened_until_someone_subscribes', () => {
 
   assert.equal(streams.length, 0, '无人订阅时不应建立 SSE 连接')
 })
+
+test('init-check 启动帧在晚订阅时重放（PersistGate 外先开 SSE 不丢引导判据）', () => {
+  const { factory, streams } = fakeStreams()
+  const backend = createHttpBackend({
+    runtime: RUNTIME,
+    fetch: fakeFetch(null).fetch,
+    streamFactory: factory
+  })
+
+  // 先有别的渠道打开流（模拟 ServiceProvider.powerMonitor）
+  backend.subscribe('push:power-monitor', () => undefined)
+  const payload = '{"data":{"components":{"llm":{"status":"ok"}}}}'
+  streams[0].__push('push:init-check-data', payload)
+
+  const received: unknown[] = []
+  backend.subscribe('push:get-init-check-data', (data) => received.push(data))
+
+  assert.deepEqual(received, [payload], '晚订阅必须立刻拿到已缓存的启动帧')
+})
+
+test('init-check 启动帧在无人订阅该渠道时也缓存，晚到的订阅者仍能拿到', () => {
+  const { factory, streams } = fakeStreams()
+  const backend = createHttpBackend({
+    runtime: RUNTIME,
+    fetch: fakeFetch(null).fetch,
+    streamFactory: factory
+  })
+
+  backend.subscribe('push:power-monitor', () => undefined)
+  const payload = '{"data":{"components":{"llm":{"status":"unconfigured"}}}}'
+  streams[0].__push('push:init-check-data', payload)
+
+  const first: unknown[] = []
+  const second: unknown[] = []
+  backend.subscribe('push:get-init-check-data', (data) => first.push(data))
+  backend.subscribe('push:get-init-check-data', (data) => second.push(data))
+
+  assert.deepEqual(first, [payload])
+  assert.deepEqual(second, [payload], '每个晚订阅者都应立刻收到同一份缓存帧')
+})

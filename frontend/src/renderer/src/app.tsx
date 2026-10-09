@@ -15,6 +15,7 @@ import React, { useEffect, useState } from 'react'
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 
+import { fetchInitCheckFromHealth } from './adapters/init-check-health'
 import { shouldShowOnboarding } from './adapters/onboarding'
 import { watchSummaryProgress } from './adapters/summary-progress'
 import { ServiceProvider } from './atom/event-loop.atom'
@@ -40,20 +41,46 @@ function AppContent({ backendReady }: { backendReady: boolean }): React.ReactEle
   }, [])
 
   useEffect(() => {
-    // 适配层未装时不要抛：否则 useEffect 异常只会进控制台，界面停在引导态更难排查。
-    const subscribe = window.serverPushAPI?.getInitCheckData
-    if (typeof subscribe !== 'function') {
-      logger.warn('[mc] serverPushAPI.getInitCheckData 未接线，保持引导/设置页')
-      return
-    }
-    return subscribe((data) => {
-      // 判据在 `adapters/onboarding.ts`（纯函数、有测试）：`llm` 在现行契约里是
-      // 对象而不是布尔值，直接 `!llm` 会把未配置模型的用户放进主界面。
-      // 坏数据也不会抛：解析失败按「需要引导」处理，界面不会白屏。
+    // SSE 启动帧 + /api/health 双通道：任一判据到达都更新引导态。
+    // 只订 SSE 时，PersistGate 外先开流会丢帧；只拉 health 时，离线桌面更慢。
+    const applyInitCheck = (data: unknown, source: string) => {
       const needsOnboarding = shouldShowOnboarding(data)
-      logger.info('Init settings data:', { needsOnboarding })
+      logger.info('Init settings data:', { needsOnboarding, source })
       setShowSetting(needsOnboarding)
+    }
+
+    const subscribe = window.serverPushAPI?.getInitCheckData
+    let unsubscribe: (() => void) | undefined
+    if (typeof subscribe === 'function') {
+      unsubscribe = subscribe((data) => applyInitCheck(data, 'sse'))
+    } else {
+      logger.warn('[mc] serverPushAPI.getInitCheckData 未接线，改走 /api/health')
+    }
+
+    let cancelled = false
+    void fetchInitCheckFromHealth({
+      getRuntime: async () => {
+        try {
+          return (await window.mcRuntime?.get?.()) ?? null
+        } catch {
+          return null
+        }
+      },
+      fetch: globalThis.fetch.bind(globalThis)
     })
+      .then((data) => {
+        if (!cancelled) applyInitCheck(data, 'health')
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          logger.warn('[mc] /api/health 引导判据拉取失败，保持当前引导态', error)
+        }
+      })
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
   }, [])
 
   // 后台总结完成时提示一次：作业在服务端跑，用户可能已经切到别的页面。
@@ -76,6 +103,7 @@ function AppContent({ backendReady }: { backendReady: boolean }): React.ReactEle
   }, [])
 
   const closeSetting = useMemoizedFn(() => {
+    logger.info('[mc] 关闭引导/设置页，进入主界面')
     setShowSetting(false)
   })
   return (
@@ -85,7 +113,13 @@ function AppContent({ backendReady }: { backendReady: boolean }): React.ReactEle
           {showSetting ? <Settings closeSetting={closeSetting} init /> : <Router />}
         </ErrorBoundary>
       ) : (
-        <LoadingComponent backendStatus="error" />
+        <LoadingComponent
+          backendStatus="error"
+          onRetry={() => {
+            logger.warn('[mc] 后端未就绪，用户点击重试 → 整页重载')
+            window.location.reload()
+          }}
+        />
       )}
     </>
   )
