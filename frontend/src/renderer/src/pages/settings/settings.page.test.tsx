@@ -103,7 +103,41 @@ it('已保存密钥时脱敏回显，并提供复制入口', async () => {
 
   expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
   expect(screen.getByText('复制')).toBeInTheDocument()
-  expect(screen.getByText(/已保存密钥/)).toBeInTheDocument()
+  expect(screen.getByTestId('api-key-configured-hint')).toBeInTheDocument()
+})
+
+it('异步拉回已存密钥后，脱敏串以可见文本显示（不是 password 圆点）', async () => {
+  let resolveInfo!: (value: ModelInfoResponseData) => void
+  vi.mocked(getModelInfo).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveInfo = resolve
+      })
+  )
+  renderSettings()
+
+  resolveInfo(doubaoConfig)
+  const input = await screen.findByDisplayValue('sk-l••••••••6789')
+  expect(input).toHaveAttribute('type', 'text')
+  expect(screen.getByTestId('api-key-configured-hint')).toBeInTheDocument()
+})
+
+it('自建平台视觉与向量密钥回填后都是可见脱敏串', async () => {
+  vi.mocked(getModelInfo).mockResolvedValue({
+    ...selfHostedConfig,
+    hasApiKey: true,
+    apiKeyMasked: 'sk-c••••••••tom1'
+  })
+  renderSettings()
+
+  expect(await screen.findByText('视觉语言模型')).toBeInTheDocument()
+  await waitFor(() => {
+    const fields = screen.getAllByDisplayValue('sk-c••••••••tom1')
+    expect(fields.length).toBeGreaterThanOrEqual(2)
+    for (const field of fields) {
+      expect(field).toHaveAttribute('type', 'text')
+    }
+  })
 })
 
 it('点击复制时写入明文而非脱敏串', async () => {

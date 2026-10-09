@@ -4,54 +4,54 @@
 import './index.css'
 
 import { Layout } from '@arco-design/web-react'
-// 搜索与助手入口用 Arco 自带图标：语义对得上，且不需要新增资源文件
-import { IconCalendar, IconRobot, IconSearch } from '@arco-design/web-react/icon'
+// 六个导航入口统一用 Arco 图标：继承侧栏文字色（currentColor），暗色主题下不会
+// 再出现「半黑 SVG + 亮白图标」混排。
+import { IconCalendar, IconDesktop, IconHome, IconRobot, IconSearch, IconSettings } from '@arco-design/web-react/icon'
 import { ErrorBoundary } from '@renderer/components/error-boundary'
 import VaultTree from '@renderer/components/vault-tree'
 import { useNavigation } from '@renderer/hooks/use-navigation'
 import { useI18n } from '@renderer/i18n'
 import { CSSProperties } from 'react'
 
-import homeIcon from '/src/assets/icons/home.svg'
 import logo from '/src/assets/icons/logo.svg'
-import screenMonitorIcon from '/src/assets/icons/screen-monitor.svg'
-import settings from '/src/assets/icons/settings.svg'
 const { Sider } = Layout
+
+const iconStyle = { width: 16, height: 16 }
 
 const tabItems = [
   {
     key: 'home',
-    icon: <img src={homeIcon} alt="home" style={{ width: 15, height: 15 }} />,
+    icon: <IconHome style={iconStyle} />,
     labelKey: 'sidebar.home',
     path: '/'
   },
   {
     key: 'screen-monitor',
-    icon: <img src={screenMonitorIcon} alt="screen-monitor" style={{ width: 15, height: 15 }} />,
+    icon: <IconDesktop style={iconStyle} />,
     labelKey: 'sidebar.screenMonitor',
     path: '/screen-monitor'
   },
   {
     key: 'search',
-    icon: <IconSearch style={{ width: 16, height: 16 }} />,
+    icon: <IconSearch style={iconStyle} />,
     labelKey: 'sidebar.search',
     path: '/search'
   },
   {
     key: 'assistant',
-    icon: <IconRobot style={{ width: 16, height: 16 }} />,
+    icon: <IconRobot style={iconStyle} />,
     labelKey: 'sidebar.assistant',
     path: '/assistant'
   },
   {
     key: 'summaries',
-    icon: <IconCalendar style={{ width: 16, height: 16 }} />,
+    icon: <IconCalendar style={iconStyle} />,
     labelKey: 'sidebar.summaries',
     path: '/summaries'
   },
   {
     key: 'settings',
-    icon: <img src={settings} alt="settings" style={{ width: 15, height: 15 }} />,
+    icon: <IconSettings style={iconStyle} />,
     labelKey: 'sidebar.settings',
     path: '/settings'
   }
@@ -106,7 +106,7 @@ const Sidebar = () => {
                   : 'bg-transparent font-normal text-[var(--color-text-2)] hover:bg-[var(--color-fill-2)]'
               }
               transition-all duration-200 ease-in-out rounded-lg flex items-center gap-2 mt-[5px]`}>
-            <span className="flex">{item.icon}</span>
+            <span className="sidebar-nav-icon flex">{item.icon}</span>
             {t(item.labelKey)}
           </div>
         ))}
