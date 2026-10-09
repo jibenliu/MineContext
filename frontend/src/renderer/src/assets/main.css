@@ -79,6 +79,16 @@
   );
 }
 
+/* 亮色运行时强制：表面/填充贴近白，避免 Less 覆盖链把 fill 拉回脏灰 */
+body:not([arco-theme='dark']) {
+  --color-bg-1: #ffffff;
+  --color-bg-2: #ffffff;
+  --color-bg-3: #f7f8fa;
+  --color-fill-1: #f7f8fa;
+  --color-fill-2: #eef0f4;
+  --color-fill-3: #e5e6eb;
+}
+
 /* ── 暗色主题：覆盖自绘部分写死的浅色（脚本生成，共 60 个色值，跳过语义色 13 个） ──
  *
  * 页面里大量用 `bg-white` / `text-[var(--color-text-1)]` 这类原子类写死了浅色，它们不会随主题变；
@@ -308,21 +318,28 @@
   }
 }
 
-/* 亮色：次要/描边按钮需要可见底与边框，否则会与灰面板糊成一片（如「设置」「问一句」）。 */
+/* 亮色：次要/描边按钮用纯白底 + 清晰边框，避免灰底看起来像禁用（如「设置」「问一句」）。 */
 body:not([arco-theme='dark']) .arco-btn-secondary:not(.arco-btn-disabled),
 body:not([arco-theme='dark']) .arco-btn-default:not(.arco-btn-disabled),
 body:not([arco-theme='dark']) .arco-btn-outline:not(.arco-btn-disabled) {
-  background-color: var(--color-bg-2);
-  border-color: var(--color-border-2);
-  color: var(--color-text-1);
+  background-color: #ffffff !important;
+  border-color: var(--color-border-3) !important;
+  color: var(--color-text-1) !important;
 }
 body:not([arco-theme='dark']) .arco-btn-secondary:not(.arco-btn-disabled):hover,
 body:not([arco-theme='dark']) .arco-btn-default:not(.arco-btn-disabled):hover,
 body:not([arco-theme='dark']) .arco-btn-outline:not(.arco-btn-disabled):hover {
-  background-color: var(--color-fill-2);
+  background-color: var(--color-fill-1) !important;
+  border-color: var(--color-border-3) !important;
 }
 
-/* 屏幕监控空态中间区：虚线框用浅填充，与白色卡片分层但不发脏灰 */
+/* 屏幕监控采集区：白底 + 虚线边框分层，不用灰填充 */
 body:not([arco-theme='dark']) .screen-monitor-capture-surface {
-  background-color: var(--color-fill-1);
+  background-color: #ffffff !important;
+  border-color: var(--color-border-3) !important;
+}
+
+/* 助手页主区：铺满侧栏右侧可用宽度（与设置/屏幕监控同款白卡片） */
+body:not([arco-theme='dark']) .assistant-page-surface {
+  background-color: #ffffff;
 }

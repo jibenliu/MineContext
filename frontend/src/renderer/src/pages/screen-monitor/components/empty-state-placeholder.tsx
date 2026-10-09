@@ -23,7 +23,7 @@ const EmptyStatePlaceholder: React.FC<EmptyStatePlaceholderProps> = ({ hasPermis
         {hasPermission ? (
           isToday ? (
             <>
-              <div className="flex h-[96px] w-[96px] items-center justify-center rounded-[12px] bg-[var(--color-fill-1)]">
+              <div className="flex h-[96px] w-[96px] items-center justify-center rounded-[12px] border border-[var(--color-border-2)] bg-white">
                 <img src={Stopped} alt="" style={{ width: 66, height: 78 }} />
               </div>
               <Text style={{ marginTop: 16, width: 270, color: 'var(--color-text-2)', fontSize: 12 }}>
@@ -32,7 +32,7 @@ const EmptyStatePlaceholder: React.FC<EmptyStatePlaceholderProps> = ({ hasPermis
             </>
           ) : (
             <>
-              <div className="flex h-[96px] w-[96px] items-center justify-center rounded-[12px] bg-[var(--color-fill-1)]">
+              <div className="flex h-[96px] w-[96px] items-center justify-center rounded-[12px] border border-[var(--color-border-2)] bg-white">
                 <img src={screenMonitorEmpty} alt="" style={{ width: 66, height: 78 }} />
               </div>
               <Text style={{ marginTop: 16, width: 270, color: 'var(--color-text-2)', fontSize: 12 }}>

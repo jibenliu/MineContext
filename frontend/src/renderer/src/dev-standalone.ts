@@ -162,7 +162,7 @@ function createMockBackend(): Backend {
  */
 function installAxiosMock(): void {
   // 纯浏览器：把保存过的模型配置留在内存里，设置页才能回显脱敏密钥与复制。
-  let stored: {
+  const stored: {
     config: Record<string, string>
     hasApiKey: boolean
     apiKeyMasked: string
@@ -205,8 +205,7 @@ function installAxiosMock(): void {
       if (key) {
         stored.apiKeyPlain = key
         stored.hasApiKey = true
-        stored.apiKeyMasked =
-          key.length <= 8 ? '••••••••' : `${key.slice(0, 4)}••••••••${key.slice(-4)}`
+        stored.apiKeyMasked = key.length <= 8 ? '••••••••' : `${key.slice(0, 4)}••••••••${key.slice(-4)}`
       }
       stored.config = {
         ...stored.config,

@@ -34,8 +34,8 @@ export const AssistantStream: FC = () => {
   }
 
   return (
-    <div className="assistant-stream flex h-full w-full min-w-0 flex-1 gap-4">
-      <aside className="flex w-[220px] flex-shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-bg-2)] p-3">
+    <div className="assistant-stream flex h-full w-full min-w-0 flex-1 gap-4 self-stretch">
+      <aside className="flex w-[220px] flex-shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-fill-1)] p-3">
         <Button
           type="primary"
           long
@@ -192,7 +192,11 @@ export const AssistantStream: FC = () => {
           {chat.busy ? (
             <Button onClick={() => void chat.stop()}>{t('assistant.stop')}</Button>
           ) : (
-            <Button disabled={chat.loading} onClick={() => chat.ask(t('assistant.defaultQuery'))}>
+            <Button
+              type="outline"
+              disabled={chat.loading}
+              onClick={() => chat.ask(t('assistant.defaultQuery'))}
+              className="mc-secondary-btn !bg-white !border-[var(--color-border-3)] !text-[var(--color-text-1)]">
               {t('assistant.ask')}
             </Button>
           )}

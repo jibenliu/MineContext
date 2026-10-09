@@ -71,7 +71,8 @@ const AppContent: FC = () => {
     <div className="app-shell-bg flex h-screen" style={{ height: '100vh' }}>
       {/* <div style={{ appRegion: 'drag', width: '12px', height: '100%' } as React.CSSProperties} /> */}
       <Sidebar />
-      <div className="flex-1 flex flex-col pr-2">{routes}</div>
+      {/* min-w-0：主栏 flex 子项默认 min-width:auto 会卡住宽度，助手页铺不满 */}
+      <div className="flex min-w-0 flex-1 flex-col pr-2">{routes}</div>
     </div>
   )
 }

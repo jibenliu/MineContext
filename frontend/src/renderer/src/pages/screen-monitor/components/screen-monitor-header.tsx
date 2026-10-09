@@ -50,7 +50,7 @@ const ScreenMonitorHeader: React.FC<ScreenMonitorHeaderProps> = ({
                 size="large"
                 disabled={isMonitoring}
                 onClick={onOpenSettings}
-                className="!bg-[var(--color-bg-2)] !border-[var(--color-border-2)] !text-[var(--color-text-1)] hover:!bg-[var(--color-fill-2)]">
+                className="mc-secondary-btn !bg-white !border-[#c9cdd4] !text-[var(--color-text-1)] !font-medium hover:!bg-[#f7f8fa] hover:!border-[#c9cdd4]">
                 {t('common.settings')}
               </Button>
             </Popover>

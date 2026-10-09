@@ -556,7 +556,7 @@ const ScreenMonitor: React.FC = () => {
           />
         )}
         <div className="w-full mb-0 mx-auto flex-1 flex flex-col">
-          <div className="screen-monitor-capture-surface border-2 border-dashed border-[var(--color-border-2)] rounded-[12px] p-[30px] bg-[var(--color-fill-1)] transition-all duration-300 flex-1 flex flex-col overflow-auto">
+          <div className="screen-monitor-capture-surface border border-dashed border-[var(--color-border-3)] rounded-[12px] p-[30px] bg-white transition-all duration-300 flex-1 flex flex-col overflow-auto">
             <DateNavigation
               hasPermission={hasPermission}
               currentDate={currentDate}
