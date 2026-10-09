@@ -156,3 +156,19 @@ it('自建平台视觉与向量密钥都有复制入口，点复制写入明文'
     expect(writeClipboard).toHaveBeenCalledWith('sk-live-secret-key-6789')
   })
 })
+
+it('点眼睛显示密钥时换成明文，而不是脱敏串', async () => {
+  renderSettings()
+  const masked = await screen.findByDisplayValue('sk-l••••••••6789')
+  const toggle = masked.closest('.arco-input-group-wrapper')?.querySelector('.arco-input-password-visibility-icon')
+  expect(toggle).toBeTruthy()
+  fireEvent.click(toggle as Element)
+
+  await waitFor(() => {
+    expect(getStoredApiKey).toHaveBeenCalled()
+    expect(screen.getByDisplayValue('sk-live-secret-key-6789')).toBeInTheDocument()
+  })
+  expect(screen.queryByDisplayValue('sk-l••••••••6789')).not.toBeInTheDocument()
+})
+
+// temporary debug helper removed after

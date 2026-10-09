@@ -1,10 +1,33 @@
 /**
  * 写入系统剪贴板。
  *
- * Tauri / 部分 WebView 里 `navigator.clipboard` 会因非安全上下文或权限拒绝而失败；
- * 失败时回退到 `textarea` + `execCommand('copy')`（仍需在用户手势回调里调用）。
+ * 优先级：
+ * 1. Tauri 原生命令（WKWebView 里 `navigator.clipboard` 常因权限失败）
+ * 2. `navigator.clipboard.writeText`
+ * 3. `textarea` + `execCommand('copy')`（仍需在用户手势回调里调用）
  */
+
+type TauriCore = {
+  invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>
+}
+
+function tauriInvoke(): TauriCore['invoke'] | undefined {
+  if (typeof window === 'undefined') return undefined
+  const core = (window as Window & { __TAURI__?: { core?: TauriCore } }).__TAURI__?.core
+  return typeof core?.invoke === 'function' ? core.invoke.bind(core) : undefined
+}
+
 export async function writeClipboard(text: string): Promise<void> {
+  const invoke = tauriInvoke()
+  if (invoke) {
+    try {
+      await invoke('clipboard_write_text', { text })
+      return
+    } catch {
+      // fall through to browser APIs
+    }
+  }
+
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text)

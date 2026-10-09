@@ -55,9 +55,11 @@ const ApiKeyField: FC<{
   hasStoredKey: boolean
   maskedValue: string
   onCopy: () => void
+  /** 眼睛打开时把脱敏串换成明文，避免「可见但仍是 ••••」 */
+  onReveal: () => void
   docsLabel: string
   onOpenDocs: () => void
-}> = ({ field, className, autoFocus, hasStoredKey, maskedValue, onCopy, docsLabel, onOpenDocs }) => {
+}> = ({ field, className, autoFocus, hasStoredKey, maskedValue, onCopy, onReveal, docsLabel, onOpenDocs }) => {
   const { t } = useI18n()
   return (
     <FormItem
@@ -96,6 +98,9 @@ const ApiKeyField: FC<{
         allowClear
         className={className ?? '!w-[574px]'}
         defaultVisibility={false}
+        onVisibilityChange={(visible) => {
+          if (visible) onReveal()
+        }}
       />
     </FormItem>
   )
@@ -106,10 +111,11 @@ export interface CustomFormItemsProps {
   hasStoredKey: boolean
   maskedValue: string
   onCopyApiKey: (field: keyof SettingsFormProps) => void
+  onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { prefix, hasStoredKey, maskedValue, onCopyApiKey } = props
+  const { prefix, hasStoredKey, maskedValue, onCopyApiKey, onRevealApiKey } = props
   return (
     <>
       <div className="flex flex-col gap-6 mb-6">
@@ -174,6 +180,9 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
               allowClear
               className="!w-[574px]"
               defaultVisibility={false}
+              onVisibilityChange={(visible) => {
+                if (visible) onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)
+              }}
             />
           </FormItem>
         </div>
@@ -238,6 +247,9 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
               allowClear
               className="!w-[574px]"
               defaultVisibility={false}
+              onVisibilityChange={(visible) => {
+                if (visible) onRevealApiKey(`${prefix}-embeddingApiKey` as keyof SettingsFormProps)
+              }}
             />
           </FormItem>
         </div>
@@ -251,10 +263,11 @@ export interface StandardFormItemsProps {
   hasStoredKey: boolean
   maskedValue: string
   onCopyApiKey: (field: keyof SettingsFormProps) => void
+  onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { modelPlatform, prefix, hasStoredKey, maskedValue, onCopyApiKey } = props
+  const { modelPlatform, prefix, hasStoredKey, maskedValue, onCopyApiKey, onRevealApiKey } = props
   const option = useMemo(() => {
     const foundItem = find(ModelInfoList, (item) => item.value === modelPlatform)
     return foundItem ? foundItem.option : []
@@ -285,6 +298,7 @@ const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
         hasStoredKey={hasStoredKey}
         maskedValue={maskedValue}
         onCopy={() => onCopyApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
+        onReveal={() => onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
         docsLabel={
           modelPlatform === ModelTypeList.Doubao ? t('settings.getDoubaoApiKey') : t('settings.getOpenaiApiKey')
         }
@@ -358,6 +372,23 @@ const Settings: FC<SettingsProps> = (props) => {
     } catch (error) {
       logger.error('[settings] 复制 API Key 失败', error)
       Message.error(t('settings.apiKeyClipboardFailed'))
+    }
+  })
+
+  /** 眼睛打开：脱敏回显换成明文，便于核对与手动复制。 */
+  const revealStoredApiKey = useMemoizedFn(async (field: keyof SettingsFormProps) => {
+    const fromForm = String(form.getFieldValue(field) ?? '')
+    if (isPlainApiKeyCandidate(fromForm, maskedRef.current)) {
+      return
+    }
+    try {
+      const key = await getStoredApiKey()
+      if (!key) {
+        return
+      }
+      form.setFieldValue(field, key)
+    } catch (error) {
+      logger.error('[settings] 显示 API Key 明文失败', error)
     }
   })
 
@@ -494,6 +525,7 @@ const Settings: FC<SettingsProps> = (props) => {
                         hasStoredKey={hasStoredKey}
                         maskedValue={maskedRef.current}
                         onCopyApiKey={copyStoredApiKey}
+                        onRevealApiKey={revealStoredApiKey}
                       />
                     )
                   }
@@ -505,6 +537,7 @@ const Settings: FC<SettingsProps> = (props) => {
                         hasStoredKey={hasStoredKey}
                         maskedValue={maskedRef.current}
                         onCopyApiKey={copyStoredApiKey}
+                        onRevealApiKey={revealStoredApiKey}
                       />
                     )
                   }
@@ -515,6 +548,7 @@ const Settings: FC<SettingsProps> = (props) => {
                       hasStoredKey={hasStoredKey}
                       maskedValue={maskedRef.current}
                       onCopyApiKey={copyStoredApiKey}
+                      onRevealApiKey={revealStoredApiKey}
                     />
                   )
                 }}

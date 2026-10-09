@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-clipboard-write-text"
+description = "允许渲染层通过外壳命令写入系统剪贴板（API Key 复制）。"
+commands.allow = ["clipboard_write_text"]
