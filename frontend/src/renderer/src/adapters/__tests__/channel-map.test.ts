@@ -150,6 +150,13 @@ test('新增面：会话列表映射到兼容路径', () => {
   assert.equal(fallback.path, '/api/agent/chat/conversations/list?limit=20')
 })
 
+test('新增面：删除会话映射到兼容软删除路径', () => {
+  const request = resolveChannel('v1:conversation-delete', [42])
+  assert.ok(request, '删除会话必须走适配层渠道，不能只在旧 axios 服务里删')
+  assert.equal(request.method, 'DELETE')
+  assert.equal(request.path, '/api/agent/chat/conversations/42/update')
+})
+
 test('新增面：补偿推断作业入队与查状态', () => {
   const enqueue = resolveChannel('v1:jobs-backfill', ['2026-10-01', '2026-10-08'])
   assert.ok(enqueue)

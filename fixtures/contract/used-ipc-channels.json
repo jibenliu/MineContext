@@ -298,6 +298,10 @@
       "source": "adapters/channel-map.ts"
     },
     {
+      "channel": "v1:conversation-delete",
+      "source": "adapters/channel-map.ts"
+    },
+    {
       "channel": "v1:conversation-messages",
       "source": "adapters/channel-map.ts"
     },

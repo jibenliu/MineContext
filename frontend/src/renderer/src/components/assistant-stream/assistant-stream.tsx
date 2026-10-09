@@ -1,4 +1,4 @@
-import { Button, Input } from '@arco-design/web-react'
+import { Button, Input, Modal } from '@arco-design/web-react'
 import { useI18n } from '@renderer/i18n'
 import MarkdownIt from 'markdown-it'
 import { FC, useRef, useState } from 'react'
@@ -36,6 +36,14 @@ export const AssistantStream: FC = () => {
       setCopyFeedback(t('assistant.copyFailed'))
     }
   }
+  const confirmDelete = (id: number) => {
+    Modal.confirm({
+      title: t('assistant.deleteConfirmTitle'),
+      content: t('assistant.deleteConfirmBody'),
+      okText: t('common.delete'),
+      onOk: () => chat.deleteConversation(id)
+    })
+  }
 
   return (
     <div className="assistant-stream flex h-full w-full min-w-0 flex-1 gap-4 self-stretch">
@@ -72,17 +80,31 @@ export const AssistantStream: FC = () => {
           {chat.conversations.length === 0 ? (
             <p className="px-1 py-2 text-xs text-[var(--color-text-3)]">{t('assistant.noConversations')}</p>
           ) : (
-            chat.conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                type="button"
-                disabled={chat.busy}
-                onClick={() => void chat.switchTo(conversation.id)}
-                aria-current={conversation.id === chat.activeId ? 'true' : undefined}
-                className="truncate rounded-[8px] px-3 py-2 text-left text-[13px] text-[var(--color-text-2)] hover:bg-[var(--color-bg-1)] aria-[current=true]:bg-[var(--color-primary-light-1)]">
-                {conversationDisplayTitle(conversation, untitled)}
-              </button>
-            ))
+            chat.conversations.map((conversation) => {
+              const title = conversationDisplayTitle(conversation, untitled)
+              return (
+                <div
+                  key={conversation.id}
+                  className="group flex items-stretch gap-1 rounded-[8px] hover:bg-[var(--color-bg-1)] aria-[current=true]:bg-[var(--color-primary-light-1)]"
+                  aria-current={conversation.id === chat.activeId ? 'true' : undefined}>
+                  <button
+                    type="button"
+                    disabled={chat.busy}
+                    onClick={() => void chat.switchTo(conversation.id)}
+                    className="min-w-0 flex-1 truncate px-3 py-2 text-left text-[13px] text-[var(--color-text-2)]">
+                    {title}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={chat.busy}
+                    aria-label={`${t('common.delete')} ${title}`}
+                    onClick={() => confirmDelete(conversation.id)}
+                    className="flex-shrink-0 px-2 text-[12px] text-[var(--color-text-3)] opacity-0 hover:text-[rgb(var(--danger-6))] group-hover:opacity-100 focus:opacity-100">
+                    {t('common.delete')}
+                  </button>
+                </div>
+              )
+            })
           )}
         </div>
       </aside>
