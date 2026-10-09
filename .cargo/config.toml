@@ -5,6 +5,6 @@
 # 「object file was built for newer macOS version (13.3) than being linked (10.12)」，
 # 产出一个声称支持 10.12、实际不支持的二进制。
 #
-# 守卫：`scripts/check-macos-target.sh`（也校验 CI 同时跑 macos-13 与 macos-14）。
+# 守卫：`scripts/check-macos-target.sh`（部署目标 ≥ 13；托管 CI runner ≥ 14）。
 [env]
 MACOSX_DEPLOYMENT_TARGET = "13.0"

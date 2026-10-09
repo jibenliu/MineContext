@@ -1,6 +1,10 @@
-//! `check-macos-target`：最低支持 macOS 13、同时覆盖 14，三处必须一致 ——
-//! 构建目标（`.cargo/config.toml`）、运行时常量（Rust 测试覆盖）、CI 矩阵。
-//! 少一处就会出现「文档说支持、二进制不支持」。
+//! `check-macos-target`：产品最低支持 macOS 13，CI 托管 runner 用 14+。
+//!
+//! 三处必须一致（少一处就会出现「文档说支持、二进制不支持」）：
+//!
+//! 1. 构建：`MACOSX_DEPLOYMENT_TARGET` ≥ 13.0（`.cargo/config.toml`）
+//! 2. 运行：`mc_common::platform::MIN_SUPPORTED_MACOS`（由 Rust 测试覆盖）
+//! 3. CI：test 矩阵覆盖 `macos-14`（或更高），且**不得**再依赖已退场的 `macos-13` 托管标签
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,17 +57,31 @@ pub fn check(root: &Path) -> Result<(), String> {
         }
     }
 
-    // ---- 2) CI 矩阵 ----
+    // ---- 2) CI 矩阵：托管 runner ≥ 14；禁止再写死 macos-13 ----
     let workflow = root.join(".github/workflows/rust.yml");
     match fs::read_to_string(&workflow) {
         Err(_) => problems.push("缺少 .github/workflows/rust.yml".to_string()),
         Ok(text) => {
-            for runner in ["macos-13", "macos-14"] {
-                if !text.contains(runner) {
-                    problems.push(format!(
-                        "CI 测试矩阵里没有 {runner}（用户要求 13 与 14 都要覆盖）"
-                    ));
-                }
+            // 只看非注释行：注释里可以提到旧标签，矩阵里不能再写。
+            let code_lines: String = text
+                .lines()
+                .filter(|line| !line.trim_start().starts_with('#'))
+                .collect::<Vec<_>>()
+                .join("\n");
+            if code_lines.contains("macos-13") {
+                problems.push(
+                    "CI 测试矩阵仍依赖 macos-13（该托管标签已退场，会永久排队）；请改为 macos-14 或更高"
+                        .to_string(),
+                );
+            }
+            let has_modern = ["macos-14", "macos-15", "macos-latest"]
+                .iter()
+                .any(|runner| code_lines.contains(runner));
+            if !has_modern {
+                problems.push(
+                    "CI 测试矩阵里没有 macos-14 / macos-15 / macos-latest（托管 CI 须覆盖 14+）"
+                        .to_string(),
+                );
             }
         }
     }
@@ -72,9 +90,7 @@ pub fn check(root: &Path) -> Result<(), String> {
         let version = target
             .map(|(major, minor)| format!("{major}.{minor}"))
             .unwrap_or_else(|| "未设置".to_string());
-        println!(
-            "macOS 支持范围检查通过（deployment target {version}，CI 覆盖 macos-13 / macos-14）"
-        );
+        println!("macOS 支持范围检查通过（deployment target {version}，CI runner ≥ macos-14）");
         return Ok(());
     }
 
@@ -99,15 +115,16 @@ fn manifests(root: &Path) -> Result<Vec<PathBuf>, String> {
     let mut found = Vec::new();
     for dir in ["crates", "apps"] {
         let base = root.join(dir);
-        let entries =
-            fs::read_dir(&base).map_err(|error| format!("无法读取 {}：{error}", base.display()))?;
-        for entry in entries.filter_map(Result::ok) {
-            let path = entry.path().join("Cargo.toml");
-            if path.is_file() {
-                found.push(path);
+        if !base.is_dir() {
+            continue;
+        }
+        for entry in fs::read_dir(&base).map_err(|error| format!("无法读 {dir}/：{error}"))? {
+            let entry = entry.map_err(|error| format!("无法读目录项：{error}"))?;
+            let manifest = entry.path().join("Cargo.toml");
+            if manifest.is_file() {
+                found.push(manifest);
             }
         }
     }
-    found.sort();
     Ok(found)
 }
