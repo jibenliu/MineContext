@@ -96,9 +96,29 @@ fn wait_for_runtime(data_dir: &std::path::Path, timeout: Duration) -> Option<Run
     None
 }
 
+/// 优先内存缓存；空时补读磁盘。
+///
+/// setup 里 `wait_for_runtime` 超时后仍会开窗口：若 daemon 随后才写好
+/// `runtime.json`，只读缓存会让渲染层永远 `backendReady=false`，误报
+/// 「无法连接本地服务」。补读一次即可收敛。
+fn runtime_from_cache_or_disk(
+    runtime: &mut Option<RuntimeInfo>,
+    data_dir: &std::path::Path,
+) -> Option<RuntimeInfo> {
+    if let Some(info) = runtime.as_ref() {
+        return Some(info.clone());
+    }
+    if let Some(info) = read_runtime(data_dir) {
+        *runtime = Some(info.clone());
+        return Some(info);
+    }
+    None
+}
+
 #[tauri::command]
 fn get_runtime(state: tauri::State<'_, Mutex<ShellState>>) -> Option<RuntimeInfo> {
-    state.lock().ok()?.runtime.clone()
+    let mut guard = state.lock().ok()?;
+    runtime_from_cache_or_disk(&mut guard.runtime, &guard.data_dir)
 }
 
 /// 渲染层上报录制状态：更新托盘提示与菜单文案。
@@ -395,4 +415,59 @@ fn attach_signal_shutdown(app: &tauri::AppHandle, dir: &std::path::Path) {
         std::thread::sleep(Duration::from_secs(5));
         std::process::exit(0);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn cache_hit_does_not_require_disk() {
+        let dir = tempfile_dir();
+        let mut cached = Some(RuntimeInfo {
+            port: 4242,
+            token: "cached".into(),
+        });
+        let got = runtime_from_cache_or_disk(&mut cached, &dir).expect("cache");
+        assert_eq!(got.port, 4242);
+        assert_eq!(got.token, "cached");
+    }
+
+    #[test]
+    fn empty_cache_reads_runtime_json_from_disk() {
+        let dir = tempfile_dir();
+        fs::write(
+            dir.join("runtime.json"),
+            r#"{"port":43117,"token":"from-disk"}"#,
+        )
+        .unwrap();
+        let mut cached = None;
+        let got = runtime_from_cache_or_disk(&mut cached, &dir).expect("disk");
+        assert_eq!(got.port, 43117);
+        assert_eq!(got.token, "from-disk");
+        assert!(cached.is_some(), "补读后应写入缓存");
+    }
+
+    #[test]
+    fn empty_cache_and_missing_file_stays_none() {
+        let dir = tempfile_dir();
+        let mut cached = None;
+        assert!(runtime_from_cache_or_disk(&mut cached, &dir).is_none());
+        assert!(cached.is_none());
+    }
+
+    fn tempfile_dir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "mc-shell-runtime-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
 }
