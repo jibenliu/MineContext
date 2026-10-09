@@ -196,7 +196,7 @@ it('引导态可点「稍后再说」离开，不依赖保存成功', async () =
 })
 
 it('引导态加载中不盖遮罩：开始使用按钮仍可点', async () => {
-  // 永不 resolve：旧实现整页 Spin mask 会吞点击；现在必须还能点到 CTA。
+  // getModelInfo 挂起时整页 loading mask 不得吞掉 CTA 点击（否则无日志、无反馈）。
   vi.mocked(getModelInfo).mockImplementation(() => new Promise(() => undefined))
   render(
     <Provider store={store}>

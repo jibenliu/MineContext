@@ -403,7 +403,7 @@ const Settings: FC<SettingsProps> = (props) => {
   })
 
   const submit = useMemoizedFn(async () => {
-    // 每次点击都先落盘：以前校验失败只弹 Toast、不写日志，Toast 被挡时表现为「按钮没反应」。
+    // 每次点击都先落盘：校验失败若只弹 Toast 不写日志，Toast 被挡时无法从 renderer.log 排查。
     logger.info('[settings] 点击保存/开始使用', { init: Boolean(init), hasStoredKey })
     try {
       await form.validate()
