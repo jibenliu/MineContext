@@ -174,3 +174,16 @@ test('新增面：链接上传映射到 /api/v1/links', () => {
   assert.ok(root)
   assert.deepEqual(root.body, { url: 'https://example.com', parent_id: null })
 })
+
+test('新增面：文件上传映射到 /api/v1/files/import', () => {
+  const bytes = new Uint8Array([104, 105])
+  const request = resolveChannel('v1:import-file', ['notes.md', bytes, 3])
+  assert.ok(request)
+  assert.equal(request.method, 'POST')
+  assert.equal(request.path, '/api/v1/files/import')
+  assert.deepEqual(request.body, { name: 'notes.md', data: bytes, parent_id: 3 })
+
+  const root = resolveChannel('v1:import-file', ['notes.md', bytes])
+  assert.ok(root)
+  assert.deepEqual(root.body, { name: 'notes.md', data: bytes, parent_id: null })
+})

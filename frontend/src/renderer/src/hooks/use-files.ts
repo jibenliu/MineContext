@@ -43,6 +43,10 @@ export const useFiles = () => {
     return result
   }, [])
 
+  const importFile = useCallback(async (fileName: string, fileData: Uint8Array) => {
+    return window.fileService.importFile(fileName, fileData)
+  }, [])
+
   useEffect(() => {
     loadFiles()
   }, [loadFiles])
@@ -51,5 +55,5 @@ export const useFiles = () => {
     setAnalyzedDocs((prev) => [...prev.filter((entry) => entry.name !== file.name), file])
   }, [])
 
-  return { analyzedDocs, addFile, loadFiles, saveFile, loading, loadFailed }
+  return { analyzedDocs, addFile, loadFiles, saveFile, importFile, loading, loadFailed }
 }

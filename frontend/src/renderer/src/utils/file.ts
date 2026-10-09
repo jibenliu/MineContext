@@ -22,5 +22,12 @@ export const typeIconMap = {
   txt: txtIcon,
   md: markdownIcon,
   markdown: markdownIcon,
-  faq: faqIcon
+  faq: faqIcon,
+  html: txtIcon,
+  htm: txtIcon,
+  png: faqIcon,
+  jpg: faqIcon,
+  jpeg: faqIcon,
+  gif: faqIcon,
+  webp: faqIcon
 }

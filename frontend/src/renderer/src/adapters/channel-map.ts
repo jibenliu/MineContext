@@ -288,6 +288,12 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
     method: 'POST',
     path: '/api/v1/links',
     body: { url: args[0], parent_id: args[1] ?? null }
+  }),
+  // 文件上传：抽取正文 / 图片元数据，落成笔记树文档（进入检索 / 向量索引）
+  'v1:import-file': (args) => ({
+    method: 'POST',
+    path: '/api/v1/files/import',
+    body: { name: args[0], data: args[1], parent_id: args[2] ?? null }
   })
 }
 

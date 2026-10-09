@@ -468,6 +468,7 @@ pub mod activities;
 pub mod adhoc_jobs;
 pub mod agent_chat;
 pub mod capture;
+pub mod file_import;
 pub mod files;
 pub mod home;
 pub mod jobs;

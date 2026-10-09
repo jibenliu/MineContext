@@ -1,9 +1,4 @@
-// 页面级测试：文件页能渲染出后端给的已分析文档。
-//
-// 这是 T1 登记的两个真缺口之一（另一个是笔记页）：238 行的页面、走 `useFiles` hook，
-// 此前**没有任何测试** —— 白屏这类问题不会被任何断言拦住。
-//
-// 这里钉两件事：① 页面挂载时真的去取文件列表（渠道 + 参数）；② 取回来的文档渲染出来。
+// 页面级测试：文件页能渲染出后端给的已分析文档，并走导入通道。
 
 import { installFakeBackend } from '@renderer/test/page-setup'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -43,32 +38,39 @@ describe('文件页（渲染 + 取数接线）', () => {
     expect(await screen.findByText(DOC.name)).toBeInTheDocument()
   })
 
-  it('保存失败保留对话框并支持重试，不向页面根路径上传', async () => {
+  it('导入失败保留对话框并支持重试，不向页面根路径上传', async () => {
     installFakeBackend({ 'file:get-all': { success: true, files: [] } }, { strict: false })
-    const save = vi
-      .spyOn(window.fileService, 'saveFile')
-      .mockResolvedValueOnce({ success: false, error: 'disk full' })
-      .mockResolvedValueOnce({ success: true, filePath: '/uploads/REPORT.MD' })
+    const importFile = vi
+      .spyOn(window.fileService, 'importFile')
+      .mockRejectedValueOnce(new Error('disk full'))
+      .mockResolvedValueOnce({
+        id: 11,
+        title: 'REPORT',
+        name: 'REPORT.MD',
+        kind: 'unstructured',
+        file_path: '/uploads/REPORT.MD'
+      })
     const upload = vi.spyOn(XMLHttpRequest.prototype, 'open')
     const { container } = render(<Files />)
     const input = container.querySelector('input[type="file"]')!
-    fireEvent.change(input, { target: { files: [new File(['hello'], 'REPORT.MD', { type: 'text/markdown' })] } })
-    fireEvent.click(await screen.findByText('保存文件'))
-    expect(await screen.findByRole('alert')).toHaveTextContent('保存失败')
-    fireEvent.click(screen.getByText('保存文件'))
-    expect(await screen.findByText('已上传')).toBeInTheDocument()
-    expect(save).toHaveBeenCalledTimes(2)
+    fireEvent.change(input, {
+      target: { files: [new File(['hello'], 'REPORT.MD', { type: 'text/markdown' })] }
+    })
+    fireEvent.click(await screen.findByText('导入并分析'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('导入失败')
+    fireEvent.click(screen.getByText('导入并分析'))
+    expect(await screen.findByText('分析成功')).toBeInTheDocument()
+    expect(importFile).toHaveBeenCalledTimes(2)
     expect(upload).not.toHaveBeenCalled()
   })
+
   it('取一次文件列表并渲染文档名', async () => {
     const backend = installFakeBackend({ 'file:get-all': { success: true, files: [DOC] } }, { strict: false })
 
     render(<Files />)
 
-    // ① 取数：页面挂载时会调 `file:get-all`
     await waitFor(() => expect(backend.calls.filter((call) => call.channel === 'file:get-all')).toHaveLength(1))
 
-    // ② 渲染：文档名出现在「已分析的文档」区域
     expect(await screen.findByText(DOC.name)).toBeInTheDocument()
   })
 })

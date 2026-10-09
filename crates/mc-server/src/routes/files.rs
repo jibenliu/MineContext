@@ -113,6 +113,12 @@ struct SaveBody {
 ///
 /// 渲染层传的是 `Uint8Array`，`JSON.stringify` 之后是
 /// `{"0":104,"1":105}`（对象，不是数组），因此三种形状都要支持。
+pub(crate) fn decode_upload_payload(
+    value: Option<&serde_json::Value>,
+) -> Result<Vec<u8>, AppError> {
+    decode_payload(value)
+}
+
 fn decode_payload(value: Option<&serde_json::Value>) -> Result<Vec<u8>, AppError> {
     let Some(value) = value else {
         return Ok(Vec::new());
