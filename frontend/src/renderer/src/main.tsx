@@ -7,6 +7,7 @@ import { getLogger } from '@shared/logger/renderer'
 import { createRoot } from 'react-dom/client'
 
 import { installHttpBackendFromRuntime } from './adapters/install'
+import { installRendererLogSink } from './adapters/renderer-log-sink'
 import App from './app'
 import { bootstrapBackend } from './bootstrap-backend'
 import { installDevStandalone } from './dev-standalone'
@@ -37,6 +38,9 @@ void (async () => {
       installDevStandalone()
       backendReady = true
     } else {
+      // 先挂落盘：否则 get_runtime 失败时界面能画错误页，renderer.log 却完全无新行。
+      installRendererLogSink(globalThis)
+      logger.info('[mc] 开始 bootstrap（日志出口已挂到外壳）')
       const result = await bootstrapBackend({
         loadRuntime: async () => {
           if (typeof window.mcRuntime?.get !== 'function') {
