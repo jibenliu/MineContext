@@ -102,8 +102,9 @@ jobs:
 
   github-release:
     name: Draft GitHub Release
+    # 三端二进制成功即可挂 Release；dmg 失败不应挡住平台 zip。
     needs: [binaries, dmg-tauri]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/v') && needs.binaries.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: 下载全部产物
@@ -129,6 +130,12 @@ jobs:
                 cp "$file" "release-assets/${platform}/${base}"
               fi
             done
+          shopt -s nullglob
+          zips=(release-assets/*/)
+          if [ "${#zips[@]}" -eq 0 ]; then
+            echo "FAIL: 没有平台二进制可挂到 Release" >&2
+            exit 1
+          fi
           # 平台包打成 zip，Release 附件更干净
           (
             cd release-assets
@@ -145,7 +152,8 @@ jobs:
         with:
           draft: true
           generate_release_notes: true
-          fail_on_unmatched_files: true
+          # dmg 可能因 Tauri 壳失败而缺失；平台 zip 仍应上传
+          fail_on_unmatched_files: false
           files: |
             release-assets/*.zip
             release-assets/*.dmg
