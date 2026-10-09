@@ -114,6 +114,30 @@ function createMockBackend(): Backend {
       case 'database:get-vaults-by-parent-id':
       case 'database:get-folders':
         return []
+      case 'screen-monitor:check-permissions':
+        // 与真后端 `/api/capture/permissions` 对齐，便于纯浏览器看有权限态
+        return {
+          screen_recording: true,
+          permission: 'granted',
+          ready: true,
+          running: false,
+          message: null
+        }
+      case 'task:check-can-record':
+        return { canRecord: true, status: 'stopped', reason: null }
+      case 'screen-monitor:get-capture-all-sources':
+        return {
+          success: true,
+          sources: [
+            {
+              id: 'screen:0',
+              name: 'Built-in Display',
+              type: 'screen',
+              isVisible: true,
+              selected: true
+            }
+          ]
+        }
       default:
         // 多数没显式列出的渠道期待的是**数组**（vault 树、活动列表、待办等）。返回 `[]`
         // 而不是 `{}`：页面里的 .length / .map / isEmpty 都不会因拿到对象而读到
@@ -137,23 +161,59 @@ function createMockBackend(): Backend {
  * 让设置页能保存并进入内部页。
  */
 function installAxiosMock(): void {
+  // 纯浏览器：把保存过的模型配置留在内存里，设置页才能回显脱敏密钥与复制。
+  let stored: {
+    config: Record<string, string>
+    hasApiKey: boolean
+    apiKeyMasked: string
+    apiKeyPlain: string
+  } = {
+    config: {
+      modelPlatform: '',
+      modelId: 'doubao-seed-1-6-flash-250828',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      apiKey: '',
+      embeddingModelId: 'doubao-embedding-vision-250615',
+      embeddingBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      embeddingApiKey: ''
+    },
+    hasApiKey: false,
+    apiKeyMasked: '',
+    apiKeyPlain: ''
+  }
+
   axiosInstance.defaults.adapter = async (config) => {
     const url = config.url ?? ''
     let data: unknown = { code: 0, data: {} }
-    if (url.includes('/api/model_settings/get')) {
+    if (url.includes('/api/model_settings/api_key')) {
+      data = stored.apiKeyPlain
+        ? { code: 0, data: { apiKey: stored.apiKeyPlain } }
+        : { code: 1, message: '尚未保存 API Key', data: null }
+    } else if (url.includes('/api/model_settings/get')) {
       data = {
         code: 0,
         data: {
-          modelPlatform: '',
-          modelId: '',
-          baseUrl: '',
-          apiKey: '',
-          embeddingModelId: '',
-          embeddingBaseUrl: '',
-          embeddingApiKey: ''
+          config: { ...stored.config, apiKey: '', embeddingApiKey: '' },
+          hasApiKey: stored.hasApiKey,
+          apiKeyMasked: stored.apiKeyMasked
         }
       }
     } else if (url.includes('/api/model_settings/update')) {
+      const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data
+      const next = (body?.config ?? {}) as Record<string, string>
+      const key = String(next.apiKey || next.embeddingApiKey || '').trim()
+      if (key) {
+        stored.apiKeyPlain = key
+        stored.hasApiKey = true
+        stored.apiKeyMasked =
+          key.length <= 8 ? '••••••••' : `${key.slice(0, 4)}••••••••${key.slice(-4)}`
+      }
+      stored.config = {
+        ...stored.config,
+        ...next,
+        apiKey: '',
+        embeddingApiKey: ''
+      }
       data = { code: 0, data: { success: true, message: 'dev-standalone: saved' } }
     } else if (url.includes('/api/events/fetch')) {
       // 事件轮询：给空列表，页面按「没有新事件」处理
