@@ -1,0 +1,153 @@
+name: Release (binaries + macOS dmg)
+
+# 推送 `v*` 标签后自动打包各环境二进制，并打一份未签名 macOS dmg。
+# 打标签：Actions → Tag release，或 `./scripts/create-release-tag.sh`。
+#
+# 产物：
+#   1) mc-daemon / mc-cli —— macos-14 / ubuntu-22.04 / windows-latest
+#   2) 未签名 Tauri `.dmg` —— macos-14
+#   3) draft GitHub Release（附全部 artifact；未签名，需维护者确认后再发布）
+#
+# 手动：workflow_dispatch 可在任意 ref 上重跑打包（不强制 tag）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  binaries:
+    name: Binaries (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-22.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo 缓存
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: release-binaries-${{ matrix.os }}
+
+      - name: 打包 daemon + cli
+        shell: bash
+        run: ./scripts/package-release-binaries.sh
+
+      - name: 上传二进制
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  dmg-tauri:
+    name: Build unsigned dmg (Tauri shell)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo 缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-tauri-${{ hashFiles('Cargo.lock', 'src-tauri/Cargo.toml') }}
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 前端依赖
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: 打包（未签名）
+        run: ./scripts/package-macos-tauri.sh
+
+      - name: 上传 dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: MineContext-macos-unsigned-tauri
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+  github-release:
+    name: Draft GitHub Release
+    needs: [binaries, dmg-tauri]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 展平产物目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          # binaries-* → release-assets/<platform>/*
+          find artifacts -type f \( -name 'mc-daemon' -o -name 'mc-daemon.exe' -o -name 'mc-cli' -o -name 'mc-cli.exe' -o -name 'SHA256SUMS' -o -name '*.dmg' \) -print0 |
+            while IFS= read -r -d '' file; do
+              base="$(basename "$file")"
+              if [[ "$base" == *.dmg ]]; then
+                cp "$file" "release-assets/${base}"
+              else
+                # .../dist/release/<platform>/<file>
+                platform="$(basename "$(dirname "$file")")"
+                mkdir -p "release-assets/${platform}"
+                cp "$file" "release-assets/${platform}/${base}"
+              fi
+            done
+          # 平台包打成 zip，Release 附件更干净
+          (
+            cd release-assets
+            for dir in */; do
+              [ -d "$dir" ] || continue
+              name="${dir%/}"
+              zip -r "${name}.zip" "$name"
+            done
+          )
+          ls -laR release-assets
+
+      - name: 创建 draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/*.zip
+            release-assets/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

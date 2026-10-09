@@ -226,9 +226,14 @@ token）与文件系统路径 —— 由 `scripts/check-source.sh` 里的日志�
 或在 GitHub：**Actions → Tag release → Run workflow**
 （`tag-release.yml`；`version` 留空则用仓库版本，`dry_run` 只校验不推送）。
 
-推送 `v*` 后由 **Release (macOS, unsigned)**（`release-macos.yml`）在 `macos-14`
-上构建未签名 dmg 并上传 artifact。也可对该 workflow 手动 `workflow_dispatch`
-只打包、不打标签。
+推送 `v*` 后由 **Release (binaries + macOS dmg)**（`release.yml`）自动：
+
+1. 在 `macos-14` / `ubuntu-22.04` / `windows-latest` 构建 `mc-daemon` + `mc-cli`
+   （脚本：`./scripts/package-release-binaries.sh`，产物进 `dist/release/<os>-<arch>/`）；
+2. 在 `macos-14` 打未签名 Tauri `.dmg`（`./scripts/package-macos-tauri.sh`）；
+3. 汇总为 **draft GitHub Release**（zip + dmg；未签名，需维护者确认后再发布）。
+
+也可对 `release.yml` 手动 `workflow_dispatch` 只打包、不打标签。
 
 ## 5.1 发布前还差什么
 

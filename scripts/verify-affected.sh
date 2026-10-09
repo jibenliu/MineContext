@@ -155,6 +155,11 @@ if [ "${do_scripts}" -eq 1 ]; then
       [ "${LIST_ONLY}" -eq 0 ] && timed "发版标签脚本模式" ./scripts/tests/create-release-tag-modes.sh
       ;;
   esac
+  case " ${changed} " in
+    *scripts/package-release-binaries.sh* | *scripts/tests/package-release-binaries-modes.sh* | *workflows/release.yml*)
+      [ "${LIST_ONLY}" -eq 0 ] && timed "发版二进制脚本模式" ./scripts/tests/package-release-binaries-modes.sh
+      ;;
+  esac
   [ "${LIST_ONLY}" -eq 0 ] && timed "源码类门禁（10 条）" ./scripts/check-source.sh
   case " ${changed} " in
     *scripts/tests/selftest-lints.sh* | *scripts/checks/*)

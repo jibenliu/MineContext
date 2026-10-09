@@ -8,7 +8,7 @@
 #   ./scripts/create-release-tag.sh --local 0.1.6   # 只在本机建 tag，不 push
 #
 # CI：`.github/workflows/tag-release.yml` 调本脚本；推送 `v*` 后由
-# `release-macos.yml` 接手打包。
+# `release.yml` 接手各环境二进制 + macOS dmg + draft Release。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -128,4 +128,4 @@ if [ "$LOCAL_ONLY" -eq 1 ]; then
 fi
 
 git push origin "refs/tags/${TAG}"
-echo "已推送 ${TAG}；Release (macOS) workflow 应由 tag 推送触发。"
+echo "已推送 ${TAG}；Release workflow 应由 tag 推送触发（多平台二进制 + macOS dmg）。"
