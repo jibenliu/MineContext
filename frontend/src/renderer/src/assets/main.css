@@ -333,6 +333,29 @@ body:not([arco-theme='dark']) .arco-btn-outline:not(.arco-btn-disabled):hover {
   border-color: var(--color-border-3) !important;
 }
 
+/*
+ * 次要描边按钮（屏幕监控「设置」等）：弧角处底/边/背景必须同色裁切。
+ * Arco outline 在圆角抗锯齿时会露出父级灰底，看起来像「灰边没贴合」。
+ */
+body:not([arco-theme='dark']) .mc-secondary-btn.arco-btn {
+  background-color: #ffffff !important;
+  background-clip: padding-box;
+  border-color: #c9cdd4 !important;
+  color: var(--color-text-1) !important;
+  font-weight: 500;
+  overflow: hidden;
+  isolation: isolate;
+}
+body:not([arco-theme='dark']) .mc-secondary-btn.arco-btn:not(.arco-btn-disabled):hover {
+  background-color: #f7f8fa !important;
+  border-color: #c9cdd4 !important;
+}
+body:not([arco-theme='dark']) .mc-secondary-btn.arco-btn.arco-btn-disabled {
+  background-color: #ffffff !important;
+  border-color: #e5e6eb !important;
+  color: var(--color-text-3) !important;
+}
+
 /* 屏幕监控采集区：白底 + 虚线边框分层，不用灰填充 */
 body:not([arco-theme='dark']) .screen-monitor-capture-surface {
   background-color: #ffffff !important;

@@ -133,8 +133,23 @@ function createMockBackend(): Backend {
               id: 'screen:0',
               name: 'Built-in Display',
               type: 'screen',
+              // 1×1 PNG：设置页「选择录制内容」要能渲染缩略图而不是灰裂图
+              thumbnail:
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+              appIcon: null,
               isVisible: true,
               selected: true
+            },
+            {
+              id: 'window-1',
+              name: 'Visual Studio Code',
+              type: 'window',
+              thumbnail: null,
+              appIcon: null,
+              appName: 'Visual Studio Code',
+              windowTitle: 'main.rs — VSCode',
+              isVisible: true,
+              selected: false
             }
           ]
         }

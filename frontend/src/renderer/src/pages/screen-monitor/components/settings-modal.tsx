@@ -170,11 +170,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 // 选中环用高对比语义色：写死黑色在深色主题下会与背景融为一体而看不出选中
                                 checked ? 'border-[var(--color-text-1)]' : 'border-transparent'
                               )}>
-                              <img
-                                src={source.thumbnail || ''}
-                                alt="thumbnail"
-                                className="w-[94px] h-[60px] inline-block object-cover"
-                              />
+                              {source.thumbnail ? (
+                                <img
+                                  src={source.thumbnail}
+                                  alt="thumbnail"
+                                  className="w-[94px] h-[60px] inline-block object-cover"
+                                />
+                              ) : (
+                                <div className="w-[94px] h-[60px] flex items-center justify-center bg-[var(--color-fill-1)]">
+                                  <img src={screenIcon} alt="" className="w-[28px] h-[28px] opacity-60" />
+                                </div>
+                              )}
                               <Checkbox checked={checked} className="!absolute !top-[4px] !right-[4px]" />
                             </div>
                             <div className="flex items-center space-x-[4px]">

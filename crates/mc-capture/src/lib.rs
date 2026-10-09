@@ -13,3 +13,5 @@ pub mod geometry;
 pub mod platform;
 pub mod scheduler;
 pub mod source;
+pub mod thumbnail;
+pub mod window_filter;

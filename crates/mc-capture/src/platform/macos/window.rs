@@ -18,6 +18,7 @@ use crate::source::{
     CaptureContext, CaptureSource, CaptureTarget, PermissionState, RawCapture, SourceCapabilities,
     SourceHealth, SourceKind, TargetBounds, TargetKind,
 };
+use crate::window_filter::is_capturable;
 
 /// 采集源 id。稳定，会写进观测与幂等键。
 pub const SOURCE_ID: &str = "macos:window";
@@ -121,17 +122,6 @@ pub fn should_capture(is_focused: bool, capturable: bool, wanted: bool) -> bool 
     is_focused && capturable && wanted
 }
 
-/// 这个窗口值不值得采。
-///
-/// 系统里有大量没有标题、没有应用名的辅助窗口（菜单栏、浮层、零尺寸窗口），
-/// 采集它们只会把存储和后续分析浪费掉。
-pub fn is_capturable(app_name: Option<&str>, title: Option<&str>, width: u32, height: u32) -> bool {
-    if width == 0 || height == 0 {
-        return false;
-    }
-    app_name.is_some() || title.is_some()
-}
-
 #[async_trait]
 impl CaptureSource for MacWindowSource {
     fn id(&self) -> &str {
@@ -192,6 +182,30 @@ impl CaptureSource for MacWindowSource {
             },
         }
     }
+
+    async fn preview_thumbnails(
+        &self,
+        max_width: u32,
+    ) -> std::collections::HashMap<String, String> {
+        use crate::thumbnail::rgba_to_data_url;
+
+        let mut out = std::collections::HashMap::new();
+        let Ok(windows) = Self::windows() else {
+            return out;
+        };
+        for window in &windows {
+            let Some(target) = Self::target_of(window) else {
+                continue;
+            };
+            let Ok(frame) = window.capture_image() else {
+                continue;
+            };
+            if let Some(url) = rgba_to_data_url(&frame, max_width) {
+                out.insert(target.id, url);
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -212,14 +226,5 @@ mod tests {
         assert!(!should_capture(false, true, true), "后台窗口不采");
         assert!(!should_capture(true, false, true), "没有身份信息的窗口不采");
         assert!(!should_capture(true, true, false), "没被配置选中的不采");
-    }
-
-    #[test]
-    fn zero_sized_and_anonymous_windows_are_skipped() {
-        assert!(!is_capturable(None, None, 800, 600), "没有身份信息的窗口");
-        assert!(!is_capturable(Some("App"), Some("标题"), 0, 600), "零宽");
-        assert!(!is_capturable(Some("App"), Some("标题"), 800, 0), "零高");
-        assert!(is_capturable(Some("App"), None, 800, 600));
-        assert!(is_capturable(None, Some("标题"), 800, 600));
     }
 }
