@@ -153,6 +153,16 @@ fn set_launch_at_login(app: tauri::AppHandle, enabled: bool) -> Result<bool, Str
     manager.is_enabled().map_err(|error| error.to_string())
 }
 
+/// 写入系统剪贴板（设置页复制 API Key 等）。
+///
+/// WebView 的 `navigator.clipboard` 在非安全上下文 / 权限拒绝时会失败；
+/// 外壳用系统 API 写入，避免「复制失败还只能选到脱敏串」。
+#[tauri::command]
+fn clipboard_write_text(text: String) -> Result<(), String> {
+    let mut clipboard = arboard::Clipboard::new().map_err(|error| error.to_string())?;
+    clipboard.set_text(text).map_err(|error| error.to_string())
+}
+
 
 /// 进程级单实例锁：`<数据目录>/.shell.lock` 存 pid。
 ///
@@ -309,7 +319,8 @@ pub fn run() {
             launch_at_login,
             set_launch_at_login,
             tray_recording_status,
-            renderer_log
+            renderer_log,
+            clipboard_write_text
         ])
         .setup(move |app| {
             let resource_dir = app.path().resource_dir().ok();

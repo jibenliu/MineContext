@@ -347,8 +347,16 @@ async fn captures_and_analyses_are_counted_separately() {
         blocker["message"]
             .as_str()
             .unwrap_or_default()
-            .contains("ai_upload"),
-        "blocker 必须点名配置项：{blocker}"
+            .contains("出网"),
+        "blocker 必须用人话说明：{blocker}"
+    );
+    assert_eq!(blocker["action"]["target"], "settings_ai_upload");
+    assert!(
+        blocker["action"]["label"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("设置"),
+        "必须带设置入口文案：{blocker}"
     );
 
     // 只把第一张标成分析完成

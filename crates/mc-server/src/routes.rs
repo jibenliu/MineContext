@@ -471,6 +471,7 @@ pub mod capture;
 pub mod files;
 pub mod home;
 pub mod jobs;
+pub mod privacy;
 pub mod settings;
 pub mod stages;
 pub mod threads;

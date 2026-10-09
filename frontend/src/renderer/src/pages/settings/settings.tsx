@@ -16,6 +16,7 @@ import {
   updateModelSettingsAPI
 } from '../../services/settings'
 import { writeClipboard } from '../../utils/write-clipboard'
+import { AiUploadSwitch } from './components/ai-upload-switch'
 import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
@@ -55,9 +56,11 @@ const ApiKeyField: FC<{
   hasStoredKey: boolean
   maskedValue: string
   onCopy: () => void
+  /** 眼睛打开时把脱敏串换成明文，避免「可见但仍是 ••••」 */
+  onReveal: () => void
   docsLabel: string
   onOpenDocs: () => void
-}> = ({ field, className, autoFocus, hasStoredKey, maskedValue, onCopy, docsLabel, onOpenDocs }) => {
+}> = ({ field, className, autoFocus, hasStoredKey, maskedValue, onCopy, onReveal, docsLabel, onOpenDocs }) => {
   const { t } = useI18n()
   return (
     <FormItem
@@ -96,6 +99,9 @@ const ApiKeyField: FC<{
         allowClear
         className={className ?? '!w-[574px]'}
         defaultVisibility={false}
+        onVisibilityChange={(visible) => {
+          if (visible) onReveal()
+        }}
       />
     </FormItem>
   )
@@ -106,10 +112,11 @@ export interface CustomFormItemsProps {
   hasStoredKey: boolean
   maskedValue: string
   onCopyApiKey: (field: keyof SettingsFormProps) => void
+  onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { prefix, hasStoredKey, maskedValue, onCopyApiKey } = props
+  const { prefix, hasStoredKey, maskedValue, onCopyApiKey, onRevealApiKey } = props
   return (
     <>
       <div className="flex flex-col gap-6 mb-6">
@@ -174,6 +181,9 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
               allowClear
               className="!w-[574px]"
               defaultVisibility={false}
+              onVisibilityChange={(visible) => {
+                if (visible) onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)
+              }}
             />
           </FormItem>
         </div>
@@ -238,6 +248,9 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
               allowClear
               className="!w-[574px]"
               defaultVisibility={false}
+              onVisibilityChange={(visible) => {
+                if (visible) onRevealApiKey(`${prefix}-embeddingApiKey` as keyof SettingsFormProps)
+              }}
             />
           </FormItem>
         </div>
@@ -251,10 +264,11 @@ export interface StandardFormItemsProps {
   hasStoredKey: boolean
   maskedValue: string
   onCopyApiKey: (field: keyof SettingsFormProps) => void
+  onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { modelPlatform, prefix, hasStoredKey, maskedValue, onCopyApiKey } = props
+  const { modelPlatform, prefix, hasStoredKey, maskedValue, onCopyApiKey, onRevealApiKey } = props
   const option = useMemo(() => {
     const foundItem = find(ModelInfoList, (item) => item.value === modelPlatform)
     return foundItem ? foundItem.option : []
@@ -285,6 +299,7 @@ const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
         hasStoredKey={hasStoredKey}
         maskedValue={maskedValue}
         onCopy={() => onCopyApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
+        onReveal={() => onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
         docsLabel={
           modelPlatform === ModelTypeList.Doubao ? t('settings.getDoubaoApiKey') : t('settings.getOpenaiApiKey')
         }
@@ -312,6 +327,14 @@ export type SettingsFormProps = SettingsFormBase & {
     | `${ModelTypeList.Custom}-embeddingBaseUrl`
     | `${ModelTypeList.Custom}-embeddingApiKey`]?: string
 }
+/** HashRouter 下 query 在 hash 里：`#/settings?section=ai-upload` */
+function settingsSectionFromLocation(): string | null {
+  if (typeof window === 'undefined') return null
+  const hashQuery = window.location.hash.includes('?') ? window.location.hash.split('?')[1] : ''
+  const search = hashQuery || window.location.search.replace(/^\?/, '')
+  return new URLSearchParams(search).get('section')
+}
+
 const Settings: FC<SettingsProps> = (props) => {
   const { t } = useI18n()
   const { closeSetting, init } = props
@@ -358,6 +381,23 @@ const Settings: FC<SettingsProps> = (props) => {
     } catch (error) {
       logger.error('[settings] 复制 API Key 失败', error)
       Message.error(t('settings.apiKeyClipboardFailed'))
+    }
+  })
+
+  /** 眼睛打开：脱敏回显换成明文，便于核对与手动复制。 */
+  const revealStoredApiKey = useMemoizedFn(async (field: keyof SettingsFormProps) => {
+    const fromForm = String(form.getFieldValue(field) ?? '')
+    if (isPlainApiKeyCandidate(fromForm, maskedRef.current)) {
+      return
+    }
+    try {
+      const key = await getStoredApiKey()
+      if (!key) {
+        return
+      }
+      form.setFieldValue(field, key)
+    } catch (error) {
+      logger.error('[settings] 显示 API Key 明文失败', error)
     }
   })
 
@@ -418,7 +458,14 @@ const Settings: FC<SettingsProps> = (props) => {
 
   useMount(() => {
     getInfo()
+    const section = settingsSectionFromLocation()
+    if (section) {
+      requestAnimationFrame(() => {
+        document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
   })
+
   // 后端不带平台名（见 `inferModelPlatform`），所以平台选择由配置反推：
   // 表单渲染与回填都以它为准，避免出现「平台字段是空串」这种没有对应表单的状态。
   const backendPlatform = useMemo(
@@ -494,6 +541,7 @@ const Settings: FC<SettingsProps> = (props) => {
                         hasStoredKey={hasStoredKey}
                         maskedValue={maskedRef.current}
                         onCopyApiKey={copyStoredApiKey}
+                        onRevealApiKey={revealStoredApiKey}
                       />
                     )
                   }
@@ -505,6 +553,7 @@ const Settings: FC<SettingsProps> = (props) => {
                         hasStoredKey={hasStoredKey}
                         maskedValue={maskedRef.current}
                         onCopyApiKey={copyStoredApiKey}
+                        onRevealApiKey={revealStoredApiKey}
                       />
                     )
                   }
@@ -515,6 +564,7 @@ const Settings: FC<SettingsProps> = (props) => {
                       hasStoredKey={hasStoredKey}
                       maskedValue={maskedRef.current}
                       onCopyApiKey={copyStoredApiKey}
+                      onRevealApiKey={revealStoredApiKey}
                     />
                   )
                 }}
@@ -534,6 +584,11 @@ const Settings: FC<SettingsProps> = (props) => {
           {/* 通用设置：与上面的模型配置不是一回事，所以单独分组，
               避免把「开机自启」混进 API key 的表单字段流里。
               用一行「标题 + 说明 + 控件」而不是大边框卡片：一个开关撑满整行会很空。 */}
+          <div id="model" className="scroll-mt-6" />
+          <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
+            <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.privacy')}</div>
+            <AiUploadSwitch />
+          </div>
           <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
             <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.startup')}</div>
             <LaunchAtLoginSwitch />

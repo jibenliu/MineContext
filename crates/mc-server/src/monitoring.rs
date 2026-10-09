@@ -119,25 +119,29 @@ fn analysis_blocker(
     if !config.config.privacy.ai_upload {
         return json!({
             "code": "ai_upload_disabled",
-            "message": "privacy.ai_upload 未开启（默认不出网），截图不会送模型分析。请在配置中允许 AI 出网后再观察「已分析」计数。",
+            "message": "尚未允许 AI 出网（默认只在本机工作），截图不会送模型分析。",
+            "action": { "target": "settings_ai_upload", "label": "去设置开启" },
         });
     }
     if !config.config.ai.enabled {
         return json!({
             "code": "ai_disabled",
-            "message": "ai.enabled = false，视觉分析已关闭。",
+            "message": "AI 分析已关闭，截图不会送模型。",
+            "action": { "target": "settings_ai_upload", "label": "去设置开启" },
         });
     }
     if !vision_ok {
         return json!({
             "code": "vision_unconfigured",
-            "message": "未配置视觉模型（缺少 base_url 或 model）。请到设置页填写模型平台与模型 ID。",
+            "message": "未配置视觉模型。请到设置页填写模型平台与模型 ID。",
+            "action": { "target": "settings_model", "label": "去设置模型" },
         });
     }
     if !key_readable {
         return json!({
             "code": "api_key_missing",
-            "message": "视觉模型已配但读不到 API Key（sidecar / 钥匙串为空）。请到设置页重新保存 API Key。",
+            "message": "视觉模型已配但读不到 API Key。请到设置页重新保存 API Key。",
+            "action": { "target": "settings_model", "label": "去设置密钥" },
         });
     }
     // 密钥能读到但仍失败：401/403、429、余额不足 —— 比「pending 未接线」更可行动。
@@ -196,6 +200,7 @@ fn provider_failure_blocker(hint: &mc_storage::monitoring::ProviderFailureHint) 
                     .map(|text| format!(" {text}"))
                     .unwrap_or_default()
             ),
+            "action": { "target": "settings_model", "label": "去设置密钥" },
         })),
         "provider_rate_limited" => Some(json!({
             "code": "provider_rate_limited",
