@@ -7,7 +7,6 @@ import { useI18n } from '@renderer/i18n'
 import { useAppDispatch, useAppSelector } from '@renderer/store'
 import { refreshCaptureSources, refreshCaptureSourcesFromSettings } from '@renderer/store/capture-sources'
 import { withParsedResources } from '@renderer/utils/resources'
-import { IpcChannel } from '@shared/ipc-channel'
 import { getLogger } from '@shared/logger/renderer'
 import { useMemoizedFn, useMount } from 'ahooks'
 import dayjs from 'dayjs'
@@ -452,17 +451,6 @@ const ScreenMonitor: React.FC = () => {
       }
     }
   }, [isMonitoring, enableRecordingHours, checkCanRecord])
-
-  // Sync recording status to tray
-  useEffect(() => {
-    if (isToday) {
-      window.electron.ipcRenderer
-        .invoke(IpcChannel.Tray_UpdateRecordingStatus, isMonitoring && canRecord)
-        .catch((error) => {
-          logger.error('Failed to update tray recording status:', error)
-        })
-    }
-  }, [isMonitoring, canRecord, isToday])
 
   // Get sources
   const settingSources = useAppSelector((state) => state.captureSources.saved)

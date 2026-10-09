@@ -281,7 +281,97 @@ pub async fn index_pending_notes(
     Ok(report)
 }
 
-/// 一轮后台索引：先活动、再笔记。任一侧维度冲突都向上抛。
+/// 总结的可检索文本（与 `retrieval::documents` 对齐：标题 + 正文）。
+pub fn summary_text(summary: &mc_storage::projectors::summaries::StoredSummary) -> String {
+    format!("{} {}", summary.title, summary.body_markdown)
+}
+
+/// 把「还没有向量」的总结补上向量（`kind=summary`，`doc_id=summary.id`）。
+///
+/// 总结往往含「做了什么」的原话；只靠关键词会漏掉同义改写的问答命中。
+pub async fn index_pending_summaries(
+    state: &ServerState,
+    provider: &dyn EmbeddingProvider,
+    model: &str,
+    batch_limit: usize,
+    at: Timestamp,
+) -> Result<EmbeddingIndexReport, AppError> {
+    let summaries = state.db.read_summaries(None, None)?;
+    let existing: std::collections::BTreeSet<String> = state.db.with_read(|conn| {
+        let mut stmt = conn.prepare("SELECT doc_id FROM vectors WHERE kind = 'summary'")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        rows.collect::<Result<std::collections::BTreeSet<_>, _>>()
+    })?;
+
+    let pending: Vec<&mc_storage::projectors::summaries::StoredSummary> = summaries
+        .iter()
+        .filter(|summary| {
+            !existing.contains(&summary.id) && !summary_text(summary).trim().is_empty()
+        })
+        .collect();
+
+    let mut report = EmbeddingIndexReport {
+        skipped: existing.len().min(summaries.len()),
+        ..Default::default()
+    };
+    if pending.is_empty() {
+        return Ok(report);
+    }
+
+    let documents: Vec<EmbeddingDocument> = pending
+        .iter()
+        .map(|summary| EmbeddingDocument {
+            kind: "summary".to_string(),
+            doc_id: summary.id.clone(),
+            text: summary_text(summary),
+        })
+        .collect();
+
+    let outcome = embed_documents(provider, model, &documents, batch_limit).await;
+
+    report.requests = outcome.calls.len();
+    report.prompt_tokens = outcome.total_prompt_tokens();
+
+    for call in &outcome.calls {
+        let _ = state.db.record_provider_call(&ProviderCall {
+            at,
+            provider_id: format!("openai_compatible:{model}"),
+            model: call.model.clone(),
+            purpose: Purpose::Embedding,
+            observation_id: None,
+            stage_id: None,
+            prompt_tokens: call.prompt_tokens,
+            completion_tokens: 0,
+            latency_ms: call.latency_ms,
+            result: call.result,
+            error_code: call.error_code.clone(),
+        });
+    }
+
+    if !outcome.vectors.is_empty() {
+        let records: Vec<VectorRecord> = outcome
+            .vectors
+            .iter()
+            .map(|vector| VectorRecord {
+                kind: vector.kind.clone(),
+                doc_id: vector.doc_id.clone(),
+                model: vector.model.clone(),
+                values: vector.values.clone(),
+            })
+            .collect();
+        let written = upsert_vectors(&state.db, &records, at)?;
+        report.indexed = written;
+    }
+
+    if let Some(failure) = outcome.failure {
+        state.db.record_failure(at, "embedding", &failure, "warn")?;
+        report.failure = Some(failure);
+    }
+
+    Ok(report)
+}
+
+/// 一轮后台索引：活动 → 笔记 → 总结。任一侧维度冲突都向上抛。
 pub async fn index_pending(
     state: &ServerState,
     provider: &dyn EmbeddingProvider,
@@ -294,16 +384,26 @@ pub async fn index_pending(
         return Ok(activities);
     }
     let notes = index_pending_notes(state, provider, model, batch_limit, at).await?;
+    if notes.failure.is_some() {
+        return Ok(EmbeddingIndexReport {
+            indexed: activities.indexed + notes.indexed,
+            skipped: activities.skipped + notes.skipped,
+            requests: activities.requests + notes.requests,
+            prompt_tokens: activities.prompt_tokens + notes.prompt_tokens,
+            failure: notes.failure,
+        });
+    }
+    let summaries = index_pending_summaries(state, provider, model, batch_limit, at).await?;
     Ok(EmbeddingIndexReport {
-        indexed: activities.indexed + notes.indexed,
-        skipped: activities.skipped + notes.skipped,
-        requests: activities.requests + notes.requests,
-        prompt_tokens: activities.prompt_tokens + notes.prompt_tokens,
-        failure: notes.failure,
+        indexed: activities.indexed + notes.indexed + summaries.indexed,
+        skipped: activities.skipped + notes.skipped + summaries.skipped,
+        requests: activities.requests + notes.requests + summaries.requests,
+        prompt_tokens: activities.prompt_tokens + notes.prompt_tokens + summaries.prompt_tokens,
+        failure: summaries.failure,
     })
 }
 
-/// 索引进度：给 `/api/diagnostics` 用的一行摘要（活动 + 笔记）。
+/// 索引进度：给 `/api/diagnostics` 用的一行摘要（活动 + 笔记 + 总结）。
 pub fn index_progress(state: &ServerState) -> Result<(usize, usize), AppError> {
     let activity_total = mc_storage::projectors::activities::read_all(&state.db)?.len();
     let note_total = state
@@ -316,8 +416,11 @@ pub fn index_progress(state: &ServerState) -> Result<(usize, usize), AppError> {
             is_deleted: None,
         })?
         .len();
-    let total = activity_total + note_total;
-    let indexed = count_vectors(&state.db, "activity")? + count_vectors(&state.db, "document")?;
+    let summary_total = state.db.read_summaries(None, None)?.len();
+    let total = activity_total + note_total + summary_total;
+    let indexed = count_vectors(&state.db, "activity")?
+        + count_vectors(&state.db, "document")?
+        + count_vectors(&state.db, "summary")?;
     Ok((indexed.min(total), total))
 }
 

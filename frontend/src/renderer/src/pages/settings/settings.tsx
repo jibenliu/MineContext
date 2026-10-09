@@ -9,6 +9,7 @@ import { find, get, isEmpty, pick } from 'lodash'
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getModelInfo, getStoredApiKey, ModelConfigProps, updateModelSettingsAPI } from '../../services/settings'
+import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
 import ModelRadio from './components/model-radio/model-radio'
@@ -512,6 +513,7 @@ const Settings: FC<SettingsProps> = (props) => {
             <NotificationSwitch />
             {/* 语言切换入口：设置页里的位置固定在启动项下面，不随页面结构漂移 */}
             <LanguageSwitch />
+            <BackfillSection />
           </div>
         </div>
       </div>
