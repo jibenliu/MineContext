@@ -161,3 +161,45 @@ pub fn recent_failures(
         rows.collect::<Result<Vec<_>, _>>()
     })
 }
+
+/// 最近一条与模型鉴权 / 限流 / 额度相关的失败（含 context 原文，便于识别「余额不足」）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderFailureHint {
+    pub error_code: String,
+    pub message: String,
+    pub remediation: Option<String>,
+    pub context: Option<String>,
+}
+
+/// 采到但未分析时，优先用这些失败解释「为什么是 0」：密钥错、429、余额/额度。
+pub fn latest_provider_failure(
+    db: &Database,
+    since_ms: i64,
+) -> Result<Option<ProviderFailureHint>, AppError> {
+    db.with_read(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT error_code, message, remediation, context FROM pipeline_failures
+              WHERE at_utc_ms >= ?1
+                AND error_code IN (
+                    'provider_auth_failed',
+                    'provider_rate_limited',
+                    'budget_exceeded',
+                    'provider_not_found',
+                    'provider_invalid_response',
+                    'provider_server_error'
+                )
+              ORDER BY at_utc_ms DESC, id DESC LIMIT 1",
+        )?;
+        let row = stmt
+            .query_row(rusqlite::params![since_ms], |row| {
+                Ok(ProviderFailureHint {
+                    error_code: row.get(0)?,
+                    message: row.get(1)?,
+                    remediation: row.get(2)?,
+                    context: row.get(3)?,
+                })
+            })
+            .optional()?;
+        Ok(row)
+    })
+}
