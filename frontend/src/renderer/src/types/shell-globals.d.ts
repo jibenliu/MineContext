@@ -9,7 +9,17 @@ import type { AppApi } from '@renderer/adapters/app-api'
 import type { IpcRendererShim } from '@renderer/adapters/ipc-renderer-shim'
 
 interface ScreenMonitorAPI {
-  checkPermissions: () => Promise<boolean>
+  /** 可能是布尔，或 `/api/capture/permissions` 的结构体 */
+  checkPermissions: () => Promise<
+    | boolean
+    | {
+        screen_recording?: boolean
+        permission?: string
+        status?: string
+        ready?: boolean
+        message?: string
+      }
+  >
   openPrefs: () => Promise<void>
   takeScreenshot: (
     groupIntervalTime: string,

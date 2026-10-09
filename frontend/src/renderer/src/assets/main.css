@@ -307,3 +307,22 @@
     background-color: var(--color-bg-6);
   }
 }
+
+/* 亮色：次要/描边按钮需要可见底与边框，否则会与灰面板糊成一片（如「设置」「问一句」）。 */
+body:not([arco-theme='dark']) .arco-btn-secondary:not(.arco-btn-disabled),
+body:not([arco-theme='dark']) .arco-btn-default:not(.arco-btn-disabled),
+body:not([arco-theme='dark']) .arco-btn-outline:not(.arco-btn-disabled) {
+  background-color: var(--color-bg-2);
+  border-color: var(--color-border-2);
+  color: var(--color-text-1);
+}
+body:not([arco-theme='dark']) .arco-btn-secondary:not(.arco-btn-disabled):hover,
+body:not([arco-theme='dark']) .arco-btn-default:not(.arco-btn-disabled):hover,
+body:not([arco-theme='dark']) .arco-btn-outline:not(.arco-btn-disabled):hover {
+  background-color: var(--color-fill-2);
+}
+
+/* 屏幕监控空态中间区：虚线框用浅填充，与白色卡片分层但不发脏灰 */
+body:not([arco-theme='dark']) .screen-monitor-capture-surface {
+  background-color: var(--color-fill-1);
+}

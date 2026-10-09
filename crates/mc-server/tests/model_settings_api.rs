@@ -5,8 +5,8 @@
 //! 明确要求能打开的第三页。
 //!
 //! 与**一处刻意的差异**：旧 `get` 把 `api_key` 明文回传给前端；
-//! 这里一律回空串，只给 `hasApiKey` 布尔值。明文密钥不进任何 HTTP 响应
-//! （安全属性清单里的 `api_key_never_appears_in_logs` 同样覆盖这条路径）。
+//! 这里一律回空串，另给 `hasApiKey` 与 `apiKeyMasked`。明文不进 get/update；
+//! 仅 `GET /api/model_settings/api_key`（用户点「复制」）返回明文。
 //! 更新时如果前端给了新密钥，写进 **0600 的 sidecar**，配置里只留引用。
 
 use std::sync::Arc;
@@ -128,6 +128,8 @@ async fn get_returns_the_shape_the_settings_page_reads() {
     }
     assert_eq!(config["apiKey"], "", "密钥不明文回传");
     assert_eq!(config["embeddingApiKey"], "");
+    assert_eq!(json["data"]["hasApiKey"], false);
+    assert_eq!(json["data"]["apiKeyMasked"], "");
 }
 
 #[tokio::test]
@@ -248,7 +250,7 @@ async fn update_rejects_an_incomplete_configuration() {
 }
 
 #[tokio::test]
-async fn the_api_key_never_appears_in_any_response() {
+async fn the_api_key_never_appears_in_get_or_update_response() {
     let ctx = ctx();
 
     let (_, update) = call(
@@ -263,6 +265,27 @@ async fn the_api_key_never_appears_in_any_response() {
     let (_, get) = call(&ctx.state, "GET", "/api/model_settings/get", None).await;
     assert!(!get.to_string().contains(SECRET), "{get}");
     assert_eq!(get["data"]["hasApiKey"], true, "只回「有没有配」");
+    let masked = get["data"]["apiKeyMasked"].as_str().unwrap_or_default();
+    assert!(masked.contains('•'), "应回脱敏串：{masked}");
+    assert!(!masked.contains(SECRET), "脱敏串不能含明文");
+}
+
+#[tokio::test]
+async fn copy_endpoint_returns_the_saved_api_key() {
+    let ctx = ctx();
+
+    let (status, _) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(update_body(SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, json) = call(&ctx.state, "GET", "/api/model_settings/api_key", None).await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+    assert_eq!(json["data"]["apiKey"], SECRET, "复制接口返回已存明文");
 }
 
 #[tokio::test]

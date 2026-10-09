@@ -92,13 +92,21 @@ fn platform_json() -> Value {
                 "message": report.message,
             })
         }
-        None => json!({
-            "os": std::env::consts::OS,
-            "version": Value::Null,
-            "minimum": mc_common::platform::MIN_SUPPORTED_MACOS.to_string(),
-            "supported": Value::Null,
-            "message": "无法探测系统版本",
-        }),
+        None => {
+            // 非 macOS（或 sw_vers 不可用）：结论必须是布尔值，不能用 null
+            // —— 诊断页要直接告诉用户「当前平台不受支持」。
+            let os = std::env::consts::OS;
+            json!({
+                "os": os,
+                "version": Value::Null,
+                "minimum": mc_common::platform::MIN_SUPPORTED_MACOS.to_string(),
+                "supported": false,
+                "message": format!(
+                    "MineContext 需要 macOS {} 及以上（当前平台：{os}）",
+                    mc_common::platform::MIN_SUPPORTED_MACOS
+                ),
+            })
+        }
     }
 }
 
@@ -570,7 +578,7 @@ impl ModelSettingsBody {
             model_platform: String::new(),
             model_id: config.ai.vision.model.clone(),
             base_url: config.ai.vision.base_url.clone(),
-            // 明文密钥**永不出网/不出接口**：前端只拿到「有没有配」
+            // 明文密钥**不进 get**：前端用 hasApiKey + apiKeyMasked 回显
             api_key: String::new(),
             embedding_model_platform: String::new(),
             embedding_model_id: config.ai.embedding.model.clone(),
@@ -618,9 +626,18 @@ pub struct ModelSettingsRequest {
 }
 
 /// `GET /api/model_settings/get` —— 设置页读当前模型配置。
+///
+/// `apiKey` 字段始终为空（兼容旧表单形状）；是否已配置看 `hasApiKey`，
+/// 回显用 `apiKeyMasked`（首尾可见、中间打码）。明文只走专用复制接口。
 pub async fn model_settings_get(State(state): State<Arc<ServerState>>) -> Response {
     let config = state.config.current();
     let body = ModelSettingsBody::from_config(&config.config);
+    let has_api_key = body.has_api_key(&config.config);
+    let masked = read_stored_model_api_key(&state)
+        .ok()
+        .flatten()
+        .map(|key| mask_api_key(&key))
+        .unwrap_or_default();
 
     Json(json!({
         "code": 0,
@@ -628,12 +645,80 @@ pub async fn model_settings_get(State(state): State<Arc<ServerState>>) -> Respon
         "message": "success",
         "data": {
             "config": body,
-            "hasApiKey": body.has_api_key(&config.config),
+            "hasApiKey": has_api_key,
+            "apiKeyMasked": masked,
         },
         "error_code": Value::Null,
         "remediation": Value::Null,
     }))
     .into_response()
+}
+
+/// `GET /api/model_settings/api_key` —— 设置页「复制」用：返回已存明文。
+///
+/// 仅本机 + token（与其它控制面相同）。**不要**把这条并进 get：
+/// get 的契约是「永不回传明文」，复制是用户显式动作。
+pub async fn model_settings_api_key(State(state): State<Arc<ServerState>>) -> Response {
+    match read_stored_model_api_key(&state) {
+        Ok(Some(api_key)) => envelope::ok(json!({ "apiKey": api_key })),
+        Ok(None) => envelope::error_response(
+            StatusCode::NOT_FOUND,
+            &AppError::new(ErrorCode::ConfigInvalid, "尚未保存 API Key".to_string()),
+        ),
+        Err(error) => envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
+    }
+}
+
+/// 脱敏：保留首尾各 4 个字符，中间用 • 代替；短密钥整段打码。
+fn mask_api_key(key: &str) -> String {
+    let chars: Vec<char> = key.chars().collect();
+    if chars.len() <= 8 {
+        return "••••••••".to_string();
+    }
+    let head: String = chars.iter().take(4).collect();
+    let tail: String = chars.iter().rev().take(4).rev().collect();
+    format!("{head}••••••••{tail}")
+}
+
+/// 已存密钥：优先读 0600 sidecar，再尝试钥匙串引用。
+fn read_stored_model_api_key(state: &ServerState) -> Result<Option<String>, AppError> {
+    if let Some(from_sidecar) = read_model_key_sidecar(state)? {
+        return Ok(Some(from_sidecar));
+    }
+    let config = state.config.current();
+    let key_ref = config.config.ai.vision.api_key_ref.as_deref().or(config
+        .config
+        .ai
+        .embedding
+        .api_key_ref
+        .as_deref());
+    let secrets = mc_providers::credentials::KeychainCommand::default();
+    mc_providers::credentials::resolve_secret(&secrets, key_ref)
+}
+
+fn read_model_key_sidecar(state: &ServerState) -> Result<Option<String>, AppError> {
+    let path = state.data_dir.join("model-keys.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|error| {
+        AppError::new(
+            ErrorCode::StorageUnavailable,
+            format!("无法读取密钥文件 {}: {error}", path.display()),
+        )
+    })?;
+    let value: Value = serde_json::from_str(&text).map_err(|error| {
+        AppError::new(
+            ErrorCode::StorageUnavailable,
+            format!("密钥文件格式无效 {}: {error}", path.display()),
+        )
+    })?;
+    Ok(value
+        .get("api_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string))
 }
 
 /// `POST /api/model_settings/validate` —— 只校验形状，返回 `{valid, message}`。

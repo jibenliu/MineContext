@@ -17,11 +17,12 @@ export const AssistantPage: FC = () => {
     // 高度用 flex 分配：页面自己 `overflow-y-auto` 时，`h-full` 的子节点加上
     // 外边距与标题高度必然超出页面高度，于是**空态也会顶出一条滚动条**。
     // 滚动只留给消息区（`AssistantStream` 内部自己维护）。
-    <div className="assistant-page flex h-full w-full flex-col p-6">
+    <div className="assistant-page flex h-full w-full min-w-0 flex-col p-6">
       <Title heading={4} style={{ marginBottom: 16 }}>
         {t('assistant.title')}
       </Title>
-      <div className="flex min-h-0 flex-1">
+      {/* 横向 flex 默认不拉伸子项宽度；不给 w-full 会变成窄栏居左，两侧大片留白 */}
+      <div className="flex min-h-0 w-full min-w-0 flex-1">
         <AssistantStream />
       </div>
     </div>

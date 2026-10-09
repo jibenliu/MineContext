@@ -34,7 +34,7 @@ export const AssistantStream: FC = () => {
   }
 
   return (
-    <div className="assistant-stream flex h-full gap-4">
+    <div className="assistant-stream flex h-full w-full min-w-0 flex-1 gap-4">
       <aside className="flex w-[220px] flex-shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-bg-2)] p-3">
         <Button
           type="primary"

@@ -25,6 +25,17 @@ const logger = getLogger('useScreen')
 // As long as the application is not closed, this variable resides in memory and will not be garbage collected
 export const intervalRef: { current: NodeJS.Timeout | null } = { current: null }
 
+/** 把 `/api/capture/permissions`（或旧布尔）收成「是否可录」。 */
+export function isScreenRecordingGranted(result: unknown): boolean {
+  if (typeof result === 'boolean') return result
+  if (!result || typeof result !== 'object') return false
+  const body = result as Record<string, unknown>
+  if (typeof body.screen_recording === 'boolean') return body.screen_recording
+  if (body.permission === 'granted' || body.permission === 'not_required') return true
+  if (body.status === 'granted') return true
+  return false
+}
+
 export const useScreen = () => {
   const dispatch = useAppDispatch()
   const isMonitoring = useSelector((state: RootState) => state.screen.isMonitoring)
@@ -33,8 +44,11 @@ export const useScreen = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
 
   const checkPermissions = useMemoizedFn(async () => {
-    const permission = await window.screenMonitorAPI.checkPermissions()
-    if (!permission) {
+    // 后端返回的是结构体（screen_recording / permission），不是裸 boolean；
+    // 直接 `if (result)` 会把「已拒绝」也当成有权限。
+    const result = await window.screenMonitorAPI.checkPermissions()
+    const granted = isScreenRecordingGranted(result)
+    if (!granted) {
       Message.error('Screen recording permission is required.')
       setHasPermission(false)
     } else {
