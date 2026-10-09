@@ -1,6 +1,7 @@
 import { Image, Tooltip } from '@arco-design/web-react'
 import { useI18n } from '@renderer/i18n'
-import React from 'react'
+import React, { useMemo } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 
 import { ScreenshotImage } from './screenshot-image'
 
@@ -21,15 +22,37 @@ export interface RecordingStats {
   }>
   recent_screenshots: string[]
   /** 采到了但已分析为 0 时的可行动原因（配置 / 隐私 / 管道） */
-  analysis_blocker?: { code: string; message: string } | null
+  analysis_blocker?: {
+    code: string
+    message: string
+    action?: { target: string; label: string } | null
+  } | null
 }
 
 interface RecordingStatsCardProps {
   stats: RecordingStats | null
 }
 
+/** blocker.action.target → 设置页 section（HashRouter 下用 query，不用 # 片段） */
+function settingsSectionFor(target: string | undefined): string {
+  switch (target) {
+    case 'settings_ai_upload':
+      return 'ai-upload'
+    case 'settings_model':
+      return 'model'
+    default:
+      return ''
+  }
+}
+
 const RecordingStatsCard: React.FC<RecordingStatsCardProps> = ({ stats }) => {
   const { t } = useI18n()
+
+  const action = stats?.analysis_blocker?.action
+  const settingsTo = useMemo(() => {
+    const section = settingsSectionFor(action?.target)
+    return section ? `/settings?section=${section}` : '/settings'
+  }, [action?.target])
 
   if (!stats) {
     return null
@@ -94,10 +117,18 @@ const RecordingStatsCard: React.FC<RecordingStatsCardProps> = ({ stats }) => {
       </div>
       {stats.analysis_blocker?.message ? (
         <div
-          className="mt-1 max-w-[720px] text-xs leading-5 text-[rgb(var(--warning-6))]"
+          className="mt-1 flex max-w-[720px] flex-wrap items-center gap-2 text-xs leading-5 text-[rgb(var(--warning-6))]"
           data-testid="analysis-blocker"
           title={stats.analysis_blocker.code}>
-          {stats.analysis_blocker.message}
+          <span>{stats.analysis_blocker.message}</span>
+          {action?.label ? (
+            <RouterLink
+              to={settingsTo}
+              className="text-xs leading-5 text-[rgb(var(--primary-6))] no-underline hover:underline"
+              data-testid="analysis-blocker-action">
+              {action.label}
+            </RouterLink>
+          ) : null}
         </div>
       ) : null}
     </div>

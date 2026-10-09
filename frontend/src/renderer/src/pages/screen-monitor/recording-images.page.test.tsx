@@ -1,8 +1,18 @@
 import { installFakeBackend } from '@renderer/test/page-setup'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import RecordingStatsCard, { type RecordingStats } from './components/recording-stats-card'
+
+function renderWithRouter(ui: ReactElement) {
+  const view = render(<MemoryRouter>{ui}</MemoryRouter>)
+  return {
+    ...view,
+    rerender: (next: ReactElement) => view.rerender(<MemoryRouter>{next}</MemoryRouter>)
+  }
+}
 
 const stats: RecordingStats = {
   // 采到 7 张、其中 1 张分析出了结果 —— 两个数是两件事
@@ -18,7 +28,7 @@ const stats: RecordingStats = {
 describe('录制统计文案', () => {
   it('采到的张数与分析出结果的张数分开显示', async () => {
     installFakeBackend({})
-    render(<RecordingStatsCard stats={stats} />)
+    renderWithRouter(<RecordingStatsCard stats={stats} />)
 
     expect(screen.getByText('7')).toBeInTheDocument()
     expect(screen.getByText(/张截图已采集/)).toBeInTheDocument()
@@ -32,7 +42,7 @@ describe('截图缩略图', () => {
     const backend = installFakeBackend({
       'screen-monitor:read-image-base64': { data: 'aW1hZ2U=', mime: 'image/jpeg' }
     })
-    const view = render(<RecordingStatsCard stats={stats} />)
+    const view = renderWithRouter(<RecordingStatsCard stats={stats} />)
     await waitFor(() =>
       expect(screen.getByAltText('screenshot-1')).toHaveAttribute('src', 'data:image/jpeg;base64,aW1hZ2U=')
     )
@@ -45,7 +55,7 @@ describe('截图缩略图', () => {
     installFakeBackend({})
     const read = vi.spyOn(window.screenMonitorAPI, 'readImageAsBase64')
     read.mockRejectedValueOnce(new Error('missing')).mockResolvedValue({ success: true, data: 'aW1hZ2U=' })
-    render(<RecordingStatsCard stats={stats} />)
+    renderWithRouter(<RecordingStatsCard stats={stats} />)
     fireEvent.click(await screen.findByRole('button', { name: /重试/ }))
     await waitFor(() =>
       expect(screen.getByAltText('screenshot-1')).toHaveAttribute('src', 'data:image/png;base64,aW1hZ2U=')
@@ -55,7 +65,7 @@ describe('截图缩略图', () => {
 
   it('失效图片显示重试，不留下破图', async () => {
     installFakeBackend({ 'screen-monitor:read-image-base64': { data: 'invalid' } })
-    render(<RecordingStatsCard stats={stats} />)
+    renderWithRouter(<RecordingStatsCard stats={stats} />)
     const image = await screen.findByAltText('screenshot-1')
     fireEvent.error(image)
     expect(await screen.findByRole('button', { name: /重试/ })).toBeVisible()
@@ -71,7 +81,7 @@ describe('截图缩略图', () => {
     vi.spyOn(window.screenMonitorAPI, 'readImageAsBase64')
       .mockReturnValueOnce(pending)
       .mockResolvedValue({ success: true, data: 'new-image' })
-    const view = render(<RecordingStatsCard stats={stats} />)
+    const view = renderWithRouter(<RecordingStatsCard stats={stats} />)
     view.rerender(<RecordingStatsCard stats={{ ...stats, recent_screenshots: ['new.png'] }} />)
     await waitFor(() =>
       expect(screen.getByAltText('screenshot-1')).toHaveAttribute('src', 'data:image/png;base64,new-image')

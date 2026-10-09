@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { expect, it } from 'vitest'
 
 import RecordingStatsCard, { type RecordingStats } from './recording-stats-card'
@@ -14,8 +15,12 @@ const base: RecordingStats = {
   recent_screenshots: []
 }
 
+function renderCard(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
+
 it('采到但未分析时展示 analysis_blocker 原因', () => {
-  render(
+  renderCard(
     <RecordingStatsCard
       stats={{
         ...base,
@@ -32,6 +37,24 @@ it('采到但未分析时展示 analysis_blocker 原因', () => {
 })
 
 it('没有 blocker 时不渲染原因行', () => {
-  render(<RecordingStatsCard stats={{ ...base, analysis_blocker: null }} />)
+  renderCard(<RecordingStatsCard stats={{ ...base, analysis_blocker: null }} />)
   expect(screen.queryByTestId('analysis-blocker')).toBeNull()
+})
+
+it('带 action 时展示指向设置 section 的入口', () => {
+  renderCard(
+    <RecordingStatsCard
+      stats={{
+        ...base,
+        analysis_blocker: {
+          code: 'ai_upload_disabled',
+          message: '尚未允许 AI 出网',
+          action: { target: 'settings_ai_upload', label: '去设置开启' }
+        }
+      }}
+    />
+  )
+  const action = screen.getByTestId('analysis-blocker-action')
+  expect(action).toHaveTextContent('去设置开启')
+  expect(action).toHaveAttribute('href', '/settings?section=ai-upload')
 })

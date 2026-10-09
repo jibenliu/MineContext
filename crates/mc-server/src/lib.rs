@@ -78,6 +78,8 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/v1/jobs/{id}",
     // 设置页显式「复制」才取明文（仍要 token + 本机 Host；不属于旧兼容面）
     "/api/model_settings/api_key",
+    // 设置页「允许 AI 出网」开关
+    "/api/privacy",
     // 以下不属于兼容面
     "/api/backend/status",
     "/api/capture/permissions",
@@ -142,6 +144,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::home::router())
         .merge(routes::files::router())
         .merge(routes::settings::router())
+        .merge(routes::privacy::router())
         .merge(monitoring::router())
         .route("/api/health", get(routes::health))
         .route("/health", get(routes::health))

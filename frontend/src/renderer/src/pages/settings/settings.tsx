@@ -16,6 +16,7 @@ import {
   updateModelSettingsAPI
 } from '../../services/settings'
 import { writeClipboard } from '../../utils/write-clipboard'
+import { AiUploadSwitch } from './components/ai-upload-switch'
 import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
@@ -326,6 +327,14 @@ export type SettingsFormProps = SettingsFormBase & {
     | `${ModelTypeList.Custom}-embeddingBaseUrl`
     | `${ModelTypeList.Custom}-embeddingApiKey`]?: string
 }
+/** HashRouter 下 query 在 hash 里：`#/settings?section=ai-upload` */
+function settingsSectionFromLocation(): string | null {
+  if (typeof window === 'undefined') return null
+  const hashQuery = window.location.hash.includes('?') ? window.location.hash.split('?')[1] : ''
+  const search = hashQuery || window.location.search.replace(/^\?/, '')
+  return new URLSearchParams(search).get('section')
+}
+
 const Settings: FC<SettingsProps> = (props) => {
   const { t } = useI18n()
   const { closeSetting, init } = props
@@ -449,7 +458,14 @@ const Settings: FC<SettingsProps> = (props) => {
 
   useMount(() => {
     getInfo()
+    const section = settingsSectionFromLocation()
+    if (section) {
+      requestAnimationFrame(() => {
+        document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
   })
+
   // 后端不带平台名（见 `inferModelPlatform`），所以平台选择由配置反推：
   // 表单渲染与回填都以它为准，避免出现「平台字段是空串」这种没有对应表单的状态。
   const backendPlatform = useMemo(
@@ -568,6 +584,11 @@ const Settings: FC<SettingsProps> = (props) => {
           {/* 通用设置：与上面的模型配置不是一回事，所以单独分组，
               避免把「开机自启」混进 API key 的表单字段流里。
               用一行「标题 + 说明 + 控件」而不是大边框卡片：一个开关撑满整行会很空。 */}
+          <div id="model" className="scroll-mt-6" />
+          <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
+            <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.privacy')}</div>
+            <AiUploadSwitch />
+          </div>
           <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
             <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.startup')}</div>
             <LaunchAtLoginSwitch />

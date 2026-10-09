@@ -2,7 +2,7 @@
 # 这样 tauri 的依赖树不会进 Rust 后端的每次门禁编译。
 [package]
 name = "minecontext-shell"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 rust-version = "1.82"
 
