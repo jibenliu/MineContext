@@ -10,6 +10,11 @@ touch "$fixture/src-tauri/target/release/bundle/dmg/test.dmg"
 cat > "$fixture/bin/cargo" <<'SH'
 #!/usr/bin/env bash
 echo build >> "$MC_TEST_BUILD_LOG"
+# 模拟 release daemon 落盘（package-macos-tauri 会再 cp 到 target/debug/）
+if [ "${MC_TEST_BUILD_EXIT:-0}" -eq 0 ]; then
+  mkdir -p target/release
+  : > target/release/mc-daemon
+fi
 exit "${MC_TEST_BUILD_EXIT:-0}"
 SH
 printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/bin/npx"

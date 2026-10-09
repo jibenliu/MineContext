@@ -22,6 +22,11 @@ done
 
 echo "== 构建 release daemon =="
 cargo build --release -p mc-daemon
+# tauri build-script 会先校验 tauri.conf.json 里的默认 resources（debug 路径）；
+# 部分 CLI 上 `--config` 覆盖晚于该校验，CI 上会报 debug/mc-daemon 不存在。
+# 把 release 二进制同步到该路径，打包时再用 --config 指到 release。
+mkdir -p target/debug
+cp -f target/release/mc-daemon target/debug/mc-daemon
 
 echo "== 渲染层产物 =="
 (cd frontend && npx --no-install vite build >/dev/null && echo "vite build: ok")
