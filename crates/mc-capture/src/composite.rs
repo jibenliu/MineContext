@@ -186,4 +186,24 @@ impl CaptureSource for CompositeSource {
             },
         }
     }
+
+    async fn preview_thumbnails(
+        &self,
+        max_width: u32,
+    ) -> std::collections::HashMap<String, String> {
+        let results = futures_util::future::join_all(
+            self.sources
+                .iter()
+                .map(|source| source.preview_thumbnails(max_width)),
+        )
+        .await;
+
+        let mut merged = std::collections::HashMap::new();
+        for map in results {
+            for (id, url) in map {
+                merged.entry(id).or_insert(url);
+            }
+        }
+        merged
+    }
 }

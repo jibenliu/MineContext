@@ -19,6 +19,10 @@ export interface ModelConfigProps {
 // API response data structure
 export interface ModelInfoResponseData {
   config: ModelConfigProps
+  /** 是否已保存过密钥（get 的 apiKey 字段始终为空） */
+  hasApiKey?: boolean
+  /** 脱敏回显，例如 sk-l••••••••6789 */
+  apiKeyMasked?: string
 }
 
 // Complete API response structure
@@ -33,6 +37,12 @@ export interface ApiResponse<T> {
 export const getModelInfo = async (): Promise<ModelInfoResponseData | undefined> => {
   const res = await axiosInstance.get<ModelInfoResponseData>('/api/model_settings/get')
   return get(res, 'data.data')
+}
+
+/** 设置页「复制」：显式取已存明文（本机 + token）。 */
+export const getStoredApiKey = async (): Promise<string> => {
+  const res = await axiosInstance.get<{ apiKey?: string }>('/api/model_settings/api_key')
+  return get(res, 'data.data.apiKey') || ''
 }
 
 // 模型设置写入接口的响应形状

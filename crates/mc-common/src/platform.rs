@@ -1,11 +1,11 @@
-//! 平台支持范围：最低 **macOS 13（Ventura）**，同时覆盖 **macOS 14（Sonoma）**。
+//! 平台支持范围：最低 **macOS 13（Ventura）**，并在更新系统上覆盖验证。
 //!
 //! 这条约束必须同时体现在三处，缺一处就会出现「文档说支持、二进制不支持」：
 //!
 //! 1. 构建：`MACOSX_DEPLOYMENT_TARGET`（`.cargo/config.toml`，由
 //!    `scripts/check-macos-target.sh` 守卫）；
 //! 2. 运行：本模块的判定，供 `/api/diagnostics` 与 `mc-cli doctor` 展示；
-//! 3. CI：`macos-13` 与 `macos-14` 两个 runner 都要跑。
+//! 3. CI：托管 runner 跑 `macos-14` 或更高（`macos-13` 托管标签已退场）。
 //!
 //! 版本比较一律按数值（`13.10 > 13.9`），不做字符串比较。
 

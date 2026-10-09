@@ -282,6 +282,17 @@ pub trait CaptureSource: Send + Sync {
 
     /// 权限与可用性自检（UI 据此决定是否弹引导）
     async fn health(&self) -> SourceHealth;
+
+    /// 设置页预览缩略图：`target_id → data:image/png;base64,...`。
+    ///
+    /// 默认空：多数测试假源与不可采集平台不需要；真机屏幕/窗口源覆盖它。
+    /// 单张失败时跳过该 id，不要让整份目标列表失败。
+    async fn preview_thumbnails(
+        &self,
+        _max_width: u32,
+    ) -> std::collections::HashMap<String, String> {
+        std::collections::HashMap::new()
+    }
 }
 
 /// 采集源注册表。

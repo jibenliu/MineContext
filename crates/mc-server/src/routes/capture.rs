@@ -124,17 +124,32 @@ pub async fn targets(
     // 选中状态来自配置（空 = 全部可见目标）
     let selected: Vec<String> = state.config.current().config.capture.target_ids.clone();
 
+    // 可见性轮询（visible=1）很频繁，不抓缩略图；完整列表才给设置页预览。
+    let thumbnails = if visible_only {
+        std::collections::HashMap::new()
+    } else {
+        controls
+            .source
+            .preview_thumbnails(mc_capture::thumbnail::DEFAULT_PREVIEW_WIDTH)
+            .await
+    };
+
     let items: Vec<Value> = targets
         .into_iter()
         .filter(|t| !visible_only || t.is_visible)
         .map(|t| {
             let is_selected = selected.is_empty() || selected.contains(&t.id);
+            let thumbnail = thumbnails
+                .get(&t.id)
+                .cloned()
+                .map(Value::String)
+                .unwrap_or(Value::Null);
             json!({
                 // 形状对齐渲染层的 CaptureSource，字段名不能改
                 "id": t.id,
                 "name": t.name,
                 "type": if t.kind == TargetKind::Screen { "screen" } else { "window" },
-                "thumbnail": Value::Null,
+                "thumbnail": thumbnail,
                 "appIcon": Value::Null,
                 "isVisible": t.is_visible,
                 "appName": t.app_name,

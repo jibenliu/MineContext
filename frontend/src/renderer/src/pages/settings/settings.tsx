@@ -6,9 +6,10 @@ import { useI18n } from '@renderer/i18n'
 import { getLogger } from '@shared/logger/renderer'
 import { useMemoizedFn, useMount, useRequest } from 'ahooks'
 import { find, get, isEmpty, pick } from 'lodash'
-import { FC, useEffect, useMemo } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getModelInfo, ModelConfigProps, updateModelSettingsAPI } from '../../services/settings'
+import { getModelInfo, getStoredApiKey, ModelConfigProps, updateModelSettingsAPI } from '../../services/settings'
+import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
 import ModelRadio from './components/model-radio/model-radio'
@@ -38,12 +39,72 @@ const InputPrefix: FC<InputPrefixProps> = (props) => {
   const { label } = props
   return <div className="flex w-[73px] items-center">{label}</div>
 }
+
+/** 密钥输入：脱敏回显 + 复制；已配置时允许留空/保持脱敏串以沿用旧密钥。 */
+const ApiKeyField: FC<{
+  field: string
+  className?: string
+  autoFocus?: boolean
+  hasStoredKey: boolean
+  maskedValue: string
+  onCopy: () => void
+  docsLabel: string
+  onOpenDocs: () => void
+}> = ({ field, className, autoFocus, hasStoredKey, maskedValue, onCopy, docsLabel, onOpenDocs }) => {
+  const { t } = useI18n()
+  return (
+    <FormItem
+      requiredSymbol={false}
+      label={t('common.apiKey')}
+      field={field}
+      extra={
+        <div className="flex flex-col gap-1 text-[var(--color-text-3)] text-[14px]">
+          {hasStoredKey ? <span>{t('settings.apiKeyConfiguredHint')}</span> : null}
+          <div className="flex flex-wrap items-center gap-1">
+            {t('settings.apiKeyGetHint')}
+            <Button type="text" onClick={onOpenDocs} className="!px-1">
+              {docsLabel}
+            </Button>
+            {hasStoredKey ? (
+              <Button type="text" onClick={onCopy} className="!px-1">
+                {t('settings.apiKeyCopy')}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      }
+      rules={[
+        {
+          validator(value, callback) {
+            const text = typeof value === 'string' ? value.trim() : ''
+            if (text || hasStoredKey) {
+              callback()
+              return
+            }
+            callback(t('settings.required'))
+          }
+        }
+      ]}>
+      <Input.Password
+        autoFocus={autoFocus}
+        placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
+        allowClear
+        className={className ?? '!w-[574px]'}
+        defaultVisibility={false}
+      />
+    </FormItem>
+  )
+}
+
 export interface CustomFormItemsProps {
   prefix: string
+  hasStoredKey: boolean
+  maskedValue: string
+  onCopyApiKey: () => void
 }
 const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { prefix } = props
+  const { prefix, hasStoredKey, maskedValue, onCopyApiKey } = props
   return (
     <>
       <div className="flex flex-col gap-6 mb-6">
@@ -78,11 +139,32 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
           <FormItem
             field={`${prefix}-apiKey`}
             className="!mb-0"
-            rules={[{ required: true, message: t('settings.required') }]}
-            requiredSymbol={false}>
+            rules={[
+              {
+                validator(value, callback) {
+                  const text = typeof value === 'string' ? value.trim() : ''
+                  if (text || hasStoredKey) {
+                    callback()
+                    return
+                  }
+                  callback(t('settings.required'))
+                }
+              }
+            ]}
+            requiredSymbol={false}
+            extra={
+              hasStoredKey ? (
+                <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
+                  <span>{t('settings.apiKeyConfiguredHint')}</span>
+                  <Button type="text" size="mini" onClick={onCopyApiKey}>
+                    {t('settings.apiKeyCopy')}
+                  </Button>
+                </div>
+              ) : null
+            }>
             <Input.Password
               addBefore={<InputPrefix label={t('common.apiKey')} />}
-              placeholder={t('settings.apiKeyPlaceholder')}
+              placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
               allowClear
               className="!w-[574px]"
               defaultVisibility={false}
@@ -120,11 +202,22 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
           <FormItem
             field={`${prefix}-embeddingApiKey`}
             className="!mb-0"
-            rules={[{ required: true, message: t('settings.required') }]}
+            rules={[
+              {
+                validator(value, callback) {
+                  const text = typeof value === 'string' ? value.trim() : ''
+                  if (text || hasStoredKey) {
+                    callback()
+                    return
+                  }
+                  callback(t('settings.required'))
+                }
+              }
+            ]}
             requiredSymbol={false}>
             <Input.Password
               addBefore={<InputPrefix label={t('common.apiKey')} />}
-              placeholder={t('settings.apiKeyPlaceholder')}
+              placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
               allowClear
               className="!w-[574px]"
               defaultVisibility={false}
@@ -138,10 +231,13 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
 export interface StandardFormItemsProps {
   modelPlatform: ModelTypeList
   prefix: string
+  hasStoredKey: boolean
+  maskedValue: string
+  onCopyApiKey: () => void
 }
 const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { modelPlatform, prefix } = props
+  const { modelPlatform, prefix, hasStoredKey, maskedValue, onCopyApiKey } = props
   const option = useMemo(() => {
     const foundItem = find(ModelInfoList, (item) => item.value === modelPlatform)
     return foundItem ? foundItem.option : []
@@ -166,50 +262,27 @@ const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
         ]}>
         <Select allowCreate placeholder={t('settings.selectPlaceholder')} options={option} className="!w-[574px]" />
       </FormItem>
-      <FormItem
-        requiredSymbol={false}
-        label={t('common.apiKey')}
+      <ApiKeyField
         field={`${prefix}-apiKey`}
-        extra={
-          <div className="flex items-center text-[var(--color-text-3)] text-[14px] ">
-            {t('settings.apiKeyGetHint')}
-            <Button
-              onClick={() => {
-                const url =
-                  modelPlatform === ModelTypeList.Doubao
-                    ? 'https://www.volcengine.com/docs/82379/1541594'
-                    : 'https://platform.openai.com/settings/organization/api-keys'
-                window.open(`${url}`)
-              }}
-              type="text">
-              {modelPlatform === ModelTypeList.Doubao ? t('settings.getDoubaoApiKey') : t('settings.getOpenaiApiKey')}
-            </Button>
-          </div>
+        autoFocus
+        hasStoredKey={hasStoredKey}
+        maskedValue={maskedValue}
+        onCopy={onCopyApiKey}
+        docsLabel={
+          modelPlatform === ModelTypeList.Doubao ? t('settings.getDoubaoApiKey') : t('settings.getOpenaiApiKey')
         }
-        rules={[
-          {
-            validator(value, callback) {
-              if (!value) {
-                callback('Please enter your API key')
-              } else {
-                callback()
-              }
-            }
-          }
-        ]}>
-        <Input.Password
-          autoFocus
-          placeholder={t('settings.apiKeyPlaceholder')}
-          allowClear
-          className="!w-[574px]"
-          defaultVisibility={false}
-        />
-      </FormItem>
+        onOpenDocs={() => {
+          const url =
+            modelPlatform === ModelTypeList.Doubao
+              ? 'https://www.volcengine.com/docs/82379/1541594'
+              : 'https://platform.openai.com/settings/organization/api-keys'
+          window.open(url)
+        }}
+      />
     </>
   )
 }
 
-// 1. Add showCheckIcon state
 export interface SettingsFormBase {
   modelPlatform: string
 }
@@ -228,6 +301,8 @@ const Settings: FC<SettingsProps> = (props) => {
 
   const [form] = Form.useForm<SettingsFormProps>()
   const { run: getInfo, loading: getInfoLoading, data: modelInfo } = useRequest(getModelInfo, { manual: true })
+  const [hasStoredKey, setHasStoredKey] = useState(false)
+  const maskedRef = useRef('')
 
   const { run: updateModelSettings, loading: updateLoading } = useRequest(updateModelSettingsAPI, {
     manual: true,
@@ -243,6 +318,22 @@ const Settings: FC<SettingsProps> = (props) => {
       Message.error(errMsg)
     }
   })
+
+  const copyStoredApiKey = useMemoizedFn(async () => {
+    try {
+      const key = await getStoredApiKey()
+      if (!key) {
+        Message.error(t('settings.apiKeyCopyFailed'))
+        return
+      }
+      await navigator.clipboard.writeText(key)
+      Message.success(t('settings.apiKeyCopied'))
+    } catch (error) {
+      logger.error('[settings] 复制 API Key 失败', error)
+      Message.error(t('settings.apiKeyCopyFailed'))
+    }
+  })
+
   const submit = useMemoizedFn(async () => {
     try {
       await form.validate()
@@ -252,6 +343,15 @@ const Settings: FC<SettingsProps> = (props) => {
         Message.error(t('settings.selectPlatform'))
         return
       }
+      const apiKeyField = `${values.modelPlatform}-apiKey` as keyof SettingsFormProps
+      const rawKey = String(values[apiKeyField] ?? '').trim()
+      // 脱敏串或空串 = 未改密钥，交给后端沿用已有引用
+      const effectiveKey = !rawKey || rawKey === maskedRef.current ? '' : rawKey
+      if (!effectiveKey && !hasStoredKey) {
+        Message.error(t('settings.required'))
+        return
+      }
+
       const commonKey = [
         'modelPlatform',
         `${values.modelPlatform}-modelId`,
@@ -262,6 +362,12 @@ const Settings: FC<SettingsProps> = (props) => {
         `${values.modelPlatform}-embeddingApiKey`
       ]
       const data = pick(values, commonKey)
+      data[`${values.modelPlatform}-apiKey`] = effectiveKey
+      if (isCustom) {
+        const embField = `${ModelTypeList.Custom}-embeddingApiKey` as keyof SettingsFormProps
+        const embRaw = String(values[embField] ?? '').trim()
+        data[`${ModelTypeList.Custom}-embeddingApiKey`] = !embRaw || embRaw === maskedRef.current ? '' : embRaw
+      }
       const formatData = Object.fromEntries(
         Object.entries(data).map(([key, value]) => [key.replace(`${values.modelPlatform}-`, ''), value])
       )
@@ -295,6 +401,10 @@ const Settings: FC<SettingsProps> = (props) => {
 
   useEffect(() => {
     const config = get(modelInfo, 'config')
+    const hasKey = Boolean(get(modelInfo, 'hasApiKey'))
+    const masked = String(get(modelInfo, 'apiKeyMasked') || '')
+    setHasStoredKey(hasKey)
+    maskedRef.current = masked
     if (!getInfoLoading && !isEmpty(config) && !init) {
       const settingsValue = new Map<keyof SettingsFormProps, string>()
       const prefix = backendPlatform
@@ -305,6 +415,13 @@ const Settings: FC<SettingsProps> = (props) => {
         }
         return acc
       }, settingsValue)
+      // get 的 apiKey 恒为空；用脱敏串回填，用户能看见「已有密钥」
+      if (hasKey && masked) {
+        settingsValue.set(`${prefix}-apiKey` as keyof SettingsFormProps, masked)
+        if (prefix === ModelTypeList.Custom) {
+          settingsValue.set(`${prefix}-embeddingApiKey` as keyof SettingsFormProps, masked)
+        }
+      }
       form.setFieldsValue(Object.fromEntries(settingsValue))
     }
   }, [modelInfo, getInfoLoading, form, init, backendPlatform])
@@ -344,12 +461,35 @@ const Settings: FC<SettingsProps> = (props) => {
                   const selected = values.modelPlatform
                   const modelPlatform = isKnownModelPlatform(selected) ? selected : backendPlatform
                   if (modelPlatform === ModelTypeList.Custom) {
-                    return <CustomFormItems prefix={ModelTypeList.Custom} />
+                    return (
+                      <CustomFormItems
+                        prefix={ModelTypeList.Custom}
+                        hasStoredKey={hasStoredKey}
+                        maskedValue={maskedRef.current}
+                        onCopyApiKey={copyStoredApiKey}
+                      />
+                    )
                   }
                   if (modelPlatform === ModelTypeList.OpenAI) {
-                    return <StandardFormItems modelPlatform={modelPlatform} prefix={ModelTypeList.OpenAI} />
+                    return (
+                      <StandardFormItems
+                        modelPlatform={modelPlatform}
+                        prefix={ModelTypeList.OpenAI}
+                        hasStoredKey={hasStoredKey}
+                        maskedValue={maskedRef.current}
+                        onCopyApiKey={copyStoredApiKey}
+                      />
+                    )
                   }
-                  return <StandardFormItems modelPlatform={ModelTypeList.Doubao} prefix={ModelTypeList.Doubao} />
+                  return (
+                    <StandardFormItems
+                      modelPlatform={ModelTypeList.Doubao}
+                      prefix={ModelTypeList.Doubao}
+                      hasStoredKey={hasStoredKey}
+                      maskedValue={maskedRef.current}
+                      onCopyApiKey={copyStoredApiKey}
+                    />
+                  )
                 }}
               </FormItem>
             </Form>
@@ -373,6 +513,7 @@ const Settings: FC<SettingsProps> = (props) => {
             <NotificationSwitch />
             {/* 语言切换入口：设置页里的位置固定在启动项下面，不随页面结构漂移 */}
             <LanguageSwitch />
+            <BackfillSection />
           </div>
         </div>
       </div>

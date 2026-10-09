@@ -3,6 +3,7 @@
 //! 它让整个采集层的关键语义（权限被拒、无显示器、锁屏、多屏、Retina、顺序）
 //! 都能在**任何机器**上确定性测试，不需要屏幕录制权限、不需要真实显示器。
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use image::{Rgb, RgbImage};
@@ -10,6 +11,7 @@ use mc_capture::source::{
     CaptureContext, CaptureSource, CaptureTarget, PermissionState, RawCapture, SourceCapabilities,
     SourceHealth, SourceKind, TargetKind,
 };
+use mc_capture::thumbnail::rgb_to_data_url;
 use mc_common::error::{AppError, ErrorCode};
 use mc_common::time::Timestamp;
 
@@ -212,6 +214,20 @@ impl CaptureSource for FakeCaptureSource {
                 Some("屏幕已锁定，采集已暂停".to_string())
             },
         }
+    }
+
+    async fn preview_thumbnails(&self, max_width: u32) -> HashMap<String, String> {
+        let mut out = HashMap::new();
+        if !self.capabilities.produces_image {
+            return out;
+        }
+        for target in &self.targets {
+            let image = self.render(target, 0);
+            if let Some(url) = rgb_to_data_url(&image, max_width) {
+                out.insert(target.id.clone(), url);
+            }
+        }
+        out
     }
 }
 

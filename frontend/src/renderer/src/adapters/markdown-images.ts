@@ -2,13 +2,14 @@
 //
 // 编辑器（milkdown/crepe）粘贴或拖入图片时给的是 `blob:` 地址，只在当前会话有效。
 // 直接落库的话，重启后笔记里就是一堆破图 —— 而用户完全不知道为什么。
-// 因此保存前把它们交给本地文件服务，替换成落库后仍然有效的文件路径；
+// 因此保存前把它们交给本地文件服务，替换成落库后仍然有效的 `file://` 地址
+// （由调用方的 `save` 返回；与 Crepe `persistEditorImage` 契约一致）；
 // 任何一张没成功都不落库（编辑器里还留着原文，用户可以重试）。
 
 export interface MarkdownImageDeps {
   /** 读取 blob 内容（生产用 `fetch`，测试注入假实现）。 */
   read(url: string): Promise<Uint8Array>
-  /** 保存到本地文件服务，返回可作为图片地址使用的路径。 */
+  /** 保存到本地文件服务，返回 markdown 可持久引用的地址（应为 `file://`）。 */
   save(name: string, bytes: Uint8Array): Promise<string>
 }
 

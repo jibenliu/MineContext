@@ -49,9 +49,7 @@ const RecordingStatsCard: React.FC<RecordingStatsCardProps> = ({ stats }) => {
       <div className="text-xs text-[var(--color-text-3)]">
         <span className="text-[#00B42A] font-medium">{stats.captured_screenshots}</span>{' '}
         <span>
-          {t(
-            stats.captured_screenshots === 1 ? 'screenMonitor.stats.capturedOne' : 'screenMonitor.stats.capturedMany'
-          )}
+          {t(stats.captured_screenshots === 1 ? 'screenMonitor.stats.capturedOne' : 'screenMonitor.stats.capturedMany')}
         </span>
         <span className="mx-2">•</span>
         <span className="text-[var(--color-text-2)] font-medium">{stats.processed_screenshots}</span>{' '}

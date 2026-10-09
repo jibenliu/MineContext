@@ -7,7 +7,6 @@ import { useI18n } from '@renderer/i18n'
 import { useAppDispatch, useAppSelector } from '@renderer/store'
 import { refreshCaptureSources, refreshCaptureSourcesFromSettings } from '@renderer/store/capture-sources'
 import { withParsedResources } from '@renderer/utils/resources'
-import { IpcChannel } from '@shared/ipc-channel'
 import { getLogger } from '@shared/logger/renderer'
 import { useMemoizedFn, useMount } from 'ahooks'
 import dayjs from 'dayjs'
@@ -174,27 +173,64 @@ const ScreenMonitor: React.FC = () => {
     return current && dayjs(current).isAfter(dayjs(), 'day')
   }
 
+  // Check if recording is possible under the current settings
+  const [canRecord, setCanRecord] = useState(false)
+  // 不能录制时把原因一起存下来（后端 /api/capture/status 的 reason），界面直接告诉用户
+  const [recordBlockReason, setRecordBlockReason] = useState<string | undefined>(undefined)
+  const checkCanRecord = useMemoizedFn(async () => {
+    const result = await window.screenMonitorAPI.checkCanRecord()
+    setCanRecord(result.canRecord)
+    setRecordBlockReason(result.reason)
+    setIsMonitoring(result.status === 'running')
+    return result
+  })
+
   // Start monitoring session
   const startMonitoring = useMemoizedFn(async () => {
-    await window.screenMonitorAPI.updateModelConfig({
-      recordInterval,
-      recordingHours,
-      enableRecordingHours,
-      applyToDays
-    })
-    await window.screenMonitorAPI.startTask()
-    // Start polling for new activities
-    startActivityPolling()
-    // Start polling for recording stats
-    startStatsPolling()
+    try {
+      // 权限已开仍可能因无显示器/未挂载采集控制而不可录；先问清楚再 start，避免静默失败。
+      const readiness = await checkCanRecord()
+      if (!readiness.canRecord) {
+        Message.error(readiness.reason || t('screenMonitor.timeline.recordingUnavailableReason'))
+        return
+      }
+      await window.screenMonitorAPI.updateModelConfig({
+        recordInterval,
+        recordingHours,
+        enableRecordingHours,
+        applyToDays
+      })
+      await window.screenMonitorAPI.startTask()
+      // 不依赖 SSE：推送丢了时界面会一直停在「开始录制」空态。
+      setIsMonitoring(true)
+      await checkCanRecord()
+      startActivityPolling()
+      startStatsPolling()
+    } catch (error) {
+      const message =
+        (error as { message?: string; remediation?: string })?.message ||
+        (error as Error)?.message ||
+        t('screenMonitor.timeline.recordingUnavailableReason')
+      const remediation = (error as { remediation?: string })?.remediation
+      Message.error(remediation ? `${message}（${remediation}）` : message)
+      logger.error('Failed to start recording', error)
+    }
   })
 
   // Stop monitoring
   const stopMonitoring = useMemoizedFn(async () => {
-    if (isMonitoring) {
-      await window.screenMonitorAPI.stopTask()
-      stopActivityPolling()
-      stopStatsPolling()
+    try {
+      if (isMonitoring) {
+        await window.screenMonitorAPI.stopTask()
+        setIsMonitoring(false)
+        stopActivityPolling()
+        stopStatsPolling()
+        await checkCanRecord()
+      }
+    } catch (error) {
+      const message = (error as Error)?.message || t('screenMonitor.stopRecording')
+      Message.error(message)
+      logger.error('Failed to stop recording', error)
     }
   })
 
@@ -396,18 +432,6 @@ const ScreenMonitor: React.FC = () => {
     setSettingsVisible(false)
   })
 
-  // Check if recording is possible under the current settings
-  const [canRecord, setCanRecord] = useState(false)
-  // 不能录制时把原因一起存下来（后端 /api/capture/status 的 reason），界面直接告诉用户
-  const [recordBlockReason, setRecordBlockReason] = useState<string | undefined>(undefined)
-  const checkCanRecord = useMemoizedFn(async () => {
-    const result = await window.screenMonitorAPI.checkCanRecord()
-    setCanRecord(result.canRecord)
-    setRecordBlockReason(result.reason)
-    setIsMonitoring(result.status === 'running')
-    return result
-  })
-
   // Check recording status on component mount
   useEffect(() => {
     checkCanRecord()
@@ -427,17 +451,6 @@ const ScreenMonitor: React.FC = () => {
       }
     }
   }, [isMonitoring, enableRecordingHours, checkCanRecord])
-
-  // Sync recording status to tray
-  useEffect(() => {
-    if (isToday) {
-      window.electron.ipcRenderer
-        .invoke(IpcChannel.Tray_UpdateRecordingStatus, isMonitoring && canRecord)
-        .catch((error) => {
-          logger.error('Failed to update tray recording status:', error)
-        })
-    }
-  }, [isMonitoring, canRecord, isToday])
 
   // Get sources
   const settingSources = useAppSelector((state) => state.captureSources.saved)
@@ -531,7 +544,7 @@ const ScreenMonitor: React.FC = () => {
           />
         )}
         <div className="w-full mb-0 mx-auto flex-1 flex flex-col">
-          <div className="border-2 border-dashed border-[var(--color-border-2)] rounded-[12px] p-[30px] bg-[var(--color-fill-1)] transition-all duration-300 flex-1 flex flex-col overflow-auto">
+          <div className="screen-monitor-capture-surface border border-dashed border-[var(--color-border-3)] rounded-[12px] p-[30px] bg-white transition-all duration-300 flex-1 flex flex-col overflow-auto">
             <DateNavigation
               hasPermission={hasPermission}
               currentDate={currentDate}

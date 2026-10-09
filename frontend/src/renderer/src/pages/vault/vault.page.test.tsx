@@ -60,4 +60,25 @@ describe('笔记页（渲染 + store 接线）', () => {
     expect(await screen.findByText(/季度复盘/)).toBeInTheDocument()
     expect(await screen.findByText('正文内容')).toBeInTheDocument()
   })
+
+  it('找不到笔记时给出说明而不是永远转圈', async () => {
+    installFakeBackend(
+      {
+        'database:get-vaults-by-document-type': [VAULT],
+        'database:get-all-vaults': [VAULT]
+      },
+      { strict: false }
+    )
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/vault?id=999']}>
+          <VaultPage />
+        </MemoryRouter>
+      </Provider>
+    )
+
+    expect(await screen.findByText(/找不到这篇笔记/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /返回首页/ })).toBeInTheDocument()
+  })
 })

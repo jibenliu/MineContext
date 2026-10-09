@@ -14,15 +14,17 @@ const { Title } = Typography
 export const AssistantPage: FC = () => {
   const { t } = useI18n()
   return (
-    // 高度用 flex 分配：页面自己 `overflow-y-auto` 时，`h-full` 的子节点加上
-    // 外边距与标题高度必然超出页面高度，于是**空态也会顶出一条滚动条**。
-    // 滚动只留给消息区（`AssistantStream` 内部自己维护）。
-    <div className="assistant-page flex h-full w-full flex-col p-6">
-      <Title heading={4} style={{ marginBottom: 16 }}>
-        {t('assistant.title')}
-      </Title>
-      <div className="flex min-h-0 flex-1">
-        <AssistantStream />
+    // 与屏幕监控/设置同款：侧栏右侧整块白卡片铺满，避免 p-6 浮在外壳渐变上
+    // 看起来像「窄栏居中、两侧大留白」。
+    <div className="assistant-page flex h-full w-full min-w-0 flex-col pb-2 pl-0 pr-2">
+      <div style={{ height: 8 }} />
+      <div className="assistant-page-surface flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[16px] bg-white px-4 py-5 md:px-6">
+        <Title heading={4} style={{ marginBottom: 16 }}>
+          {t('assistant.title')}
+        </Title>
+        <div className="flex min-h-0 w-full min-w-0 flex-1 self-stretch">
+          <AssistantStream />
+        </div>
       </div>
     </div>
   )

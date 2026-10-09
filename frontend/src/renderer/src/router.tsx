@@ -9,6 +9,7 @@ import { HashRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { useObservableTask } from './atom/event-loop.atom'
 import Sidebar from './components/sidebar'
 import { useEvents } from './hooks/use-events'
+import { useTrayRecordingSync } from './hooks/use-tray-recording-sync'
 import AIDemo from './pages/ai-demo/ai-demo'
 import { AssistantPage } from './pages/assistant/assistant-page'
 import Files from './pages/files/files'
@@ -26,6 +27,8 @@ const AppContent: FC = () => {
     active: startPolling,
     inactive: stopPolling
   })
+  // 托盘录制指示：生命周期跟 app shell，不跟屏幕监控页
+  useTrayRecordingSync()
 
   // 托盘菜单「屏幕监控」：点击后导航过去
   useEffect(() => {
@@ -71,7 +74,8 @@ const AppContent: FC = () => {
     <div className="app-shell-bg flex h-screen" style={{ height: '100vh' }}>
       {/* <div style={{ appRegion: 'drag', width: '12px', height: '100%' } as React.CSSProperties} /> */}
       <Sidebar />
-      <div className="flex-1 flex flex-col pr-2">{routes}</div>
+      {/* min-w-0：主栏 flex 子项默认 min-width:auto 会卡住宽度，助手页铺不满 */}
+      <div className="flex min-w-0 flex-1 flex-col pr-2">{routes}</div>
     </div>
   )
 }

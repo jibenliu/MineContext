@@ -58,6 +58,8 @@ step "2/8 lint 脚本自检（植入违规必须被拦截）"
 
 # shell 脚本的变量展开（bash 3.2 会把 `$var（` 里的全角标点当成变量名）
 ./scripts/checks/check-shell-vars.sh
+# macOS CI 没有 GNU timeout：回退路径不能把秒数当命令执行
+./scripts/checks/check-timeout-cmd.sh
 
 step "3/8 格式"
 cargo fmt --all -- --check

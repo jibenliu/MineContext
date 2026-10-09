@@ -30,7 +30,9 @@ const doubaoConfig: ModelInfoResponseData = {
     embeddingModelId: 'doubao-embedding-vision-250615',
     embeddingBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     embeddingApiKey: ''
-  }
+  },
+  hasApiKey: true,
+  apiKeyMasked: 'sk-l••••••••6789'
 }
 
 const openaiConfig: ModelInfoResponseData = {
@@ -75,6 +77,14 @@ it('默认平台是 Doubao，模型选择与 API Key 输入框都在', async () 
   expect(await screen.findByText('选择模型')).toBeInTheDocument()
   expect(screen.getByText('API Key')).toBeInTheDocument()
   expect(screen.getByText('获取豆包 API Key')).toBeInTheDocument()
+})
+
+it('已保存密钥时脱敏回显，并提供复制入口', async () => {
+  renderSettings()
+
+  expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
+  expect(screen.getByText('复制')).toBeInTheDocument()
+  expect(screen.getByText(/已保存密钥/)).toBeInTheDocument()
 })
 
 it('后端 base_url 是 OpenAI 时落到 OpenAI 平台，表单不空', async () => {

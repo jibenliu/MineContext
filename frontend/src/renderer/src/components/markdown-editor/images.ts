@@ -8,6 +8,13 @@ const TYPES: Record<string, string> = {
 }
 const MAX_IMAGE_BYTES = 1024 * 1024
 
+/** 笔记图片落库契约：markdown 里一律写 `file://` 绝对路径，重启后由 `resolveEditorImage` 读回。 */
+export function toEditorFileUrl(absolutePath: string): string {
+  const address = new URL('file:///')
+  address.pathname = absolutePath
+  return address.href
+}
+
 export async function persistEditorImage(file: File): Promise<string> {
   const extension = TYPES[file.type]
   if (!extension || file.size > MAX_IMAGE_BYTES) {
@@ -24,15 +31,15 @@ export async function persistEditorImage(file: File): Promise<string> {
   if (!result?.success || typeof result.filePath !== 'string' || !result.filePath.startsWith('/')) {
     throw new Error(translate(getLocale(), 'editor.imageFailed'))
   }
-  const address = new URL('file:///')
-  address.pathname = result.filePath
-  return address.href
+  return toEditorFileUrl(result.filePath)
 }
 
 export async function resolveEditorImage(address: string): Promise<string> {
   if (address.startsWith('blob:')) throw new Error(translate(getLocale(), 'editor.imageExpired'))
-  if (!address.startsWith('file:')) return address
-  const url = new URL(address)
+  // 历史笔记可能存了裸绝对路径；与 `file://` 走同一读回路径，避免重启破图。
+  const fileUrl = address.startsWith('file:') ? address : address.startsWith('/') ? toEditorFileUrl(address) : null
+  if (!fileUrl) return address
+  const url = new URL(fileUrl)
   const name = decodeURIComponent(url.pathname.split('/').pop() ?? '')
   const extension = name.split('.').pop()?.toLowerCase()
   const type = Object.entries(TYPES).find(([, value]) => value === extension)?.[0]

@@ -25,7 +25,7 @@ jobs:
       - name: lint 脚本自检（植入违规必须被拦截）
         run: ./scripts/tests/selftest-lints.sh
 
-      - name: macOS 支持范围（最低 13 / 覆盖 14）
+      - name: macOS 支持范围（部署目标 13；CI runner ≥ 14）
         run: ./scripts/checks/check-macos-target.sh
 
       - name: 生产代码里没有测试夹具
@@ -108,10 +108,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # 最低支持 macOS 13，同时覆盖 14：两个 runner 都要跑
-      # （由 scripts/check-macos-target.sh 守卫，缺一个就失败）
+      # 产品最低部署目标仍是 13；托管 CI 只跑 14+（旧 Ventura 托管标签已退场，会永久排队）。
+      # （由 scripts/check-macos-target.sh 守卫：矩阵须含 macos-14 或更高）
       matrix:
-        os: [macos-13, macos-14]
+        os: [macos-14]
     steps:
       - uses: actions/checkout@v4
 

@@ -523,3 +523,136 @@ async fn a_hanging_indexer_never_blocks_capture_or_projection() {
 
     indexer.abort();
 }
+
+#[tokio::test]
+async fn indexes_vault_notes_as_document_vectors() {
+    let transport = Arc::new(ScriptedTransport::new().reply_with(|request| {
+        let body: serde_json::Value =
+            serde_json::from_str(request.body.as_deref().unwrap()).unwrap();
+        let count = body["input"].as_array().map(|a| a.len()).unwrap_or(0);
+        embedding_json(count, 7)
+    }));
+    let ctx = ctx(Arc::clone(&transport));
+    let note_id = ctx
+        .state
+        .db
+        .insert_vault_row(
+            &mc_storage::vaults::VaultUpsert {
+                title: "季度复盘".into(),
+                summary: "关键结论".into(),
+                content: "本季度重点是检索准确率".into(),
+                tags: vec![],
+                parent_id: None,
+                is_folder: false,
+                document_type: "vaults".into(),
+                sort_order: 0,
+            },
+            Timestamp::from_millis(T0),
+        )
+        .expect("笔记必须能落库");
+
+    let provider = provider(Arc::clone(&transport));
+    let report = embedding::index_pending_notes(
+        &ctx.state,
+        provider.as_ref(),
+        "embed-small",
+        64,
+        Timestamp::from_millis(T0 + 60_000),
+    )
+    .await
+    .expect("笔记索引不该返回 Err");
+
+    assert!(report.failure.is_none(), "{:?}", report.failure);
+    assert_eq!(report.indexed, 1);
+    assert_eq!(
+        mc_storage::vectors::count_vectors(&ctx.state.db, "document").unwrap(),
+        1
+    );
+
+    let index = mc_server::retrieval::vector_index(&ctx.state.db)
+        .expect("组装索引")
+        .expect("必须有向量");
+    assert_eq!(index.len(), 1, "笔记向量必须进入可检索索引");
+    let docs = mc_storage::vectors::load_vectors(&ctx.state.db, "document").unwrap();
+    assert_eq!(docs[0].doc_id, format!("note-{note_id}"));
+
+    let again = embedding::index_pending_notes(
+        &ctx.state,
+        provider.as_ref(),
+        "embed-small",
+        64,
+        Timestamp::from_millis(T0 + 120_000),
+    )
+    .await
+    .unwrap();
+    assert_eq!(again.indexed, 0, "已索引的笔记不应重复烧 token");
+}
+
+#[tokio::test]
+async fn indexes_summaries_as_summary_vectors() {
+    let transport = Arc::new(ScriptedTransport::new().reply_with(|request| {
+        let body: serde_json::Value =
+            serde_json::from_str(request.body.as_deref().unwrap()).unwrap();
+        let count = body["input"].as_array().map(|a| a.len()).unwrap_or(0);
+        embedding_json(count, 9)
+    }));
+    let ctx = ctx(Arc::clone(&transport));
+    ctx.state
+        .db
+        .insert_summary(
+            &mc_storage::projectors::summaries::NewSummary {
+                id: "sum-1".into(),
+                kind: "adhoc".into(),
+                stage_id: None,
+                template_id: "work".into(),
+                start: Timestamp::from_millis(T0),
+                end: Timestamp::from_millis(T0 + 3_600_000),
+                title: "上午开发".into(),
+                fields: Default::default(),
+                body_markdown: "完成了检索准确率相关改动".into(),
+                quality: "fallback".into(),
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                scope: None,
+            },
+            Timestamp::from_millis(T0 + 3_600_000),
+        )
+        .expect("总结必须能落库");
+
+    let provider = provider(Arc::clone(&transport));
+    let report = embedding::index_pending_summaries(
+        &ctx.state,
+        provider.as_ref(),
+        "embed-small",
+        64,
+        Timestamp::from_millis(T0 + 3_700_000),
+    )
+    .await
+    .expect("总结索引不该返回 Err");
+
+    assert!(report.failure.is_none(), "{:?}", report.failure);
+    assert_eq!(report.indexed, 1);
+    assert_eq!(
+        mc_storage::vectors::count_vectors(&ctx.state.db, "summary").unwrap(),
+        1
+    );
+
+    let index = mc_server::retrieval::vector_index(&ctx.state.db)
+        .expect("组装索引")
+        .expect("必须有向量");
+    assert_eq!(index.len(), 1, "总结向量必须进入可检索索引");
+    let docs = mc_storage::vectors::load_vectors(&ctx.state.db, "summary").unwrap();
+    assert_eq!(docs[0].doc_id, "sum-1");
+
+    let again = embedding::index_pending_summaries(
+        &ctx.state,
+        provider.as_ref(),
+        "embed-small",
+        64,
+        Timestamp::from_millis(T0 + 3_800_000),
+    )
+    .await
+    .unwrap();
+    assert_eq!(again.indexed, 0, "已索引的总结不应重复烧 token");
+}

@@ -139,12 +139,17 @@ fi
 if [ "${do_contract}" -eq 1 ]; then
   check "契约新鲜度"
   [ "${LIST_ONLY}" -eq 0 ] && timed "extract-used-ipc-channels + git diff" \
-    bash -c 'xtask_run extract-used-ipc-channels && git diff --quiet fixtures/contract/'
+    bash -c '. ./scripts/lib/xtask.sh && xtask_run extract-used-ipc-channels && git diff --quiet fixtures/contract/'
 fi
 
 if [ "${do_scripts}" -eq 1 ]; then
   check "脚本与守卫"
   [ "${LIST_ONLY}" -eq 0 ] && timed "shell 变量展开" ./scripts/checks/check-shell-vars.sh
+  case " ${changed} " in
+    *scripts/tests/rust-tests-parallel.sh* | *scripts/checks/check-timeout-cmd.sh*)
+      [ "${LIST_ONLY}" -eq 0 ] && timed "timeout_cmd 回退（macOS）" ./scripts/checks/check-timeout-cmd.sh
+      ;;
+  esac
   [ "${LIST_ONLY}" -eq 0 ] && timed "源码类门禁（10 条）" ./scripts/check-source.sh
   case " ${changed} " in
     *scripts/tests/selftest-lints.sh* | *scripts/checks/*)

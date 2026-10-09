@@ -61,7 +61,7 @@ const IMPLEMENTED_COMPAT_PATHS: &[&str] = &[
     "/api/agent/chat/conversations/{cid}/update",
     // 录制统计（兼容面路径）
     "/api/monitoring/recording-stats",
-    // 设置页的模型配置（前端在用；密钥不回传，只回「有没有配」）
+    // 设置页的模型配置（前端在用；get 不回明文，只回 hasApiKey + apiKeyMasked）
     "/api/model_settings/get",
     "/api/model_settings/update",
     "/api/model_settings/validate",
@@ -76,6 +76,8 @@ const NEW_API_PATHS: &[&str] = &[
     // 作业队列（新增面；前端在用的那套接口里没有作业概念）
     "/api/v1/jobs/backfill",
     "/api/v1/jobs/{id}",
+    // 设置页显式「复制」才取明文（仍要 token + 本机 Host；不属于旧兼容面）
+    "/api/model_settings/api_key",
     // 以下不属于兼容面
     "/api/backend/status",
     "/api/capture/permissions",
@@ -159,6 +161,10 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .route(
             "/api/model_settings/validate",
             post(routes::model_settings_validate),
+        )
+        .route(
+            "/api/model_settings/api_key",
+            get(routes::model_settings_api_key),
         )
         // 作业队列：入队补偿推断与查状态（消费者在 daemon 里，见 jobs_worker）
         .route(

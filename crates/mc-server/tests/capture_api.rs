@@ -161,9 +161,12 @@ fn targets_endpoint_shape_matches_legacy_capture_source() {
     assert_eq!(first["id"], "display-1");
     assert_eq!(first["name"], "Built-in Retina Display");
     assert_eq!(first["type"], "screen");
+    let thumb = first["thumbnail"]
+        .as_str()
+        .expect("完整目标列表必须带预览缩略图");
     assert!(
-        first["thumbnail"].is_null(),
-        "缩略图暂不产出（不返回 data URL）"
+        thumb.starts_with("data:image/png;base64,"),
+        "缩略图必须是 PNG data URL: {thumb}"
     );
     assert!(first["appIcon"].is_null());
     assert_eq!(first["isVisible"], true);
@@ -174,6 +177,10 @@ fn targets_endpoint_shape_matches_legacy_capture_source() {
         .expect("应当有窗口目标");
     assert_eq!(window["appName"], "Visual Studio Code");
     assert_eq!(window["windowTitle"], "main.rs — VSCode");
+    let window_thumb = window["thumbnail"]
+        .as_str()
+        .expect("窗口目标也应有预览缩略图");
+    assert!(window_thumb.starts_with("data:image/png;base64,"));
 }
 
 #[test]
@@ -187,7 +194,12 @@ fn targets_endpoint_filters_visible_only() {
 
     // FakeCaptureSource 里所有目标都是可见的，因此数量一致；
     // 这条测试锁定「visible=1 参数被正确解析」而不是被忽略。
-    assert_eq!(data.as_array().unwrap().len(), 3);
+    let items = data.as_array().unwrap();
+    assert_eq!(items.len(), 3);
+    assert!(
+        items[0]["thumbnail"].is_null(),
+        "可见性轮询不应附带缩略图（高频路径）"
+    );
 }
 
 // ---------------------------------------------------------------- 时间线

@@ -201,6 +201,30 @@ impl CaptureSource for MacScreenSource {
             },
         }
     }
+
+    async fn preview_thumbnails(
+        &self,
+        max_width: u32,
+    ) -> std::collections::HashMap<String, String> {
+        use crate::thumbnail::rgba_to_data_url;
+
+        let mut out = std::collections::HashMap::new();
+        let Ok(monitors) = Self::monitors() else {
+            return out;
+        };
+        for monitor in &monitors {
+            let Ok(target) = target_from_monitor(monitor) else {
+                continue;
+            };
+            let Ok(frame) = monitor.capture_image() else {
+                continue;
+            };
+            if let Some(url) = rgba_to_data_url(&frame, max_width) {
+                out.insert(target.id, url);
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]

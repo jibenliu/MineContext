@@ -8,6 +8,7 @@ import { blobImageUrls, persistBlobImages } from '@renderer/adapters/markdown-im
 import AIAssistant from '@renderer/components/ai-assistant'
 import AIToggleButton from '@renderer/components/ai-toggle-button'
 import MarkdownEditor from '@renderer/components/markdown-editor'
+import { toEditorFileUrl } from '@renderer/components/markdown-editor/images'
 import StatusBar from '@renderer/components/status-bar/status-bar'
 import { useAllotment } from '@renderer/hooks/use-allotment'
 import { useVaults } from '@renderer/hooks/use-vault'
@@ -18,19 +19,28 @@ import { removeMarkdownSymbols } from '@renderer/utils/vault'
 import { useUnmount } from 'ahooks'
 import { Allotment } from 'allotment'
 import { debounce } from 'lodash'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 const VaultPage = () => {
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const id = searchParams.get('id')
-  const loading = false
-  const error = null
+  const { findVaultById, saveVaultContent, saveVaultTitle, updateVault, loading, initVaults } = useVaults()
+  const [ready, setReady] = useState(false)
 
-  const { findVaultById, saveVaultContent, saveVaultTitle, updateVault } = useVaults()
-  const vault = findVaultById(Number(id))
+  useEffect(() => {
+    let cancelled = false
+    void initVaults().finally(() => {
+      if (!cancelled) setReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [initVaults])
+
+  const vault = id ? findVaultById(Number(id)) : null
   const content = vault?.content
   const title = vault?.title ? '## ' + vault.title : ''
   const isVisible = useSelector((state: RootState) => state.chatHistory.creation.aiAssistantVisible)
@@ -39,6 +49,7 @@ const VaultPage = () => {
   const debouncedSave = useMemo(
     () =>
       debounce((value: string, type: 'content' | 'title' | 'summary' | 'tags') => {
+        if (!id) return
         if (type === 'content') {
           saveVaultContent(Number(id), value)
         } else if (type === 'title') {
@@ -49,6 +60,22 @@ const VaultPage = () => {
       }, 300),
     [saveVaultContent, saveVaultTitle, id, updateVault]
   )
+
+  // 离开页面前把未到期的 debounce 冲掉，否则 300ms 内的最后一次编辑会丢。
+  useUnmount(() => {
+    debouncedSave.flush()
+    debouncedSave.cancel()
+    dispatch(setActiveConversationId(null))
+    dispatch(toggleCreationAiAssistant(false))
+  })
+
+  // 切换笔记 id 时先冲掉旧 id 的挂起保存，避免写错目标。
+  useEffect(() => {
+    return () => {
+      debouncedSave.flush()
+      debouncedSave.cancel()
+    }
+  }, [debouncedSave, id])
 
   const onMarkdownChange = useCallback(
     (markdown: string, type: 'content' | 'title') => {
@@ -68,7 +95,8 @@ const VaultPage = () => {
             | { success?: boolean; filePath?: string }
             | undefined
           if (!result?.success || !result.filePath) throw new Error('图片保存失败')
-          return result.filePath
+          // 与 Crepe `persistEditorImage` 同一契约：markdown 写 `file://`，重启才能读回。
+          return toEditorFileUrl(result.filePath)
         }
       })
         .then((outcome) => {
@@ -97,10 +125,11 @@ const VaultPage = () => {
     [debouncedSave]
   )
   const activeConversationId = useSelector((state: RootState) => state.chatHistory.activeConversationId)
-  useUnmount(() => {
-    dispatch(setActiveConversationId(null))
-    dispatch(toggleCreationAiAssistant(false))
-  })
+
+  const showLoading = !ready || loading
+  const missingId = !id
+  const notFound = ready && !loading && !!id && !vault
+
   // Status bar component
   return (
     <div className={`flex flex-row h-full allotmentContainer ${!isVisible ? 'allotment-disabled' : ''}`}>
@@ -109,12 +138,17 @@ const VaultPage = () => {
           <div style={{ height: '8px', appRegion: 'drag' } as React.CSSProperties} />
           <div className="vault-page-container">
             <Card className="vault-card">
-              {loading || !vault ? (
+              {showLoading ? (
                 <div className="flex justify-center items-center h-full text-[var(--color-text-1)]">
                   <Spin tip={t('common.loading')} />
                 </div>
-              ) : error ? (
-                <div className="text-[rgb(var(--danger-6))]">{error}</div>
+              ) : missingId || notFound ? (
+                <div className="flex flex-col justify-center items-center h-full gap-3 text-[var(--color-text-2)]">
+                  <div>{t('vault.notFound')}</div>
+                  <Link to="/" className="text-[rgb(var(--primary-6))]">
+                    {t('vault.backHome')}
+                  </Link>
+                </div>
               ) : (
                 <>
                   <div className="vault-title-container">

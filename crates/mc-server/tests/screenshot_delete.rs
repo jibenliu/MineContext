@@ -345,11 +345,18 @@ async fn deleting_also_drops_the_path_from_the_activity_it_belongs_to() {
     let resources: String = ctx
         .state
         .db
-        .with_read(|conn| conn.query_row("SELECT resources FROM activity WHERE id = 1", [], |row| row.get(0)))
+        .with_read(|conn| {
+            conn.query_row("SELECT resources FROM activity WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+        })
         .unwrap();
     assert!(
         !resources.contains(&path),
         "被删掉的路径不该再出现在活动里：{resources}"
     );
-    assert!(resources.contains(keep), "同一条活动的其它截图要保留：{resources}");
+    assert!(
+        resources.contains(keep),
+        "同一条活动的其它截图要保留：{resources}"
+    );
 }
