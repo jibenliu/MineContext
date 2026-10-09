@@ -1,16 +1,8 @@
 //! macOS 屏幕录制权限。
 //!
-//! 权限没拿到时 macOS **不会报错，而是返回全黑帧**。
-//! 如果不主动检测，用户看到的是「一切正常但什么都没记录」——
-//! 这类失败是「黑盒」的典型形态：没有报错，只有结果不对。
-//!
-//! `CGPreflightScreenCaptureAccess` 只反映**当前进程**的 TCC 状态。
-//! 采集跑在 `mc-daemon` 里，而系统设置里勾选的常常是外壳 `MineContext.app`：
-//! Preflight 可能对已授权的采集能力返回 false（错 bundle / 授权后未刷新）。
-//! 因此 Preflight 为 false 时再用一次轻量截屏交叉验证，避免假「缺少权限」。
-//!
-//! 交叉截屏必须带超时：部分 macOS 版本在无权限时 `capture_image` 会长时间挂起，
-//! 若在 HTTP/采集热路径上同步等待，整 app 会表现为卡死且重启无效。
+//! 权限缺失时系统常返回全黑帧而不报错，必须主动查权限。
+//! `CGPreflight` 只反映当前进程 TCC；采集在 daemon，外壳勾选可能对不上。
+//! Preflight 为 false 时用带超时的交叉截屏消假阴性；超时 fail-closed，避免拖死热路径。
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -38,10 +30,15 @@ unsafe extern "C" {
 /// 交叉截屏最长等待。超时按缺权限处理，避免拖死 daemon。
 pub const EMPIRICAL_CAPTURE_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// 查询当前权限状态（不弹窗）。
+/// 只查 TCC Preflight（不弹窗、不做交叉截屏）。窗口枚举路径必须用这个。
+pub fn tcc_preflight() -> PermissionState {
+    permission_from_preflight(unsafe { CGPreflightScreenCaptureAccess() })
+}
+
+/// 查询屏幕采集权限（不弹窗）。
 ///
 /// Preflight 为 false 时会做一次带短缓存与超时的截屏交叉验证，消除「系统设置已开、
-/// UI 仍报缺权限」的假阴性；超时则 fail-closed。
+/// UI 仍报缺权限」的假阴性；超时则 fail-closed。窗口路径请用 [`tcc_preflight`]。
 pub fn preflight() -> PermissionState {
     let preflight_granted = unsafe { CGPreflightScreenCaptureAccess() };
     if preflight_granted {

@@ -49,6 +49,47 @@ pub const fn empirical_cache_ttl_secs(result: EmpiricalCapture) -> u64 {
     }
 }
 
+/// 窗口列表 / 窗口元数据路径的权限：只信 TCC Preflight，不走经验证。
+///
+/// 经验证可能因「只有壁纸的非黑帧」把屏幕路径判成 Granted，但 `Window::all`
+/// 仍会因 TCC 失败而空列表 —— 若窗口也跟经验证，UI 会误显示「没有打开的应用」。
+pub const fn resolve_window_permission(tcc_granted: bool) -> PermissionState {
+    if tcc_granted {
+        PermissionState::Granted
+    } else {
+        PermissionState::Denied
+    }
+}
+
+/// 窗口选择器为空时的原因（给设置页 Alert 用）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowListReason {
+    Ok,
+    ScreenRecordingPermission,
+    Empty,
+}
+
+impl WindowListReason {
+    pub const fn as_api_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::ScreenRecordingPermission => "screen_recording_permission",
+            Self::Empty => "empty",
+        }
+    }
+}
+
+/// TCC + 枚举到的窗口数 → 列表状态。
+pub const fn window_list_status(tcc_granted: bool, window_count: usize) -> WindowListReason {
+    if !tcc_granted {
+        WindowListReason::ScreenRecordingPermission
+    } else if window_count == 0 {
+        WindowListReason::Empty
+    } else {
+        WindowListReason::Ok
+    }
+}
+
 /// 在独立线程跑交叉探测，超时返回 [`EmpiricalCapture::TimedOut`]。
 ///
 /// 平台实现把真正的 `capture_image` 放进 `worker`；本函数保证调用方不会无限等待。
@@ -155,5 +196,33 @@ mod tests {
         let result =
             empirical_from_worker_timeout(Duration::from_secs(2), || EmpiricalCapture::Works);
         assert_eq!(result, EmpiricalCapture::Works);
+    }
+
+    #[test]
+    fn window_permission_trusts_tcc_only() {
+        assert_eq!(
+            resolve_window_permission(false),
+            PermissionState::Denied,
+            "经验证把屏幕判成可用时，窗口路径仍必须看 TCC"
+        );
+        assert_eq!(resolve_window_permission(true), PermissionState::Granted);
+    }
+
+    #[test]
+    fn window_list_status_distinguishes_permission_from_empty() {
+        assert_eq!(
+            window_list_status(false, 0),
+            WindowListReason::ScreenRecordingPermission
+        );
+        assert_eq!(
+            window_list_status(false, 3),
+            WindowListReason::ScreenRecordingPermission
+        );
+        assert_eq!(window_list_status(true, 0), WindowListReason::Empty);
+        assert_eq!(window_list_status(true, 2), WindowListReason::Ok);
+        assert_eq!(
+            WindowListReason::ScreenRecordingPermission.as_api_str(),
+            "screen_recording_permission"
+        );
     }
 }

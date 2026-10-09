@@ -55,6 +55,41 @@ pub fn probe_readiness() -> CaptureReadiness {
     }
 }
 
+/// 当前进程的 TCC Preflight 是否已授权（不做交叉截屏）。
+///
+/// 窗口列表必须用这个信号；屏幕路径的 `probe_readiness` 可能因经验证更宽。
+pub fn probe_tcc_granted() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        macos::permission::tcc_preflight() == super::source::PermissionState::Granted
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+/// 窗口选择器状态原因（API 字符串）；非 macOS 为 `None`。
+pub fn probe_windows_reason() -> Option<&'static str> {
+    use crate::permission_resolve::window_list_status;
+
+    #[cfg(target_os = "macos")]
+    {
+        let tcc = probe_tcc_granted();
+        let window_count = if tcc {
+            xcap::Window::all().map(|w| w.len()).unwrap_or(0)
+        } else {
+            0
+        };
+        Some(window_list_status(tcc, window_count).as_api_str())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window_list_status;
+        None
+    }
+}
+
 /// 请求屏幕录制权限（macOS 可能弹系统对话框；其它平台返回 Unknown）。
 pub fn request_permission() -> super::source::PermissionState {
     #[cfg(target_os = "macos")]

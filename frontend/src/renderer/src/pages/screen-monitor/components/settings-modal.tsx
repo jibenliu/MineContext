@@ -1,10 +1,11 @@
-import { Button, Checkbox, Form, Modal, Radio, Slider, Spin, Switch, TimePicker } from '@arco-design/web-react'
+import { Alert, Button, Checkbox, Form, Modal, Radio, Slider, Spin, Switch, TimePicker } from '@arco-design/web-react'
 import screenIcon from '@renderer/assets/icons/screen.svg'
 import { useI18n } from '@renderer/i18n'
 import { ApplyToDays } from '@renderer/store/setting'
 import clsx from 'clsx'
 import React from 'react'
 
+import { isWindowListPermissionBlocked, shouldShowRecordingNotStarted } from '../recording-status-copy'
 import { Application } from './application'
 
 interface SettingsModalProps {
@@ -18,6 +19,12 @@ interface SettingsModalProps {
   tempEnableRecordingHours: boolean
   tempRecordingHours: [string, string]
   tempApplyToDays: string
+  /** 是否正在录制；false 时 interval 滑块不等于采集环在跑 */
+  isMonitoring: boolean
+  /** capture.enabled；false = 用户停过录 */
+  captureEnabled?: boolean
+  /** 后端 windows_reason */
+  windowsReason?: string | null
   onCancel: () => void
   onSave: () => void
   onSetApplicationVisible: (visible: boolean) => void
@@ -25,6 +32,7 @@ interface SettingsModalProps {
   onSetTempEnableRecordingHours: (value: boolean) => void
   onSetTempRecordingHours: (value: [string, string]) => void
   onSetTempApplyToDays: (value: ApplyToDays) => void
+  onRequestPermission?: () => void
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -38,15 +46,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   tempEnableRecordingHours,
   tempRecordingHours,
   tempApplyToDays,
+  isMonitoring,
+  captureEnabled,
+  windowsReason,
   onCancel,
   onSave,
   onSetApplicationVisible,
   onSetTempRecordInterval,
   onSetTempEnableRecordingHours,
   onSetTempRecordingHours,
-  onSetTempApplyToDays
+  onSetTempApplyToDays,
+  onRequestPermission
 }) => {
   const { t } = useI18n()
+  const showNotStarted = shouldShowRecordingNotStarted(isMonitoring, captureEnabled)
+  const showWindowPermission = isWindowListPermissionBlocked(windowsReason)
   return (
     <Modal
       title={t('common.settings')}
@@ -71,6 +85,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       }
       style={{ width: 682 }}>
       <Form layout="vertical" form={form}>
+        {showNotStarted ? (
+          <Alert
+            type="info"
+            className="mb-3"
+            data-testid="recording-not-started-alert"
+            content={t('screenMonitor.settings.recordingNotStarted')}
+          />
+        ) : null}
+        {showWindowPermission ? (
+          <Alert
+            type="warning"
+            className="mb-3"
+            data-testid="window-permission-alert"
+            content={t('screenMonitor.settings.windowPermissionBlocked')}
+            action={
+              onRequestPermission ? (
+                <Button size="mini" type="primary" onClick={onRequestPermission}>
+                  {t('screenMonitor.settings.openScreenRecording')}
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : null}
         <div className="flex w-full flex-1 mt-5">
           <div className="flex flex-col flex-1 pr-[24px]">
             <Form.Item
@@ -210,7 +247,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {t('screenMonitor.settings.windowSection')}
               </div>
               <div className="text-[10px] leading-[12px] text-[var(--color-text-3)] mb-[4px]">
-                {t('screenMonitor.settings.onlyOpenedApps')}
+                {showWindowPermission
+                  ? t('screenMonitor.settings.windowPermissionBlocked')
+                  : t('screenMonitor.settings.onlyOpenedApps')}
               </div>
               <Form.Item field="windowSources">
                 <Checkbox.Group className="flex flex-col space-y-4">

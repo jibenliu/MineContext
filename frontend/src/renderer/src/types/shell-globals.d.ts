@@ -14,9 +14,13 @@ interface ScreenMonitorAPI {
     | boolean
     | {
         screen_recording?: boolean
+        screen_recording_tcc?: boolean
+        windows_reason?: string | null
         permission?: string
         status?: string
         ready?: boolean
+        enabled?: boolean
+        running?: boolean
         message?: string
       }
   >
@@ -89,8 +93,11 @@ interface ScreenMonitorAPI {
   checkCanRecord: () => Promise<{
     canRecord: boolean
     status: string
+    /** capture.enabled：false 表示用户停过录，间隔配置不等于正在采集 */
+    enabled?: boolean
     /** 不能录制时的原因（后端 /api/capture/status 的 reason） */
     reason?: string
+    windows_reason?: string | null
   }>
   getRecordingStats: () => Promise<{
     captured_screenshots: number

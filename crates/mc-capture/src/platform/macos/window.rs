@@ -142,7 +142,8 @@ impl CaptureSource for MacWindowSource {
     }
 
     async fn poll(&self, ctx: &CaptureContext) -> Result<Vec<RawCapture>, AppError> {
-        if super::permission::preflight() == PermissionState::Denied {
+        // 窗口路径只信 TCC：经验证非黑帧不能掩盖 Window::all 的权限失败。
+        if super::permission::tcc_preflight() == PermissionState::Denied {
             return Err(super::permission::permission_denied_error());
         }
 
@@ -166,19 +167,29 @@ impl CaptureSource for MacWindowSource {
     }
 
     async fn health(&self) -> SourceHealth {
-        let permission = super::permission::preflight();
-        let window_count = Self::windows().map(|w| w.len()).unwrap_or(0);
-        let available = permission == PermissionState::Granted && window_count > 0;
+        use crate::permission_resolve::{
+            resolve_window_permission, window_list_status, WindowListReason,
+        };
+
+        let tcc_granted = super::permission::tcc_preflight() == PermissionState::Granted;
+        let permission = resolve_window_permission(tcc_granted);
+        let window_count = if tcc_granted {
+            Self::windows().map(|w| w.len()).unwrap_or(0)
+        } else {
+            0
+        };
+        let reason = window_list_status(tcc_granted, window_count);
+        let available = reason == WindowListReason::Ok;
 
         SourceHealth {
             available,
             permission,
-            message: if available {
-                None
-            } else if permission == PermissionState::Denied {
-                Some("缺少屏幕录制权限，窗口采集不可用".to_string())
-            } else {
-                Some("当前没有可采集的窗口".to_string())
+            message: match reason {
+                WindowListReason::Ok => None,
+                WindowListReason::ScreenRecordingPermission => {
+                    Some("缺少屏幕录制权限，窗口采集不可用".to_string())
+                }
+                WindowListReason::Empty => Some("当前没有可采集的窗口".to_string()),
             },
         }
     }
