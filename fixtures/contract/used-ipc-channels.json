@@ -306,6 +306,10 @@
       "source": "adapters/channel-map.ts"
     },
     {
+      "channel": "v1:import-link",
+      "source": "adapters/channel-map.ts"
+    },
+    {
       "channel": "v1:jobs-backfill",
       "source": "adapters/channel-map.ts"
     },

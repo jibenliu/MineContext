@@ -397,7 +397,7 @@ We will prioritize the expansion of Context Sources according to the following p
 | :--------------------------- | :---------------------------------------- | :------- | :---------------- |
 | Screen Screenshot            | User PC Information                       | P0       | ✅                |
 | Note Editing                 | Application Internal Creation Information | P0       | ✅                |
-| Link Upload                  | Internet Information                      | P0       |                   |
+| Link Upload                  | Internet Information                      | P0       | ✅                |
 | File Upload                  | Structured Documents                      | P1       |                   |
 | File Upload                  | Unstructured Documents                    | P1       |                   |
 | File Upload                  | Images                                    | P1       |                   |

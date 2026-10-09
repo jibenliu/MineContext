@@ -90,6 +90,16 @@ export function installAdapters(options: InstallOptions): void {
     enqueueBackfill: (from: string, to: string) => backend.invoke('v1:jobs-backfill', from, to),
     jobStatus: (jobId: number) => backend.invoke('v1:jobs-status', jobId)
   })
+  // 链接上传：笔记树「导入链接」入口
+  install('linkApi', {
+    importUrl: (url: string, parentId?: number | null) =>
+      backend.invoke('v1:import-link', url, parentId ?? null) as Promise<{
+        id: number
+        title: string
+        url: string
+        source_host: string
+      }>
+  })
 
   // 渲染层日志落盘：打包版看不到 webview 控制台，有外壳就把日志同时转给外壳写文件。
   // 转发失败只当没有（sink 自己吞异常，绝不反过来影响业务），因此这里不 await。

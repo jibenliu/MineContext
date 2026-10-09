@@ -51,6 +51,7 @@
 | `/api/monitoring/recording-stats` | 录制统计（含最近错误与最近截图上限 5 条） |
 | `/api/v1/stream` | 控制面事件流（SSE） |
 | `/api/v1/jobs/backfill`、`/api/v1/jobs/{id}` | 作业队列：入队补偿推断、查状态（同范围幂等；未配置模型时如实跳过） |
+| `/api/v1/links` | 链接上传：`POST {url, parent_id?}` 抓取公开网页正文，写入笔记树（`document_type=vaults`），进入既有检索/向量索引；拒绝非 http(s)、回环/私网与 `privacy.blocked_domains` |
 
 ### 1.3 SSE
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Dropdown, Input, Menu, Message, Space, Typography } from '@arco-design/web-react'
+import { Dropdown, Input, Menu, Message, Modal, Space, Typography } from '@arco-design/web-react'
 import { PushDataTypes } from '@renderer/constant/feed'
 import { useEvents } from '@renderer/hooks/use-events'
 import { useNavigation } from '@renderer/hooks/use-navigation'
@@ -29,7 +29,11 @@ const queue = new PQueue({ concurrency: 2 })
 const { Text, Ellipsis } = Typography
 const logger = getLogger('VaultTree')
 
-const Node = ({ node, dragHandle }: NodeRendererProps<VaultTreeNode>) => {
+const Node = ({
+  node,
+  dragHandle,
+  onImportLink
+}: NodeRendererProps<VaultTreeNode> & { onImportLink?: (parentId: number) => void }) => {
   const { t } = useI18n()
   const isFolder = node.data.is_folder === 1
   const { deleteVault, createFolder, addVault, getVaultPath } = useVaults()
@@ -64,6 +68,11 @@ const Node = ({ node, dragHandle }: NodeRendererProps<VaultTreeNode>) => {
           if (!node.isOpen) {
             node.toggle()
           }
+        } else if (key === 'import-link') {
+          onImportLink?.(node.data.id)
+          if (!node.isOpen) {
+            node.toggle()
+          }
         }
       }}>
       <Menu.Item key="rename" className="flex items-center">
@@ -83,6 +92,10 @@ const Node = ({ node, dragHandle }: NodeRendererProps<VaultTreeNode>) => {
           <Menu.Item key="new-document" className="flex items-center">
             <img src={fileIcon} className="w-[16px]" style={{ marginRight: '6px' }} />
             {t('vault.tree.newDocument')}
+          </Menu.Item>
+          <Menu.Item key="import-link" className="flex items-center">
+            <img src={fileIcon} className="w-[16px]" style={{ marginRight: '6px' }} />
+            {t('vault.tree.importLink')}
           </Menu.Item>
         </>
       )}
@@ -253,6 +266,16 @@ const Sidebar = ({ className }: { className?: string }) => {
   const { navigateToVault } = useNavigation()
   const treeContainerRef = useRef<HTMLDivElement>(null)
   const [treeDimensions, setTreeDimensions] = useState({ width: 200, height: 600 })
+  const [linkModalVisible, setLinkModalVisible] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const [linkImporting, setLinkImporting] = useState(false)
+  const [linkParentId, setLinkParentId] = useState<number | null>(null)
+
+  const openLinkModal = useMemoizedFn((parentId?: number | null) => {
+    setLinkParentId(parentId ?? null)
+    setLinkUrl('')
+    setLinkModalVisible(true)
+  })
   useEffect(() => {
     if (!treeContainerRef.current) return
 
@@ -301,6 +324,39 @@ const Sidebar = ({ className }: { className?: string }) => {
       await createFolder('Untitled')
     } else if (key === 'new-document') {
       await addVault({ title: 'Untitled', content: '' })
+    } else if (key === 'import-link') {
+      openLinkModal(null)
+    }
+  }
+
+  const handleImportLink = async () => {
+    const url = linkUrl.trim()
+    if (!url) {
+      Message.warning(t('vault.tree.linkRequired'))
+      return
+    }
+    if (!window.linkApi?.importUrl) {
+      Message.error(t('vault.tree.linkFailed'))
+      return
+    }
+    setLinkImporting(true)
+    try {
+      const result = await window.linkApi.importUrl(url, linkParentId)
+      setLinkModalVisible(false)
+      setLinkUrl('')
+      setLinkParentId(null)
+      await initVaults()
+      navigateToVault(result.id)
+      Message.success(t('vault.tree.linkImported'))
+    } catch (error) {
+      logger.error('import link failed', error)
+      const detail =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message || '')
+          : ''
+      Message.error(detail || t('vault.tree.linkFailed'))
+    } finally {
+      setLinkImporting(false)
     }
   }
 
@@ -313,6 +369,10 @@ const Sidebar = ({ className }: { className?: string }) => {
       <Menu.Item key="new-document" className="flex">
         <img src={fileIcon} style={{ width: '16px', marginRight: '6px' }} />
         {t('vault.tree.newDocument')}
+      </Menu.Item>
+      <Menu.Item key="import-link" className="flex">
+        <img src={fileIcon} style={{ width: '16px', marginRight: '6px' }} />
+        {t('vault.tree.importLink')}
       </Menu.Item>
     </Menu>
   )
@@ -338,6 +398,30 @@ const Sidebar = ({ className }: { className?: string }) => {
           </Space>
         </div>
 
+        <Modal
+          title={t('vault.tree.importLink')}
+          visible={linkModalVisible}
+          onOk={() => void handleImportLink()}
+          onCancel={() => {
+            if (!linkImporting) {
+              setLinkModalVisible(false)
+              setLinkUrl('')
+              setLinkParentId(null)
+            }
+          }}
+          confirmLoading={linkImporting}
+          okText={t('vault.tree.importLinkConfirm')}
+          cancelText={t('common.cancel')}
+          unmountOnExit>
+          <Input
+            value={linkUrl}
+            onChange={setLinkUrl}
+            placeholder={t('vault.tree.linkPlaceholder')}
+            allowClear
+            onPressEnter={() => void handleImportLink()}
+          />
+        </Modal>
+
         {/* Modern tree structure */}
         {/* 文字色必须走语义变量：节点标题在暗色主题下同样要可读，写死颜色会变成黑底黑字 */}
         <div
@@ -357,7 +441,7 @@ const Sidebar = ({ className }: { className?: string }) => {
                 navigateToVault(node.data.id)
               }
             }}>
-            {Node}
+            {(props) => <Node {...props} onImportLink={openLinkModal} />}
           </Tree>
         </div>
       </div>

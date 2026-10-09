@@ -51,6 +51,8 @@ pub struct ServerState {
     /// 只读实例（例如只跑检索）没有这一项，此时设置类接口会给出结构化错误，
     /// 而不是假装保存成功。
     config_write: Option<(mc_config::load::LoadRequest, std::path::PathBuf)>,
+    /// 链接上传用的 HTTP 传输（测试注入 ScriptedTransport；生产默认自建客户端）。
+    link_transport: std::sync::Mutex<Option<Arc<dyn mc_providers::transport::HttpTransport>>>,
 }
 
 impl ServerState {
@@ -78,6 +80,7 @@ impl ServerState {
             vector_index_cache: std::sync::Mutex::new(None),
             capture_stats: std::sync::Mutex::new(None),
             config_write: None,
+            link_transport: std::sync::Mutex::new(None),
         }
     }
 
@@ -125,6 +128,24 @@ impl ServerState {
     ) -> Self {
         self.config_write = Some((request, user_config));
         self
+    }
+
+    /// 注入链接抓取传输（业务测试用脚本化替身，避免真出网）。
+    pub fn with_link_transport(
+        self,
+        transport: Arc<dyn mc_providers::transport::HttpTransport>,
+    ) -> Self {
+        if let Ok(mut slot) = self.link_transport.lock() {
+            *slot = Some(transport);
+        }
+        self
+    }
+
+    pub fn link_transport(&self) -> Option<Arc<dyn mc_providers::transport::HttpTransport>> {
+        self.link_transport
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone())
     }
 
     /// 可写配置（请求 + 路径）。`None` = 本实例不可写配置。

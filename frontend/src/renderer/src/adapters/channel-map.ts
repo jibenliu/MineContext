@@ -282,6 +282,12 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
   'v1:jobs-status': (args) => ({
     method: 'GET',
     path: `/api/v1/jobs/${enc(args[0])}`
+  }),
+  // 链接上传：抓取公开网页正文，落成笔记树文档（进入检索 / 向量索引）
+  'v1:import-link': (args) => ({
+    method: 'POST',
+    path: '/api/v1/links',
+    body: { url: args[0], parent_id: args[1] ?? null }
   })
 }
 

@@ -18,6 +18,7 @@ pub mod failures;
 pub mod jobs;
 pub mod jobs_worker;
 pub mod latest_activity;
+pub mod link_ingest;
 pub mod middleware;
 pub mod monitoring;
 pub mod retention;
@@ -141,6 +142,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::agent_chat::router())
         .merge(routes::threads::router())
         .merge(routes::vaults::router())
+        .merge(routes::links::router())
         .merge(routes::home::router())
         .merge(routes::files::router())
         .merge(routes::settings::router())
