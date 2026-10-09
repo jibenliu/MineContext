@@ -3,6 +3,10 @@ name: Release (macOS, unsigned)
 # 出可安装的 macOS 产物：未签名 `.dmg`，附 sha256，并**如实标注未签名**。
 #
 # 触发方式：手动（workflow_dispatch）或推 `v*` 标签。
+# 打标签请用 `tag-release.yml`（Actions → Tag release）或
+# `./scripts/create-release-tag.sh`，不要在本 workflow 里顺手建 tag ——
+# 本 job 只负责打包，避免「打 tag + 打包」叠成两次 run。
+#
 # 与本地 `./scripts/package-macos-tauri.sh` 的区别只有两处：
 #   1. 不跑 `launch-check-tauri.sh` —— 它要挂载 dmg 并真的启动外壳，CI runner 没有
 #      可用的窗口会话；产物里的 daemon 由 `verify-packaged-app.sh` 验证（不需要 GUI）；
