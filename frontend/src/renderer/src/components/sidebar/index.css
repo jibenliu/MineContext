@@ -9,6 +9,11 @@
   flex-shrink: 0;
 }
 
+/* 导航图标跟侧栏文字色走，选中/未选中由父级 text-* 决定 */
+.sidebar-nav-icon .arco-icon {
+  color: inherit;
+}
+
 .sidebar-container .arco-layout-sider-children {
   /* 隐藏侧边栏滚动条 */
   scrollbar-width: none; /* Firefox */

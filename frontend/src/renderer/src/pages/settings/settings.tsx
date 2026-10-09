@@ -17,6 +17,7 @@ import {
   updateModelSettingsAPI
 } from '../../services/settings'
 import { writeClipboard } from '../../utils/write-clipboard'
+import { apiKeyInputShouldBeVisible } from './api-key-visibility'
 import { AiUploadSwitch } from './components/ai-upload-switch'
 import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
@@ -56,21 +57,46 @@ const ApiKeyField: FC<{
   autoFocus?: boolean
   hasStoredKey: boolean
   maskedValue: string
+  /** 供 Form.useWatch（宽类型，避免与 SettingsFormProps 循环引用）。 */
+  form: any
   onCopy: () => void
   /** 眼睛打开时把脱敏串换成明文，避免「可见但仍是 ••••」 */
   onReveal: () => void
   docsLabel: string
   onOpenDocs: () => void
-}> = ({ field, className, autoFocus, hasStoredKey, maskedValue, onCopy, onReveal, docsLabel, onOpenDocs }) => {
+  label?: string
+}> = ({
+  field,
+  className,
+  autoFocus,
+  hasStoredKey,
+  maskedValue,
+  form,
+  onCopy,
+  onReveal,
+  docsLabel,
+  onOpenDocs,
+  label
+}) => {
   const { t } = useI18n()
+  const [userWantsVisible, setUserWantsVisible] = useState(false)
+  const fieldValue = String(Form.useWatch(field, form) ?? '')
+  const visible = apiKeyInputShouldBeVisible({
+    hasStoredKey,
+    maskedValue,
+    fieldValue,
+    userWantsVisible
+  })
   return (
     <FormItem
       requiredSymbol={false}
-      label={t('common.apiKey')}
+      label={label ?? t('common.apiKey')}
       field={field}
       extra={
         <div className="flex flex-col gap-1 text-[var(--color-text-3)] text-[14px]">
-          {hasStoredKey ? <span>{t('settings.apiKeyConfiguredHint')}</span> : null}
+          {hasStoredKey ? (
+            <span data-testid="api-key-configured-hint">{t('settings.apiKeyConfiguredHint')}</span>
+          ) : null}
           <div className="flex flex-wrap items-center gap-1">
             {t('settings.apiKeyGetHint')}
             <Button type="text" onClick={onOpenDocs} className="!px-1">
@@ -99,12 +125,72 @@ const ApiKeyField: FC<{
         placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
         allowClear
         className={className ?? '!w-[574px]'}
-        defaultVisibility={false}
-        onVisibilityChange={(visible) => {
-          if (visible) onReveal()
+        data-testid={`api-key-input-${field}`}
+        visibility={visible}
+        onVisibilityChange={(next) => {
+          const showingMask =
+            hasStoredKey &&
+            Boolean(maskedValue) &&
+            (!fieldValue.trim() || fieldValue.trim() === maskedValue || fieldValue.includes('•'))
+          // 脱敏已按明文可见：再点眼睛是「换成真实明文」，不要盖成圆点假空白
+          if (showingMask) {
+            setUserWantsVisible(true)
+            onReveal()
+            return
+          }
+          setUserWantsVisible(next)
+          if (next) onReveal()
         }}
       />
     </FormItem>
+  )
+}
+
+/** 自建表单里带 addBefore 的密钥框：与 ApiKeyField 同一套「脱敏必须可见」契约。 */
+const PrefixedApiKeyPassword: FC<{
+  field: string
+  form: any
+  hasStoredKey: boolean
+  maskedValue: string
+  onReveal: () => void
+  /** Form.Item 注入；必须落到 Input，否则回填脱敏串进不了受控值。 */
+  value?: string
+  onChange?: (value: string) => void
+}> = ({ field, form, hasStoredKey, maskedValue, onReveal, value, onChange }) => {
+  const { t } = useI18n()
+  const [userWantsVisible, setUserWantsVisible] = useState(false)
+  const watched = String(Form.useWatch(field, form) ?? '')
+  const fieldValue = String(value ?? watched)
+  const visible = apiKeyInputShouldBeVisible({
+    hasStoredKey,
+    maskedValue,
+    fieldValue,
+    userWantsVisible
+  })
+  return (
+    <Input.Password
+      value={value}
+      onChange={onChange}
+      addBefore={<InputPrefix label={t('common.apiKey')} />}
+      placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
+      allowClear
+      className="!w-[574px]"
+      data-testid={`api-key-input-${field}`}
+      visibility={visible}
+      onVisibilityChange={(next) => {
+        const showingMask =
+          hasStoredKey &&
+          Boolean(maskedValue) &&
+          (!fieldValue.trim() || fieldValue.trim() === maskedValue || fieldValue.includes('•'))
+        if (showingMask) {
+          setUserWantsVisible(true)
+          onReveal()
+          return
+        }
+        setUserWantsVisible(next)
+        if (next) onReveal()
+      }}
+    />
   )
 }
 
@@ -112,12 +198,13 @@ export interface CustomFormItemsProps {
   prefix: string
   hasStoredKey: boolean
   maskedValue: string
+  form: any
   onCopyApiKey: (field: keyof SettingsFormProps) => void
   onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { prefix, hasStoredKey, maskedValue, onCopyApiKey, onRevealApiKey } = props
+  const { prefix, hasStoredKey, maskedValue, form, onCopyApiKey, onRevealApiKey } = props
   return (
     <>
       <div className="flex flex-col gap-6 mb-6">
@@ -167,7 +254,9 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
             requiredSymbol={false}
             extra={
               <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
-                {hasStoredKey ? <span>{t('settings.apiKeyConfiguredHint')}</span> : null}
+                {hasStoredKey ? (
+                  <span data-testid="api-key-configured-hint">{t('settings.apiKeyConfiguredHint')}</span>
+                ) : null}
                 <Button
                   type="text"
                   size="mini"
@@ -176,15 +265,12 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
                 </Button>
               </div>
             }>
-            <Input.Password
-              addBefore={<InputPrefix label={t('common.apiKey')} />}
-              placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
-              allowClear
-              className="!w-[574px]"
-              defaultVisibility={false}
-              onVisibilityChange={(visible) => {
-                if (visible) onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)
-              }}
+            <PrefixedApiKeyPassword
+              field={`${prefix}-apiKey`}
+              form={form}
+              hasStoredKey={hasStoredKey}
+              maskedValue={maskedValue}
+              onReveal={() => onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
             />
           </FormItem>
         </div>
@@ -234,7 +320,9 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
             requiredSymbol={false}
             extra={
               <div className="flex items-center gap-2 text-[var(--color-text-3)] text-[13px]">
-                {hasStoredKey ? <span>{t('settings.apiKeyConfiguredHint')}</span> : null}
+                {hasStoredKey ? (
+                  <span data-testid="api-key-configured-hint">{t('settings.apiKeyConfiguredHint')}</span>
+                ) : null}
                 <Button
                   type="text"
                   size="mini"
@@ -243,15 +331,12 @@ const CustomFormItems: FC<CustomFormItemsProps> = (props) => {
                 </Button>
               </div>
             }>
-            <Input.Password
-              addBefore={<InputPrefix label={t('common.apiKey')} />}
-              placeholder={hasStoredKey && maskedValue ? maskedValue : t('settings.apiKeyPlaceholder')}
-              allowClear
-              className="!w-[574px]"
-              defaultVisibility={false}
-              onVisibilityChange={(visible) => {
-                if (visible) onRevealApiKey(`${prefix}-embeddingApiKey` as keyof SettingsFormProps)
-              }}
+            <PrefixedApiKeyPassword
+              field={`${prefix}-embeddingApiKey`}
+              form={form}
+              hasStoredKey={hasStoredKey}
+              maskedValue={maskedValue}
+              onReveal={() => onRevealApiKey(`${prefix}-embeddingApiKey` as keyof SettingsFormProps)}
             />
           </FormItem>
         </div>
@@ -264,12 +349,13 @@ export interface StandardFormItemsProps {
   prefix: string
   hasStoredKey: boolean
   maskedValue: string
+  form: any
   onCopyApiKey: (field: keyof SettingsFormProps) => void
   onRevealApiKey: (field: keyof SettingsFormProps) => void
 }
 const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
   const { t } = useI18n()
-  const { modelPlatform, prefix, hasStoredKey, maskedValue, onCopyApiKey, onRevealApiKey } = props
+  const { modelPlatform, prefix, hasStoredKey, maskedValue, form, onCopyApiKey, onRevealApiKey } = props
   const option = useMemo(() => {
     const foundItem = find(ModelInfoList, (item) => item.value === modelPlatform)
     return foundItem ? foundItem.option : []
@@ -299,6 +385,7 @@ const StandardFormItems: FC<StandardFormItemsProps> = (props) => {
         autoFocus
         hasStoredKey={hasStoredKey}
         maskedValue={maskedValue}
+        form={form}
         onCopy={() => onCopyApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
         onReveal={() => onRevealApiKey(`${prefix}-apiKey` as keyof SettingsFormProps)}
         docsLabel={
@@ -343,6 +430,7 @@ const Settings: FC<SettingsProps> = (props) => {
   const [form] = Form.useForm<SettingsFormProps>()
   const { run: getInfo, loading: getInfoLoading, data: modelInfo } = useRequest(getModelInfo, { manual: true })
   const [hasStoredKey, setHasStoredKey] = useState(false)
+  const [maskedValue, setMaskedValue] = useState('')
   const maskedRef = useRef('')
 
   const { run: updateModelSettings, loading: updateLoading } = useRequest(updateModelSettingsAPI, {
@@ -491,6 +579,7 @@ const Settings: FC<SettingsProps> = (props) => {
     const hasKey = Boolean(get(modelInfo, 'hasApiKey'))
     const masked = String(get(modelInfo, 'apiKeyMasked') || '')
     setHasStoredKey(hasKey)
+    setMaskedValue(masked)
     maskedRef.current = masked
     // 引导态也要回填：SSE 丢帧时用户仍停在 init 页，若跳过回填则「开始使用」
     // 会用默认豆包字段覆盖已有 OpenAI/自建配置。无配置的新用户 config 为空，走 initialValues。
@@ -560,7 +649,8 @@ const Settings: FC<SettingsProps> = (props) => {
                     <CustomFormItems
                       prefix={ModelTypeList.Custom}
                       hasStoredKey={hasStoredKey}
-                      maskedValue={maskedRef.current}
+                      maskedValue={maskedValue}
+                      form={form}
                       onCopyApiKey={copyStoredApiKey}
                       onRevealApiKey={revealStoredApiKey}
                     />
@@ -572,7 +662,8 @@ const Settings: FC<SettingsProps> = (props) => {
                       modelPlatform={modelPlatform}
                       prefix={ModelTypeList.OpenAI}
                       hasStoredKey={hasStoredKey}
-                      maskedValue={maskedRef.current}
+                      maskedValue={maskedValue}
+                      form={form}
                       onCopyApiKey={copyStoredApiKey}
                       onRevealApiKey={revealStoredApiKey}
                     />
@@ -583,7 +674,8 @@ const Settings: FC<SettingsProps> = (props) => {
                     modelPlatform={ModelTypeList.Doubao}
                     prefix={ModelTypeList.Doubao}
                     hasStoredKey={hasStoredKey}
-                    maskedValue={maskedRef.current}
+                    maskedValue={maskedValue}
+                    form={form}
                     onCopyApiKey={copyStoredApiKey}
                     onRevealApiKey={revealStoredApiKey}
                   />
