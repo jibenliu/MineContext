@@ -101,6 +101,8 @@ pub async fn permissions(State(state): State<Arc<ServerState>>) -> Response {
         "running": running,
         "enabled": enabled,
         "message": readiness.message,
+        // 前端据此区分「缺 macOS 屏幕录制权限」与「当前平台根本没有采集实现」。
+        "capture_supported": mc_capture::platform::capture_supported(),
     }))
 }
 
@@ -205,6 +207,7 @@ pub async fn status(State(state): State<Arc<ServerState>>) -> Response {
         "screen_recording_tcc": mc_capture::platform::probe_tcc_granted(),
         "reason": reason,
         "windows_reason": mc_capture::platform::probe_windows_reason(),
+        "capture_supported": mc_capture::platform::capture_supported(),
     }))
 }
 
