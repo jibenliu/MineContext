@@ -63,6 +63,8 @@ pub struct SearchFilters {
     /// 保留字段：**不解锁**被拦截内容（隐私是底线，不是开关）。
     /// 它的存在只是为了让「想放开」的调用方明确失败，而不是以为默认就能拿到。
     pub include_blocked: bool,
+    /// 限定到某个 vault 根文件夹子树内的笔记；`None` = 不按 vault 过滤。
+    pub vault_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

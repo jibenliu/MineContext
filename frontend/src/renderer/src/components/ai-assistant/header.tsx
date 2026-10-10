@@ -3,6 +3,7 @@ import { IconClose } from '@arco-design/web-react/icon'
 import addChatIcon from '@renderer/assets/icons/ai-assistant/add-chat.svg'
 import chatHistoryIcon from '@renderer/assets/icons/ai-assistant/chat-history.svg'
 import { conversationService } from '@renderer/services/conversation-service'
+import { readActiveVaultId } from '@renderer/utils/vault'
 import { useMemoizedFn, useRequest } from 'ahooks'
 import clsx from 'clsx'
 import { FC, MouseEvent, useState } from 'react'
@@ -27,7 +28,8 @@ const AIAssistantHeader: FC<AIAssistantHeaderProps> = (props) => {
         limit: 30,
         offset: 0,
         page_name: pageName,
-        status: 'active'
+        status: 'active',
+        vault_id: readActiveVaultId()
       })
       return res.items || []
     },

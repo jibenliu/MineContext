@@ -80,6 +80,9 @@ pub struct ChatStreamRequest {
     pub context: Option<serde_json::Value>,
     #[serde(default)]
     pub page_name: Option<String>,
+    /// 新建对话时绑定的 vault 根；已有对话以库里存的为准。
+    #[serde(default)]
+    pub vault_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -89,6 +92,7 @@ pub struct ConversationsQuery {
     page_name: Option<String>,
     user_id: Option<String>,
     status: Option<String>,
+    vault_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,6 +101,8 @@ pub struct CreateConversationBody {
     page_name: Option<String>,
     #[serde(default)]
     document_id: Option<String>,
+    #[serde(default)]
+    vault_id: Option<i64>,
 }
 
 /// `POST /api/agent/chat/stream` —— SSE 流式对话。
@@ -125,7 +131,12 @@ pub async fn chat_stream(
 
     // 落库副作用之一：用户消息由服务端落库（客户端只消费帧，不负责写库）
     let mut conversation_id = request.conversation_id;
+    // 检索作用域：已有对话以落库 vault_id 为准（请求不能扩大范围）；新建对话用请求值。
+    let mut retrieval_vault_id = request.vault_id;
     if let Some(id) = conversation_id {
+        if let Ok(Some(existing)) = state.db.get_conversation(id) {
+            retrieval_vault_id = existing.vault_id;
+        }
         if let Err(error) =
             state
                 .db
@@ -141,10 +152,12 @@ pub async fn chat_stream(
         match state.db.create_conversation(
             None,
             request.page_name.as_deref().unwrap_or("home"),
+            request.vault_id,
             now,
         ) {
             Ok(id) => {
                 conversation_id = Some(id);
+                retrieval_vault_id = request.vault_id;
                 // 标题取用户提问（不是助手回答）——
                 // 用回答当标题会让对话列表变成一列「没有配置模型…」
                 let title: String = request.query.trim().chars().take(50).collect();
@@ -177,11 +190,14 @@ pub async fn chat_stream(
 
     // 先检索、再回答：**检索结果决定引用，引用进提示词**
     // （因此 被隐私拦截的内容既进不了检索、也进不了模型）
-    let hits = match crate::retrieval::retrieve_with_vectors(
+    let hits = match crate::retrieval::retrieve_filtered(
         &state.db,
         &request.query,
         RETRIEVAL_LIMIT,
-        false,
+        mc_search::SearchFilters {
+            vault_id: retrieval_vault_id,
+            ..mc_search::SearchFilters::default()
+        },
         vectors
             .as_ref()
             .map(|(index, query)| (index.as_ref(), query)),
@@ -559,6 +575,7 @@ pub async fn list_conversations(
     match state.db.list_conversations_page(
         query.page_name.as_deref(),
         query.status.as_deref(),
+        query.vault_id,
         limit,
         offset,
     ) {
@@ -596,6 +613,7 @@ fn conversation_json(row: &mc_storage::chat::ConversationRow) -> serde_json::Val
         "metadata": row.metadata,
         "page_name": row.page_name,
         "status": row.status,
+        "vault_id": row.vault_id,
     })
 }
 
@@ -609,9 +627,13 @@ pub async fn create_conversation(
         .as_ref()
         .and_then(|body| body.page_name.clone())
         .unwrap_or_else(|| "home".to_string());
+    let vault_id = body.as_ref().and_then(|body| body.vault_id);
     let now = SystemClock.now();
 
-    match state.db.create_conversation(None, &page_name, now) {
+    match state
+        .db
+        .create_conversation(None, &page_name, vault_id, now)
+    {
         Ok(id) => {
             // 允许带 `document_id`（存进对话 metadata）：
             // 不带它就丢掉，UI 会以为「从文档发起对话」没有生效
@@ -624,7 +646,9 @@ pub async fn create_conversation(
             }
             match state.db.get_conversation(id) {
                 Ok(Some(row)) => envelope::ok(conversation_json(&row)),
-                _ => envelope::ok(json!({ "id": id, "page_name": page_name })),
+                _ => {
+                    envelope::ok(json!({ "id": id, "page_name": page_name, "vault_id": vault_id }))
+                }
             }
         }
         Err(error) => envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
@@ -951,7 +975,10 @@ mod streaming_tests {
             dir.path().to_path_buf(),
         ));
         let now = SystemClock.now();
-        let conversation = state.db.create_conversation(None, "chat", now).unwrap();
+        let conversation = state
+            .db
+            .create_conversation(None, "chat", None, now)
+            .unwrap();
         let message = state
             .db
             .create_message(conversation, "assistant", "", "streaming", now)

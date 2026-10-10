@@ -8,6 +8,8 @@
 //! 日报归档在标题为 `Summary` 的文件夹下（`VaultTitle.Summary`）——
 //! 对齐了这些，日报就能**零改动**出现在笔记树里；对不齐就是白做。
 
+use std::collections::HashSet;
+
 use mc_common::error::AppError;
 use mc_common::time::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -460,6 +462,38 @@ impl Database {
     /// 物理删除（`delete-vault-by-id` 与 `hard` 走同一条路径）。
     pub fn hard_delete_vault_row(&self, id: i64) -> Result<usize, AppError> {
         self.with_write(|conn| conn.execute("DELETE FROM vaults WHERE id = ?1", [id]))
+    }
+
+    /// 根文件夹（`parent_id IS NULL` 且 `is_folder = 1`）：多 vault 切换的可选目标。
+    pub fn list_vault_roots(&self) -> Result<Vec<VaultRow>, AppError> {
+        self.query_vault_rows(&VaultQuery {
+            parent_id: Some(None),
+            is_folder: Some(1),
+            ..VaultQuery::default()
+        })
+    }
+
+    /// 某个 vault 根及其全部后代行 id（含根自身、含文件夹）。
+    ///
+    /// 检索按笔记过滤时用：只保留 `is_folder = 0` 且 id 落在此集合内的行。
+    pub fn vault_subtree_ids(&self, root_id: i64) -> Result<HashSet<i64>, AppError> {
+        self.with_read(|conn| {
+            let mut stmt = conn.prepare(
+                "WITH RECURSIVE subtree(id) AS (
+                     SELECT id FROM vaults
+                     WHERE id = ?1 AND COALESCE(is_deleted, 0) = 0
+                     UNION ALL
+                     SELECT v.id FROM vaults v
+                     JOIN subtree s ON v.parent_id = s.id
+                     WHERE COALESCE(v.is_deleted, 0) = 0
+                 )
+                 SELECT id FROM subtree",
+            )?;
+            let ids = stmt
+                .query_map([root_id], |row| row.get::<_, i64>(0))?
+                .collect::<Result<HashSet<_>, _>>()?;
+            Ok(ids)
+        })
     }
 }
 

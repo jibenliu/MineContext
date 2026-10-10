@@ -220,10 +220,13 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
   'backend:get-status': () => ({ method: 'GET', path: '/api/backend/status' }),
   // 总结卡片（新增面）
   'v1:summaries': () => ({ method: 'GET', path: '/api/v1/summaries' }),
-  // 会话列表（多会话切换用）：走兼容路径
+  // 会话列表（多会话切换用）：走兼容路径；可选 vault_id 做会话隔离
   'v1:conversations': (args) => ({
     method: 'GET',
-    path: `/api/agent/chat/conversations/list${query({ limit: args[0] ?? 20 })}`
+    path: `/api/agent/chat/conversations/list${query({
+      limit: args[0] ?? 20,
+      vault_id: args[1]
+    })}`
   }),
   // 某个会话的历史消息（切换会话时加载）
   'v1:conversation-messages': (args) => ({
