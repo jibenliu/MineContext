@@ -4,10 +4,7 @@ import { Button, Message, Typography } from '@arco-design/web-react'
 import { useI18n } from '@renderer/i18n'
 import { useCallback, useMemo, useState } from 'react'
 
-import {
-  createExportDiagnostics,
-  type ExportDiagnostics
-} from '../../../adapters/export-diagnostics'
+import { createExportDiagnostics, type ExportDiagnostics } from '../../../adapters/export-diagnostics'
 
 const { Text } = Typography
 
@@ -32,9 +29,7 @@ export function DiagnosticExportSection({ api }: { api?: ExportDiagnostics }) {
   return (
     <div className="mt-[12px] flex max-w-[520px] flex-col gap-2 py-1" data-testid="diagnostic-export-section">
       <div className="flex flex-col">
-        <span className="text-[14px] font-bold text-[var(--color-text-1)]">
-          {t('settings.diagnosticExport')}
-        </span>
+        <span className="text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.diagnosticExport')}</span>
         <Text type="secondary" className="!text-[12px]">
           {unsupported ? t('settings.diagnosticExport.unsupported') : t('settings.diagnosticExport.hint')}
         </Text>

@@ -5,8 +5,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Message } from '@arco-design/web-react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DiagnosticExportSection } from './diagnostic-export-section'
