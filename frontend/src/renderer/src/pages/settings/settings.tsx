@@ -425,10 +425,12 @@ export interface SettingsFormBase {
 export type SettingsFormProps = SettingsFormBase & {
   [K in ModelTypeList as `${K}-modelId` | `${K}-apiKey`]?: string
 } & {
-  [K in
-    | `${ModelTypeList.Custom}-embeddingModelId`
-    | `${ModelTypeList.Custom}-embeddingBaseUrl`
-    | `${ModelTypeList.Custom}-embeddingApiKey`]?: string
+  [
+    K in
+      | `${ModelTypeList.Custom}-embeddingModelId`
+      | `${ModelTypeList.Custom}-embeddingBaseUrl`
+      | `${ModelTypeList.Custom}-embeddingApiKey`
+  ]?: string
 }
 /** HashRouter 下 query 在 hash 里：`#/settings?section=ai-upload` */
 function settingsSectionFromLocation(): string | null {

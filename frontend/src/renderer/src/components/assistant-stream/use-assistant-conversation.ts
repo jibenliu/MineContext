@@ -44,12 +44,7 @@ const api = () => (window as unknown as { chatApi?: ChatApi }).chatApi
 function sourcesFrom(value: unknown): Source[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((raw) => {
-    if (
-      !raw ||
-      typeof raw.document_id !== 'string' ||
-      typeof raw.title !== 'string' ||
-      typeof raw.kind !== 'string'
-    ) {
+    if (!raw || typeof raw.document_id !== 'string' || typeof raw.title !== 'string' || typeof raw.kind !== 'string') {
       return []
     }
     const source: Source = {

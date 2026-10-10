@@ -3,9 +3,9 @@ import { messageService } from '@renderer/services/messages-service'
 import store from '@renderer/store'
 import { installFakeBackend } from '@renderer/test/page-setup'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { AssistantStream } from './assistant-stream'
 

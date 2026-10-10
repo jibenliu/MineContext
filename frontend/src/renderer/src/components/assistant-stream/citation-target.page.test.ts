@@ -12,18 +12,16 @@ describe('助手引用跳转路径', () => {
   })
 
   it('活动带到 screen-monitor，并带上时间以便切日', () => {
-    expect(
-      citationPath({ document_id: 'act-7', title: '导入', kind: 'activity', at: 1_725_000_000_000 })
-    ).toBe('/screen-monitor?activity=act-7&at=1725000000000')
+    expect(citationPath({ document_id: 'act-7', title: '导入', kind: 'activity', at: 1_725_000_000_000 })).toBe(
+      '/screen-monitor?activity=act-7&at=1725000000000'
+    )
     expect(citationPath({ document_id: 'act-1', title: '无时间', kind: 'activity' })).toBe(
       '/screen-monitor?activity=act-1'
     )
   })
 
   it('总结落到总结页', () => {
-    expect(citationPath({ document_id: 'sum-9', title: '日总结', kind: 'summary' })).toBe(
-      '/summaries?id=sum-9'
-    )
+    expect(citationPath({ document_id: 'sum-9', title: '日总结', kind: 'summary' })).toBe('/summaries?id=sum-9')
   })
 
   it('未知 kind 或残缺笔记 id 不瞎跳', () => {
