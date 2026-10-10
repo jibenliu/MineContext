@@ -252,8 +252,9 @@ impl ServerState {
         if paused {
             self.set_indexing_pause(IndexingPause {
                 code: "api_key_invalid".to_string(),
-                message: "向量索引已暂停：API Key 无效或已过期。请到设置页更新密钥后点「恢复索引」。"
-                    .to_string(),
+                message:
+                    "向量索引已暂停：API Key 无效或已过期。请到设置页更新密钥后点「恢复索引」。"
+                        .to_string(),
                 component: "embedding".to_string(),
             });
         } else {
