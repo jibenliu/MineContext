@@ -61,6 +61,7 @@ fn representative_paths() -> Vec<(&'static str, &'static str)> {
     vec![
         ("GET", "/api/diagnostics"),
         ("GET", "/api/v1/diagnostics/export"),
+        ("GET", "/api/v1/vault/export"),
         ("GET", "/api/v1/activities"),
         ("GET", "/api/db/activities"),
         ("GET", "/api/db/vaults"),
