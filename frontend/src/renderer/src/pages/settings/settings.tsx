@@ -852,6 +852,9 @@ const Settings: FC<SettingsProps> = (props) => {
           <UpdateCheckSection />
           {/* 语言切换入口：设置页里的位置固定在启动项下面，不随页面结构漂移 */}
           <LanguageSwitch />
+        </div>
+        <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
+          <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.data')}</div>
           <RetentionSection />
           <BackfillSection />
           <DiagnosticExportSection />

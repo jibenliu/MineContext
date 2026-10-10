@@ -152,6 +152,7 @@ const zh: Messages = {
   'settings.getStarted': '开始使用',
   'settings.skipForNow': '稍后再说',
   'settings.startup': '启动',
+  'settings.data': '数据与维护',
   'settings.launchAtLogin': '开机自启',
   'settings.launchAtLogin.hint': '开机后自动在托盘运行，不弹主窗口',
   'settings.launchAtLogin.unsupported': '当前外壳不支持开机自启',
@@ -616,6 +617,7 @@ const en: Messages = {
   'settings.getStarted': 'Get started',
   'settings.skipForNow': 'Skip for now',
   'settings.startup': 'Startup',
+  'settings.data': 'Data & maintenance',
   'settings.launchAtLogin': 'Launch at login',
   'settings.launchAtLogin.hint': 'Runs in the tray after login; the main window stays hidden',
   'settings.launchAtLogin.unsupported': 'This shell does not support launch at login',
@@ -951,7 +953,7 @@ const en: Messages = {
   'vault.backHome': 'Back to home'
 }
 
-// 本轮补齐：零散字面量（aria-label、右键菜单、思考提示、错误边界标题）走词条。
+// 零散 UI 字面量（aria-label、右键菜单、思考提示、错误边界标题）走词条，避免中英混用。
 Object.assign(zh, {
   'common.rename': '重命名',
   'common.delete': '删除',
