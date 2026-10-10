@@ -37,36 +37,67 @@ echo "== Tauri 打包（adhoc 签名，未公证） =="
 # 从网上下载后仍可能被隔离，需 xattr 清除 quarantine（见文末说明）。
 (cd src-tauri && cargo tauri build --config '{"bundle":{"resources":{"../target/release/mc-daemon":"backend/mc-daemon"},"macOS":{"signingIdentity":"-"}}}')
 
-app="$(ls -d src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1 || true)"
-if [ -z "${app}" ]; then
-  echo "FAIL: 没有产出 .app（无法校验包内 daemon）"
+dmg="$(ls -t src-tauri/target/release/bundle/dmg/*.dmg 2>/dev/null | head -1 || true)"
+if [ -z "${dmg}" ]; then
+  echo "FAIL: 没有产出 release dmg"
   exit 1
 fi
+
+# Tauri 打完 dmg 后可能 Cleaning .app；校验以盘内 .app 为准，必要时挂载 dmg。
+app="$(ls -d src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1 || true)"
+app_from_dmg=0
+mount_point=""
+detach_dmg_mount() {
+  if [ -n "${mount_point}" ]; then
+    hdiutil detach "${mount_point}" -force -quiet 2>/dev/null || true
+    rmdir "${mount_point}" 2>/dev/null || true
+    mount_point=""
+  fi
+}
+trap detach_dmg_mount EXIT
+
+if [ -z "${app}" ]; then
+  if ! command -v hdiutil >/dev/null 2>&1; then
+    echo "FAIL: 没有产出 .app（无法校验包内 daemon）"
+    exit 1
+  fi
+  echo "== 挂载 dmg 校验包内 daemon（.app 已被清理） =="
+  mount_point="$(mktemp -d)"
+  if ! hdiutil attach "${dmg}" -mountpoint "${mount_point}" -nobrowse -quiet; then
+    echo "FAIL: dmg 挂载失败（无法校验包内 daemon）"
+    exit 1
+  fi
+  app="${mount_point}/MineContext.app"
+  app_from_dmg=1
+  if [ ! -d "${app}" ]; then
+    echo "FAIL: dmg 内没有 MineContext.app（无法校验包内 daemon）"
+    exit 1
+  fi
+fi
+
 bundled_daemon="${app}/Contents/Resources/backend/mc-daemon"
 if [ ! -f "${bundled_daemon}" ]; then
   echo "FAIL: 包内缺少 ${bundled_daemon}（打包资源配置未把 release daemon 打进 Resources）"
   exit 1
 fi
-chmod u+x "${bundled_daemon}" 2>/dev/null || true
+# 挂载卷只读：不可 chmod；本地 bundle 仍补可执行位。
+if [ "${app_from_dmg}" -eq 0 ]; then
+  chmod u+x "${bundled_daemon}" 2>/dev/null || true
+fi
 if [ ! -x "${bundled_daemon}" ]; then
   echo "FAIL: 包内 daemon 不可执行：${bundled_daemon}"
   exit 1
 fi
 echo "PASS: 包内有可执行 daemon（${bundled_daemon}）"
 
-if command -v codesign >/dev/null 2>&1; then
+# 仅对磁盘上的 .app 补签并重建 dmg；挂载校验时 Tauri 已用 signingIdentity "-" 打进盘。
+if [ "${app_from_dmg}" -eq 0 ] && command -v codesign >/dev/null 2>&1; then
   echo "== 确认 adhoc 签名：${app} =="
   codesign --force --deep --sign - "${app}"
   codesign --verify --verbose=2 "${app}" || true
 fi
 
-dmg="$(ls -t src-tauri/target/release/bundle/dmg/*.dmg 2>/dev/null | head -1 || true)"
-if [ -z "${dmg}" ]; then
-  echo "FAIL: 没有产出 release dmg"
-  exit 1
-fi
-# 若 .app 在 dmg 生成后才补签，重建 dmg，避免盘里仍是未签名包
-if [ -n "${app}" ] && command -v hdiutil >/dev/null 2>&1; then
+if [ "${app_from_dmg}" -eq 0 ] && command -v hdiutil >/dev/null 2>&1; then
   version="$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
   arch="$(uname -m)"
   case "$arch" in
@@ -81,6 +112,10 @@ if [ -n "${app}" ] && command -v hdiutil >/dev/null 2>&1; then
   rm -rf "${stage}"
   dmg="${rebuilt}"
 fi
+
+detach_dmg_mount
+trap - EXIT
+
 echo "产物：${dmg}（$(du -h "${dmg}" | cut -f1)）"
 shasum -a 256 "${dmg}"
 

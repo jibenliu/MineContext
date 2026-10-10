@@ -49,4 +49,39 @@ test ! -s "$MC_TEST_SMOKE_LOG"
 if bash "$fixture/scripts/package-macos-tauri.sh" --unknown > /dev/null 2>&1; then exit 1; fi
 bash "$fixture/scripts/package-macos-tauri.sh" --help > /dev/null
 test ! -s "$MC_TEST_BUILD_LOG"
-echo 'PASS: 打包默认无冒烟、显式验收、失败传播、帮助与参数校验'
+
+# Tauri 打完 dmg 后会 Cleaning .app：只剩 dmg 时须挂载校验，不能直接 FAIL
+fixture_dmg_only="$(mktemp -d)"
+trap 'rm -rf "$fixture" "$fixture_dmg_only"' EXIT
+mkdir -p "$fixture_dmg_only/scripts/tests" "$fixture_dmg_only/frontend" \
+  "$fixture_dmg_only/src-tauri/target/release/bundle/dmg" \
+  "$fixture_dmg_only/bin"
+cp "$root/scripts/package-macos-tauri.sh" "$fixture_dmg_only/scripts/"
+touch "$fixture_dmg_only/src-tauri/target/release/bundle/dmg/test.dmg"
+cp "$fixture/bin/cargo" "$fixture_dmg_only/bin/cargo"
+cp "$fixture/bin/npx" "$fixture_dmg_only/bin/npx"
+cp "$fixture/scripts/tests/launch-check-tauri.sh" "$fixture_dmg_only/scripts/tests/"
+cat > "$fixture_dmg_only/bin/hdiutil" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = attach ]; then
+  mount="$4"
+  mkdir -p "$mount/MineContext.app/Contents/Resources/backend"
+  : > "$mount/MineContext.app/Contents/Resources/backend/mc-daemon"
+  chmod +x "$mount/MineContext.app/Contents/Resources/backend/mc-daemon"
+  exit 0
+fi
+exit 0
+SH
+chmod +x "$fixture_dmg_only/bin/"*
+export PATH="$fixture_dmg_only/bin:$PATH"
+export MC_TEST_BUILD_LOG="$fixture_dmg_only/build.log" MC_TEST_SMOKE_LOG="$fixture_dmg_only/smoke.log"
+: > "$MC_TEST_BUILD_LOG"
+: > "$MC_TEST_SMOKE_LOG"
+bash "$fixture_dmg_only/scripts/package-macos-tauri.sh" > "$fixture_dmg_only/dmg-only.log" 2>&1
+grep -q 'PASS: 包内有可执行 daemon' "$fixture_dmg_only/dmg-only.log"
+grep -q '未运行启动验收' "$fixture_dmg_only/dmg-only.log"
+if grep -q '没有产出 \.app' "$fixture_dmg_only/dmg-only.log"; then
+  echo 'FAIL: dmg 已产出却因 .app 被清理而失败'; exit 1
+fi
+
+echo 'PASS: 打包默认无冒烟、显式验收、失败传播、帮助与参数校验、dmg-only 挂载校验'
