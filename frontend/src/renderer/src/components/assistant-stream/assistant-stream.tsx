@@ -185,7 +185,7 @@ export const AssistantStream: FC = () => {
                                     data-testid="assistant-citation"
                                     data-citation-kind={source.kind}
                                     data-citation-id={source.document_id}
-                                    className="text-left text-[var(--color-primary)] underline-offset-2 hover:underline"
+                                    className="text-left text-[var(--mc-brand)] underline-offset-2 hover:underline"
                                     onClick={() =>
                                       openCitation(source, { navigateToVault, navigateToMainTab })
                                     }>
