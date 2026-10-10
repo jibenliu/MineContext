@@ -31,7 +31,10 @@ export interface Turn {
   error?: string
 }
 interface ChatApi {
-  listConversations?: () => Promise<Conversation[] | { items?: Conversation[] }>
+  listConversations?: (
+    limit?: number,
+    vaultId?: number | null
+  ) => Promise<Conversation[] | { items?: Conversation[] }>
   listMessages?: (id: number) => Promise<StoredMessage[]>
   deleteConversation?: (id: number) => Promise<unknown>
 }
@@ -56,7 +59,7 @@ function storedSources(metadata?: string): Source[] {
   }
 }
 
-export function useAssistantConversation() {
+export function useAssistantConversation(vaultId: number | null = null) {
   const { t } = useI18n()
   const [state, setState] = useState<ConversationState>('idle')
   const [text, setText] = useState('')
@@ -72,16 +75,31 @@ export function useAssistantConversation() {
   const pendingRef = useRef<{ messageId?: number; finish: (state: ConversationState, error?: string) => void } | null>(
     null
   )
+  const vaultIdRef = useRef(vaultId)
+  vaultIdRef.current = vaultId
 
   const loadConversations = useCallback(async () => {
     try {
-      const result = await api()?.listConversations?.()
+      const result = await api()?.listConversations?.(20, vaultId)
       const rows = Array.isArray(result) ? result : result?.items
       if (mountedRef.current) setConversations(Array.isArray(rows) ? rows : [])
     } catch {
       if (mountedRef.current) setError(t('assistant.historyFailed'))
     }
-  }, [t])
+  }, [t, vaultId])
+
+  const newConversation = useCallback(() => {
+    if (pendingRef.current) return
+    requestRef.current += 1
+    loadingRef.current = false
+    setLoading(false)
+    setActiveId(null)
+    setHistory([])
+    setText('')
+    setProgress('')
+    setError('')
+    setState('idle')
+  }, [])
 
   useEffect(() => {
     mountedRef.current = true
@@ -101,18 +119,18 @@ export function useAssistantConversation() {
     }
   }, [loadConversations])
 
-  const newConversation = () => {
-    if (pendingRef.current) return
-    requestRef.current += 1
-    loadingRef.current = false
-    setLoading(false)
-    setActiveId(null)
-    setHistory([])
-    setText('')
-    setProgress('')
-    setError('')
-    setState('idle')
-  }
+  // Switching vault clears the active session so history cannot bleed across roots.
+  const previousVaultRef = useRef<number | null | undefined>(undefined)
+  useEffect(() => {
+    if (previousVaultRef.current === undefined) {
+      previousVaultRef.current = vaultId
+      return
+    }
+    if (previousVaultRef.current === vaultId) return
+    previousVaultRef.current = vaultId
+    newConversation()
+    void loadConversations()
+  }, [vaultId, newConversation, loadConversations])
 
   const deleteConversation = async (id: number) => {
     if (pendingRef.current) return
@@ -205,7 +223,12 @@ export function useAssistantConversation() {
     setHistory((previous) => [...previous, { id: turnId, query, answer: '', sources: [], state: 'thinking' }])
     void chatStreamService
       .sendStreamMessage(
-        { query, conversation_id: activeId ?? undefined, page_name: activeId === null ? 'assistant' : undefined },
+        {
+          query,
+          conversation_id: activeId ?? undefined,
+          page_name: activeId === null ? 'assistant' : undefined,
+          vault_id: activeId === null ? vaultIdRef.current : undefined
+        },
         (event) => {
           if (!current()) return
           if (event.type === 'session_start') {

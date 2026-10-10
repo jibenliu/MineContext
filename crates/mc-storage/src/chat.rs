@@ -28,6 +28,19 @@ fn read_datetime(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<Opti
     })
 }
 
+fn map_conversation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ConversationRow> {
+    Ok(ConversationRow {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        page_name: row.get(2)?,
+        status: row.get(3)?,
+        metadata: row.get(4)?,
+        vault_id: row.get(5)?,
+        created_at: read_datetime(row, 6)?.unwrap_or_default(),
+        updated_at: read_datetime(row, 7)?.unwrap_or_default(),
+    })
+}
+
 /// 消息状态取值：`pending` / `streaming` / `completed` / `failed` / `cancelled`。
 pub const STATUS_STREAMING: &str = "streaming";
 pub const STATUS_COMPLETED: &str = "completed";
@@ -42,6 +55,8 @@ pub struct ConversationRow {
     pub status: String,
     /// **JSON 字符串**（客户端 `JSON.parse` 依赖）
     pub metadata: String,
+    /// 归属的 vault 根文件夹 id；`None` = 未绑定（全局 / 兼容旧数据）
+    pub vault_id: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -89,18 +104,20 @@ pub struct NewChatMessage<'a> {
 
 impl Database {
     /// 新建对话。`title` 允许为空 —— 缺省行为是「用第一条提问当标题」。
+    /// `vault_id` 绑定到笔记树根文件夹，供会话列表与 RAG 隔离。
     pub fn create_conversation(
         &self,
         title: Option<&str>,
         page_name: &str,
+        vault_id: Option<i64>,
         at: Timestamp,
     ) -> Result<i64, AppError> {
         self.with_write(|conn| {
             conn.execute(
                 "INSERT INTO conversations (title, user_id, page_name, status, metadata,
-                                            created_at, updated_at)
-                 VALUES (?1, 'local', ?2, 'active', '{}', ?3, ?3)",
-                rusqlite::params![title, page_name, legacy_at(at)],
+                                            vault_id, created_at, updated_at)
+                 VALUES (?1, 'local', ?2, 'active', '{}', ?3, ?4, ?4)",
+                rusqlite::params![title, page_name, vault_id, legacy_at(at)],
             )?;
             Ok(conn.last_insert_rowid())
         })
@@ -110,20 +127,10 @@ impl Database {
         self.with_read(|conn| {
             conn.query_row(
                 "SELECT id, title, COALESCE(page_name, 'home'), COALESCE(status, 'active'),
-                        COALESCE(metadata, '{}'), created_at, updated_at
+                        COALESCE(metadata, '{}'), vault_id, created_at, updated_at
                  FROM conversations WHERE id = ?1",
                 rusqlite::params![id],
-                |row| {
-                    Ok(ConversationRow {
-                        id: row.get(0)?,
-                        title: row.get(1)?,
-                        page_name: row.get(2)?,
-                        status: row.get(3)?,
-                        metadata: row.get(4)?,
-                        created_at: read_datetime(row, 5)?.unwrap_or_default(),
-                        updated_at: read_datetime(row, 6)?.unwrap_or_default(),
-                    })
-                },
+                map_conversation_row,
             )
             .optional()
         })
@@ -168,40 +175,34 @@ impl Database {
     pub fn list_conversations(
         &self,
         page_name: Option<&str>,
+        vault_id: Option<i64>,
     ) -> Result<Vec<ConversationRow>, AppError> {
         self.with_read(|conn| {
-            let sql = match page_name {
-                Some(_) => {
-                    "SELECT id, title, COALESCE(page_name, 'home'), COALESCE(status, 'active'),
-                            COALESCE(metadata, '{}'), created_at, updated_at
-                     FROM conversations WHERE page_name = ?1 AND COALESCE(status, 'active') != 'deleted'
-                     ORDER BY id DESC"
-                }
-                None => {
-                    "SELECT id, title, COALESCE(page_name, 'home'), COALESCE(status, 'active'),
-                            COALESCE(metadata, '{}'), created_at, updated_at
-                     FROM conversations WHERE COALESCE(status, 'active') != 'deleted'
-                     ORDER BY id DESC"
-                }
-            };
-            let mut stmt = conn.prepare(sql)?;
-            let map = |row: &rusqlite::Row<'_>| {
-                Ok(ConversationRow {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    page_name: row.get(2)?,
-                    status: row.get(3)?,
-                    metadata: row.get(4)?,
-                    created_at: read_datetime(row, 5)?.unwrap_or_default(),
-                    updated_at: read_datetime(row, 6)?.unwrap_or_default(),
-                })
-            };
-            let rows = match page_name {
-                Some(page) => stmt
-                    .query_map(rusqlite::params![page], map)?
-                    .collect::<Result<Vec<_>, _>>()?,
-                None => stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?,
-            };
+            let mut conditions =
+                vec!["COALESCE(status, 'active') != 'deleted'".to_string()];
+            let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+            if let Some(page) = page_name {
+                conditions.push(format!("page_name = ?{}", params.len() + 1));
+                params.push(Box::new(page.to_string()));
+            }
+            if let Some(vault) = vault_id {
+                conditions.push(format!("vault_id = ?{}", params.len() + 1));
+                params.push(Box::new(vault));
+            }
+            let sql = format!(
+                "SELECT id, title, COALESCE(page_name, 'home'), COALESCE(status, 'active'),
+                        COALESCE(metadata, '{{}}'), vault_id, created_at, updated_at
+                 FROM conversations WHERE {}
+                 ORDER BY id DESC",
+                conditions.join(" AND ")
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map(
+                    rusqlite::params_from_iter(params.iter().map(|value| value.as_ref())),
+                    map_conversation_row,
+                )?
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(rows)
         })
     }
@@ -215,6 +216,7 @@ impl Database {
         &self,
         page_name: Option<&str>,
         status: Option<&str>,
+        vault_id: Option<i64>,
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<ConversationRow>, i64), AppError> {
@@ -222,25 +224,24 @@ impl Database {
         let offset = offset.max(0);
         self.with_read(|conn| {
             // 未指定 status 时按「未删除」过滤；指定了就按指定值过滤。
-            let (where_sql, params): (String, Vec<Box<dyn rusqlite::ToSql>>) =
-                match (page_name, status) {
-                    (Some(page), Some(status)) => (
-                        "page_name = ?1 AND status = ?2".to_string(),
-                        vec![Box::new(page.to_string()), Box::new(status.to_string())],
-                    ),
-                    (Some(page), None) => (
-                        "page_name = ?1 AND COALESCE(status, 'active') != 'deleted'".to_string(),
-                        vec![Box::new(page.to_string())],
-                    ),
-                    (None, Some(status)) => (
-                        "status = ?1".to_string(),
-                        vec![Box::new(status.to_string())],
-                    ),
-                    (None, None) => (
-                        "COALESCE(status, 'active') != 'deleted'".to_string(),
-                        vec![],
-                    ),
-                };
+            let mut conditions: Vec<String> = Vec::new();
+            let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+            if let Some(page) = page_name {
+                conditions.push(format!("page_name = ?{}", params.len() + 1));
+                params.push(Box::new(page.to_string()));
+            }
+            match status {
+                Some(status) => {
+                    conditions.push(format!("status = ?{}", params.len() + 1));
+                    params.push(Box::new(status.to_string()));
+                }
+                None => conditions.push("COALESCE(status, 'active') != 'deleted'".to_string()),
+            }
+            if let Some(vault) = vault_id {
+                conditions.push(format!("vault_id = ?{}", params.len() + 1));
+                params.push(Box::new(vault));
+            }
+            let where_sql = conditions.join(" AND ");
 
             let total: i64 = conn.query_row(
                 &format!("SELECT COUNT(*) FROM conversations WHERE {where_sql}"),
@@ -250,31 +251,20 @@ impl Database {
 
             let sql = format!(
                 "SELECT id, title, COALESCE(page_name, 'home'), COALESCE(status, 'active'),
-                        COALESCE(metadata, '{{}}'), created_at, updated_at
+                        COALESCE(metadata, '{{}}'), vault_id, created_at, updated_at
                  FROM conversations WHERE {where_sql}
                  ORDER BY id DESC LIMIT ?{} OFFSET ?{}",
                 params.len() + 1,
                 params.len() + 2
             );
             let mut stmt = conn.prepare(&sql)?;
-            let map = |row: &rusqlite::Row<'_>| {
-                Ok(ConversationRow {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    page_name: row.get(2)?,
-                    status: row.get(3)?,
-                    metadata: row.get(4)?,
-                    created_at: read_datetime(row, 5)?.unwrap_or_default(),
-                    updated_at: read_datetime(row, 6)?.unwrap_or_default(),
-                })
-            };
             let mut all: Vec<Box<dyn rusqlite::ToSql>> = params;
             all.push(Box::new(limit));
             all.push(Box::new(offset));
             let rows = stmt
                 .query_map(
                     rusqlite::params_from_iter(all.iter().map(|value| value.as_ref())),
-                    map,
+                    map_conversation_row,
                 )?
                 .collect::<Result<Vec<_>, _>>()?;
             Ok((rows, total))

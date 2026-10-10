@@ -5,9 +5,17 @@
 
 import { configureHttpClient } from '@renderer/services/axios-config'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AssistantStream } from './assistant-stream'
+
+vi.mock('@renderer/hooks/use-vault', () => ({
+  useVaults: () => ({
+    selectedVaultId: null,
+    setSelectedVaultId: () => undefined,
+    getVaultRoots: () => []
+  })
+}))
 
 const originalFetch = globalThis.fetch
 
