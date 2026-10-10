@@ -9,6 +9,7 @@ const logger = getLogger('conversation-service')
 export interface CreateConversationRequest {
   page_name: string
   document_id?: string
+  vault_id?: number | null
 }
 
 export interface ConversationResponse {
@@ -20,6 +21,7 @@ export interface ConversationResponse {
   metadata: string
   page_name: string
   status: string
+  vault_id?: number | null
 }
 
 export type ConversationSummary = ConversationResponse
@@ -80,6 +82,7 @@ export class ConversationService {
     page_name?: string
     user_id?: string
     status?: 'active' | 'deleted'
+    vault_id?: number | null
   }): Promise<GetConversationListResponse> => {
     try {
       const response = await this.axiosInstance.get<GetConversationListResponse>(`${this.baseUrl}/conversations/list`, {

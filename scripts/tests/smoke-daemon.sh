@@ -115,6 +115,19 @@ check_ok() {
 echo "== 前端会调的接口 =="
 check_ok "GET /api/diagnostics" GET "/api/diagnostics" '"invariants"'
 check_ok "GET /api/v1/diagnostics/export" GET "/api/v1/diagnostics/export" '"schema_version"'
+# 笔记备份是 zip 二进制（不是 JSON 信封），单独验 HTTP 200 + PK 头
+{
+  status="$(curl -s -o "$port_file" -w '%{http_code}' -H "x-mc-token: $token" \
+    "${base}/api/v1/vault/export")"
+  magic="$(head -c 2 "$port_file" | od -An -tx1 | tr -d ' \n')"
+  if [ "$status" != "200" ]; then
+    echo "FAIL: GET /api/v1/vault/export → HTTP $status"; fail=1
+  elif [ "$magic" != "504b" ]; then
+    echo "FAIL: GET /api/v1/vault/export → 不是 zip（magic=${magic}）"; fail=1
+  else
+    echo "PASS: GET /api/v1/vault/export（zip）"
+  fi
+}
 check_ok "GET /api/model_settings/get" GET "/api/model_settings/get" '"config"'
 check_ok "GET /api/capture/status" GET "/api/capture/status" ''
 check_ok "GET /api/capture/targets" GET "/api/capture/targets" ''
@@ -155,7 +168,7 @@ if [ -n "$cid" ]; then
 fi
 
 echo "== 鉴权：没有 token 必须 401 =="
-for path in /api/diagnostics /api/v1/diagnostics/export /api/model_settings/get /api/db/vaults; do
+for path in /api/diagnostics /api/v1/diagnostics/export /api/v1/vault/export /api/model_settings/get /api/db/vaults; do
   status="$(curl -s -o "$port_file" -w '%{http_code}' "${base}${path}")"
   if [ "$status" = "401" ]; then
     echo "PASS: 无 token 访问 $path → 401"

@@ -9,6 +9,7 @@ import { useChatStream } from '@renderer/hooks/use-chat-stream'
 import { ChatContext } from '@renderer/services/chat-stream-service'
 import { conversationService } from '@renderer/services/conversation-service'
 import { messageService } from '@renderer/services/messages-service'
+import { readActiveVaultId } from '@renderer/utils/vault'
 import { getLogger } from '@shared/logger/renderer'
 import { useMemoizedFn, useRequest } from 'ahooks'
 import MarkdownIt from 'markdown-it'
@@ -144,7 +145,11 @@ const AIAssistant: FC<AIAssistantProps> = (props) => {
       // Create a new conversation if none exists
       try {
         const context = getCurrentContext()
-        const response = await createConversation({ page_name: pageName, document_id: context.document_id })
+        const response = await createConversation({
+          page_name: pageName,
+          document_id: context.document_id,
+          vault_id: readActiveVaultId()
+        })
         setConversationId(response.id)
         if (response.id) {
           await sendMessage(message, response.id, context)

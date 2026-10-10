@@ -64,7 +64,8 @@ export function installAdapters(options: InstallOptions): void {
     list: async () => unwrapSummaries(await backend.invoke('v1:summaries'))
   })
   install('chatApi', {
-    listConversations: async (limit?: number) => unwrapConversations(await backend.invoke('v1:conversations', limit)),
+    listConversations: async (limit?: number, vaultId?: number | null) =>
+      unwrapConversations(await backend.invoke('v1:conversations', limit, vaultId ?? undefined)),
     listMessages: (conversationId: number) => backend.invoke('v1:conversation-messages', conversationId),
     deleteConversation: (conversationId: number) => backend.invoke('v1:conversation-delete', conversationId)
   })

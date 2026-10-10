@@ -217,6 +217,8 @@ chmod u+x "/Applications/MineContext.app/Contents/MacOS/minecontext-shell" \
 
 本版本严格校验迁移，不提供旧 checksum 兼容白名单。相同 SQL 字节的 checksum 不因安装机器改变；升级时修改已应用的迁移文件（包括注释）才会导致差异。后续版本必须新增迁移，不得修改已发布迁移。
 
+重装或换机前，可先在设置页「数据备份」导出笔记树与已导入文件（`GET /api/v1/vault/export` 的 zip），新环境再导入。该包只含 vault 笔记与 `uploads/`，不含聊天、采集截图与模型密钥。
+
 如果选择放弃旧版数据、全新安装，先从托盘完全退出应用和独立启动的 daemon。删除 `.app` 或清缓存不会删除数据库；`Application Support/MineContext` 包含笔记、聊天、采集记录和配置，不是缓存。以下操作将旧数据移到备份，下一次启动创建全新数据库：
 
 ```bash

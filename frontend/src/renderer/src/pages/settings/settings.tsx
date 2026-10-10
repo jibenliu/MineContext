@@ -28,6 +28,7 @@ import ModelRadio from './components/model-radio/model-radio'
 import { NotificationSwitch } from './components/notification-switch'
 import { RetentionSection } from './components/retention-section'
 import { UpdateCheckSection } from './components/update-check-section'
+import { VaultBackupSection } from './components/vault-backup-section'
 import {
   BaseUrl,
   embeddingModels,
@@ -773,6 +774,7 @@ const Settings: FC<SettingsProps> = (props) => {
           <LanguageSwitch />
           <RetentionSection />
           <BackfillSection />
+          <VaultBackupSection />
         </div>
       </div>
     </div>

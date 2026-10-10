@@ -148,6 +148,10 @@ test('新增面：会话列表映射到兼容路径', () => {
   const fallback = resolveChannel('v1:conversations', [])
   assert.ok(fallback)
   assert.equal(fallback.path, '/api/agent/chat/conversations/list?limit=20')
+
+  const scoped = resolveChannel('v1:conversations', [20, 7])
+  assert.ok(scoped)
+  assert.equal(scoped.path, '/api/agent/chat/conversations/list?limit=20&vault_id=7')
 })
 
 test('新增面：删除会话映射到兼容软删除路径', () => {
