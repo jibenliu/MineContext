@@ -146,7 +146,7 @@ async fn chat_stream_persists_messages_as_side_effect() {
     let conversation = ctx
         .state
         .db
-        .create_conversation(None, "home", at(0))
+        .create_conversation(None, "home", None, at(0))
         .expect("建对话");
 
     let (frames, _) = stream_chat(
@@ -202,7 +202,7 @@ async fn chat_stream_records_thinking_rows() {
     let conversation = ctx
         .state
         .db
-        .create_conversation(None, "home", at(0))
+        .create_conversation(None, "home", None, at(0))
         .unwrap();
 
     let (frames, _) = stream_chat(
@@ -239,7 +239,7 @@ async fn message_shape_matches_legacy() {
     let conversation = ctx
         .state
         .db
-        .create_conversation(None, "home", at(0))
+        .create_conversation(None, "home", None, at(0))
         .unwrap();
     let message_id = ctx
         .state
@@ -279,7 +279,7 @@ async fn conversation_shape_matches_legacy() {
     let ctx = ctx();
     ctx.state
         .db
-        .create_conversation(Some("第一个问题"), "home", at(0))
+        .create_conversation(Some("第一个问题"), "home", None, at(0))
         .unwrap();
 
     let response = router(Arc::clone(&ctx.state))
@@ -305,7 +305,7 @@ async fn interrupt_stops_the_stream_and_marks_the_message() {
     let conversation = ctx
         .state
         .db
-        .create_conversation(None, "home", at(0))
+        .create_conversation(None, "home", None, at(0))
         .unwrap();
 
     // 先建一条 streaming 的助手消息并置中断标志（模拟「用户在生成中点停止」）

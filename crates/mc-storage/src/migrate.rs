@@ -54,6 +54,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "0007_app_settings",
         sql: include_str!("../migrations/0007_app_settings.sql"),
     },
+    Migration {
+        version: 8,
+        name: "0008_conversation_vault_id",
+        sql: include_str!("../migrations/0008_conversation_vault_id.sql"),
+    },
 ];
 
 pub fn run(conn: &mut Connection) -> Result<(), AppError> {
