@@ -31,7 +31,14 @@ fn documents_for_filters(
     filters: &SearchFilters,
 ) -> Result<Vec<Document>, AppError> {
     let includes = |kind| filters.kinds.is_empty() || filters.kinds.contains(&kind);
-    let (activities, blocked) = if includes(DocumentKind::Activity) {
+    // vault 作用域：只检索该根文件夹子树内的笔记，不混入活动 / 总结，避免跨 vault 污染。
+    let vault_scoped = filters.vault_id.is_some();
+    let vault_note_ids = match filters.vault_id {
+        Some(vault_id) => Some(db.vault_subtree_ids(vault_id)?),
+        None => None,
+    };
+
+    let (activities, blocked) = if !vault_scoped && includes(DocumentKind::Activity) {
         (
             mc_storage::projectors::activities::read_all(db)?,
             db.blocked_observation_ids()?
@@ -84,6 +91,11 @@ fn documents_for_filters(
         Vec::new()
     };
     for note in notes {
+        if let Some(allowed) = &vault_note_ids {
+            if !allowed.contains(&note.id) {
+                continue;
+            }
+        }
         let mut text = note.title.clone();
         if !note.summary.trim().is_empty() {
             text.push(' ');
@@ -114,7 +126,7 @@ fn documents_for_filters(
         });
     }
 
-    let summaries = if includes(DocumentKind::Summary) {
+    let summaries = if !vault_scoped && includes(DocumentKind::Summary) {
         db.read_summaries_in_range(None, None, filters.from, filters.to)?
     } else {
         Vec::new()

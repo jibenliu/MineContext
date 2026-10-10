@@ -280,7 +280,7 @@ async fn streaming_with_page_name_creates_a_scoped_conversation() {
     let conversations = ctx
         .state
         .db
-        .list_conversations(Some("creation"))
+        .list_conversations(Some("creation"), None)
         .expect("列对话");
     assert_eq!(conversations.len(), 1, "{conversations:?}");
     assert_eq!(conversations[0].page_name, "creation");
@@ -492,7 +492,7 @@ async fn streamed_answer_persists_every_chunk_once_at_the_end() {
     let conversations = ctx
         .state
         .db
-        .list_conversations(Some("home"))
+        .list_conversations(Some("home"), None)
         .expect("列对话");
     let messages = ctx
         .state
