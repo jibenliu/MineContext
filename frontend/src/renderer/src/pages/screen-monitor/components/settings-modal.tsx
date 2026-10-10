@@ -316,9 +316,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="text-[14px] leading-[20px] text-[var(--color-text-2)] mb-[4px]">
                 {t('screenMonitor.settings.windowSection')}
               </div>
-              <div className="text-[10px] leading-[12px] text-[var(--color-text-3)] mb-[4px]">
-                {windowSectionHint}
-              </div>
+              <div className="text-[10px] leading-[12px] text-[var(--color-text-3)] mb-[4px]">{windowSectionHint}</div>
               <Form.Item field="windowSources">
                 <Checkbox.Group className="flex flex-col space-y-4">
                   {appAllSources.map((source) => {

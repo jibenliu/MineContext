@@ -76,7 +76,9 @@ describe('SettingsModal recording / window alerts', () => {
     expect(screen.getByTestId('capture-recording-status')).toHaveTextContent(/已停止|Stopped|not started/i)
     expect(screen.getByTestId('capture-window-list-status')).toHaveTextContent(/权限|permission/i)
     expect(screen.getByTestId('quit-relaunch-hint')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /打开系统设置|Open System Settings/i }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('button', { name: /打开系统设置|Open System Settings/i }).length).toBeGreaterThanOrEqual(
+      1
+    )
   })
 
   it('windows_reason=empty 时说明无打开窗口，而不是权限', () => {

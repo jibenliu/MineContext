@@ -14,10 +14,7 @@ export function isWindowListPermissionBlocked(windowsReason: string | null | und
 /** 设置页状态条：录制环 / capture.enabled 的可读态。 */
 export type CaptureRecordingState = 'running' | 'enabled_idle' | 'stopped'
 
-export function captureRecordingState(
-  isMonitoring: boolean,
-  enabled: boolean | undefined
-): CaptureRecordingState {
+export function captureRecordingState(isMonitoring: boolean, enabled: boolean | undefined): CaptureRecordingState {
   if (isMonitoring) return 'running'
   if (enabled === true) return 'enabled_idle'
   return 'stopped'
