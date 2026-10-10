@@ -75,6 +75,13 @@ struct Ctx {
 
 /// `retention_days` 与是否挂载采集都可调：两个开关都会影响行为。
 fn ctx(retention_days: u32, mount_capture: bool) -> Ctx {
+    ctx_with(
+        &format!("[capture]\nretention_days = {retention_days}\n"),
+        mount_capture,
+    )
+}
+
+fn ctx_with(toml: &str, mount_capture: bool) -> Ctx {
     let dir = tempfile::tempdir().unwrap();
     let db = Arc::new(Database::open(dir.path().join("minecontext.db")).unwrap());
     let blobs = Arc::new(
@@ -84,7 +91,7 @@ fn ctx(retention_days: u32, mount_capture: bool) -> Ctx {
     let config = mc_config::load::load(&mc_config::load::LoadRequest {
         layers: vec![mc_config::load::LayerSource::Inline {
             name: "test".to_string(),
-            toml: format!("[capture]\nretention_days = {retention_days}\n"),
+            toml: toml.to_string(),
         }],
         env: Vec::new(),
         read_process_env: false,
@@ -195,15 +202,90 @@ async fn run_once_rotates_and_reports() {
     assert!(ctx.blobs.relative_exists(&new_path));
 }
 
-/// 策略来自配置：`retention_days = 0` 是永久保留，不能删东西。
+/// 策略来自配置：`retention_days = 0` 且容量不限制时，不能按天删东西。
 #[tokio::test]
 async fn policy_comes_from_config() {
-    let ctx = ctx(0, true);
+    let ctx = ctx_with(
+        "[capture]\nretention_days = 0\n[storage]\nmax_total_gb = 0\nmax_screenshot_count = 0\n",
+        true,
+    );
     let (_id, path) = add_screenshot(&ctx, 0, now_ms() - 400 * DAY_MS);
 
     let outcome = retention::run_once(&ctx.state).unwrap().unwrap();
     assert_eq!(outcome.deleted_files, 0, "永久保留模式不能删：{outcome:?}");
     assert!(ctx.blobs.relative_exists(&path));
+}
+
+/// 容量上限来自 `storage.max_total_gb`，超限从最旧截图开始删。
+#[tokio::test]
+async fn capacity_cap_comes_from_storage_config() {
+    // ~400 B：三张小 PNG + 缩略图必然超过；不能用 1 KiB，小图合计往往不到。
+    let ctx = ctx_with(
+        "[capture]\nretention_days = 0\n[storage]\nmax_total_gb = 0.0000004\nmax_screenshot_count = 0\n",
+        true,
+    );
+    let limit = retention::max_total_bytes_from_gb(0.0000004);
+    let (_a, old_path) = add_screenshot(&ctx, 0, now_ms() - 3 * DAY_MS);
+    let (_b, _mid_path) = add_screenshot(&ctx, 1, now_ms() - 2 * DAY_MS);
+    let (_c, new_path) = add_screenshot(&ctx, 2, now_ms() - DAY_MS);
+
+    let before = ctx.blobs.stats().unwrap().total_bytes;
+    assert!(
+        before > limit,
+        "fixture 必须先超过上限：before={before} limit={limit}"
+    );
+
+    let outcome = retention::run_once(&ctx.state).unwrap().unwrap();
+    assert!(outcome.deleted_files >= 1, "{outcome:?}");
+    let after = ctx.blobs.stats().unwrap().total_bytes;
+    assert!(
+        after <= limit,
+        "轮转后必须压到上限内：before={before} after={after} limit={limit}"
+    );
+    assert!(
+        !ctx.blobs.relative_exists(&old_path),
+        "应优先删最旧图：old={old_path} new={new_path}"
+    );
+    assert!(ctx.blobs.relative_exists(&new_path), "最新图应尽量保留");
+}
+
+/// 轮转只动截图 blob，不能删用户 vault 笔记。
+#[tokio::test]
+async fn retention_does_not_delete_vault_notes() {
+    let ctx = ctx_with(
+        "[capture]\nretention_days = 0\n[storage]\nmax_total_gb = 0.0000004\nmax_screenshot_count = 0\n",
+        true,
+    );
+    let vault_id = ctx
+        .state
+        .db
+        .insert_vault_row(
+            &mc_storage::vaults::VaultUpsert {
+                title: "keep-me".into(),
+                summary: String::new(),
+                content: "user note body".into(),
+                tags: vec!["note".into()],
+                parent_id: None,
+                is_folder: false,
+                document_type: "vaults".into(),
+                sort_order: 0,
+            },
+            Timestamp::from_millis(now_ms()),
+        )
+        .unwrap();
+    add_screenshot(&ctx, 0, now_ms() - DAY_MS);
+    add_screenshot(&ctx, 1, now_ms() - 2 * DAY_MS);
+
+    let _ = retention::run_once(&ctx.state).unwrap().unwrap();
+
+    let row = ctx
+        .state
+        .db
+        .vault_row_by_id(vault_id)
+        .unwrap()
+        .expect("vault 笔记必须仍在");
+    assert_eq!(row.title, "keep-me");
+    assert!(row.content.contains("user note body"));
 }
 
 /// 只读实例（没有挂载 blob 存储）不该报错，也不该假装执行过。
@@ -294,4 +376,36 @@ async fn the_task_is_quiet_when_there_is_nothing_to_do() {
         })
         .unwrap();
     assert_eq!(failures, 0, "无事可做不该产生失败记录");
+}
+
+#[tokio::test]
+async fn capture_config_exposes_retention_and_disk_usage() {
+    let ctx = ctx(7, true);
+    add_screenshot(&ctx, 0, now_ms() - DAY_MS);
+
+    let request = Request::builder()
+        .method("GET")
+        .uri("/api/capture/config")
+        .header("host", "127.0.0.1:12345")
+        .header("x-mc-token", TOKEN)
+        .body(Body::empty())
+        .unwrap();
+    let response = router(Arc::clone(&ctx.state))
+        .oneshot(request)
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let payload: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let data = &payload["data"];
+    assert_eq!(data["retention_days"], 7);
+    assert_eq!(data["max_total_gb"], 10.0);
+    assert!(
+        data["disk_usage"]["total_bytes"].as_u64().unwrap_or(0) > 0,
+        "{data}"
+    );
+    assert!(
+        data["disk_usage"]["blob_count"].as_u64().unwrap_or(0) >= 1,
+        "{data}"
+    );
 }

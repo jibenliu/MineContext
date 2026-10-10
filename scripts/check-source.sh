@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 源码类门禁：注释风格、依赖方向、时间用法、测试夹具、提示词内嵌、
-# provider 纯度、阶段总结不变量、日志卫生。
+# provider 纯度、阶段总结不变量、日志卫生、过程中间产物不进索引。
 #
 # 逐条打印 PASS/FAIL：合并之后仍然要能一眼看出是哪条红了。
 set -uo pipefail
@@ -30,6 +30,7 @@ run "provider 纯净性（不许厂商 SDK）" ./scripts/checks/check-provider-p
 run "阶段总结不变量" ./scripts/checks/check-summary-invariant.sh
 run "日志卫生（不含内容/密钥/路径）" ./scripts/checks/check-log-redaction.sh
 run "前端样式变量（可解析 + 跟随主题）" ./scripts/checks/check-theme-tokens.sh
+run "过程中间产物不进索引" ./scripts/checks/check-no-iteration-artifacts.sh
 
 rm -f /tmp/check-source.$$.log
 if [ "${failed}" -ne 0 ]; then

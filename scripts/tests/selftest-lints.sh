@@ -15,7 +15,10 @@ cleanup() {
     crates/mc-common/tests/__lint_probe.rs \
     crates/mc-pipeline/prompts/__lint_probe.md \
     scripts/__lint_probe.sh \
-    frontend/src/renderer/src/assets/__lint_probe.css
+    frontend/src/renderer/src/assets/__lint_probe.css \
+    docs/internal/__lint_probe_tdd-log.md
+  git rm -f --cached docs/internal/__lint_probe_tdd-log.md >/dev/null 2>&1 || true
+  rmdir docs/internal 2>/dev/null || true
   find . -name '*.selftest-backup' -not -path './node_modules/*' -not -path './target/*' 2>/dev/null |
     while read -r backup; do mv "$backup" "${backup%.selftest-backup}"; done
 }
@@ -230,6 +233,27 @@ expect_pass scripts/checks/check-log-redaction.sh
 expect_fail scripts/checks/check-no-test-fixtures.sh "$probe_dir/__lint_probe.rs" \
   'pub fn leaky() -> i64 { 1_790_758_800_000 }'
 expect_pass scripts/checks/check-no-test-fixtures.sh
+
+# 本机留档目录：强制纳入索引的探针必须被拦；干净索引必须通过
+iteration_probe=docs/internal/__lint_probe_tdd-log.md
+mkdir -p docs/internal
+printf '%s\n' 'selftest probe — must not stay tracked' > "$iteration_probe"
+git add -f "$iteration_probe"
+if scripts/checks/check-no-iteration-artifacts.sh >/dev/null 2>&1; then
+  echo "FAIL: check-no-iteration-artifacts.sh 未能拦截已跟踪的本机留档探针"
+  fail=1
+else
+  echo "PASS: check-no-iteration-artifacts.sh 正确拦截了已跟踪的本机留档探针"
+fi
+git rm -f --cached "$iteration_probe" >/dev/null 2>&1 || true
+rm -f "$iteration_probe"
+rmdir docs/internal 2>/dev/null || true
+if scripts/checks/check-no-iteration-artifacts.sh >/dev/null 2>&1; then
+  echo "PASS: check-no-iteration-artifacts.sh 在干净索引上通过"
+else
+  echo "FAIL: check-no-iteration-artifacts.sh 在干净索引上失败"
+  fail=1
+fi
 
 # 产物校验：要求一个不可能达到的最低版本时必须失败（证明它真的读产物）
 if [ "${MC_RUN_SMOKE:-0}" -ne 1 ]; then

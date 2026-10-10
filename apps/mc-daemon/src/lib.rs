@@ -264,7 +264,7 @@ pub async fn run(args: Args) -> Result<(), AppError> {
             );
         }
     }
-    // 保留策略轮转：按 capture.retention_days 删旧图并清理悬空引用。
+    // 保留策略轮转：按 capture.retention_days / storage.max_total_gb 删旧图并清理悬空引用。
     // 它是磁盘占用唯一的下降路径 —— 不跑就只有涨，因此与 daemon 同生命周期。
     let retention = mc_server::retention::spawn_retention_task(
         Arc::clone(&state),
