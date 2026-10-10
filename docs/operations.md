@@ -178,6 +178,8 @@ DEFERRED / SHELL_CHANNELS 并写明原因，用到时会在控制台告警一次
 
 ```bash
 mc-cli doctor                    # 五段自检：config / storage / model / platform / capture
+# 设置页「导出诊断包」会生成脱敏 zip（日志尾巴 + info/diagnostics）；
+# 也可只拉 JSON：
 tail -50 "<数据目录>/logs/daemon.log"
 curl -s -H "x-mc-token: <token>" http://127.0.0.1:<port>/api/v1/diagnostics/export
 tail -50 ~/Library/Logs/MineContext/main.log     # 桌面外壳日志

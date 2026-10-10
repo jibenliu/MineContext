@@ -235,11 +235,16 @@ mkdir -m 700 "$backup" && \
 1. `mc-cli doctor` 的完整输出；
 2. **诊断包**（可以直接贴给别人，里面不含内容）：
 
+   - **推荐**：设置页 → 启动 →「导出诊断包」。会在「下载」目录生成脱敏 zip
+     （`daemon.log` / `renderer.log` 尾巴、`info.json` 版本与端口、可分享的
+     `diagnostics.json`）；密钥与绝对路径已替换。
+   - 或命令行只拉元数据：
+
    ```bash
    curl -s -H "x-mc-token: <token>" http://127.0.0.1:<port>/api/v1/diagnostics/export
    ```
 
-   它带 `schema_version`、平台信息、组件状态、各类计数、不变量、保留策略结果与
+   JSON 接口带 `schema_version`、平台信息、组件状态、各类计数、不变量、保留策略结果与
    最近失败的**错误码 + 用户文案**；响应体里的 `excluded` 字段列明刻意不放的东西
    （标题、文本内容、文件路径、密钥、截图内容）。
 3. `sw_vers` 与是否插电、机器负载（`uptime`）—— 延迟类问题脱离环境无法判断。

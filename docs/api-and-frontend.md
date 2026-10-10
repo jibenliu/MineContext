@@ -40,7 +40,7 @@
 | 前缀 | 用途 |
 |---|---|
 | `/api/health` | 启动握手（**唯一公开路径**） |
-| `/api/diagnostics`、`/api/v1/diagnostics/export` | 不变量自检；可分享的诊断包 |
+| `/api/diagnostics`、`/api/v1/diagnostics/export` | 不变量自检；可分享的诊断 JSON。设置页「导出诊断包」另由外壳写出脱敏 zip（日志尾巴 + info/diagnostics） |
 | `/api/model_settings/*` | 模型配置读写与校验（密钥不回传，只回「有没有配」） |
 | `/api/capture/*` | 权限、目标列表与选择、配置、立即截图、删除单张截图 |
 | `/api/db/*` | 兼容面：活动、笔记树、待办、提示、热力图（**字段名不能改**） |

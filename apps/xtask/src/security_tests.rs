@@ -52,6 +52,11 @@ const SECURITY_TESTS: &[(&str, &str, &str)] = &[
         "export_never_contains_content_or_secrets",
     ),
     (
+        "diagnostic_pack_redacts_secrets",
+        "crates/mc-common/tests/diagnostic_pack.rs",
+        "write_pack_redacts_secrets_and_paths",
+    ),
+    (
         "token_required_on_all_v1_routes",
         "crates/mc-server/tests/security_surface.rs",
         "every_api_route_requires_the_token",

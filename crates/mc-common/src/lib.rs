@@ -8,6 +8,7 @@
 //! timezone-aware 的 `datetime` 在同一个表达式里比较。只要领域层拿不到
 //! 第二种时间表示，这类 bug 就在类型层面不可能出现。
 
+pub mod diagnostic_pack;
 pub mod disk;
 pub mod error;
 pub mod fs;

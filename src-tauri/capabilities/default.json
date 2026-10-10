@@ -14,6 +14,7 @@
     "allow-renderer-log",
     "allow-tray-recording-status",
     "allow-launch-at-login",
-    "allow-set-launch-at-login"
+    "allow-set-launch-at-login",
+    "allow-export-diagnostics"
   ]
 }
