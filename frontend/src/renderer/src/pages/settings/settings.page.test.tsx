@@ -185,7 +185,7 @@ it('自建平台视觉与向量密钥都有复制入口，点复制写入明文'
 
   fireEvent.click(copyButtons[0])
   await waitFor(() => {
-    expect(getStoredApiKey).toHaveBeenCalledWith('vision')
+    expect(getStoredApiKey).toHaveBeenCalledWith('vision', 'custom')
     expect(writeClipboard).toHaveBeenCalledWith('sk-vision-plain-key-1111')
   })
 
@@ -193,7 +193,7 @@ it('自建平台视觉与向量密钥都有复制入口，点复制写入明文'
   vi.mocked(getStoredApiKey).mockClear()
   fireEvent.click(copyButtons[1])
   await waitFor(() => {
-    expect(getStoredApiKey).toHaveBeenCalledWith('embedding')
+    expect(getStoredApiKey).toHaveBeenCalledWith('embedding', 'custom')
     expect(writeClipboard).toHaveBeenCalledWith('sk-embed-plain-key-9999')
   })
 })
@@ -251,6 +251,41 @@ it('引导态也会回填已存密钥（可沿用密钥点开始使用，不必�
 
   expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
   expect(screen.getByText(/已保存密钥/)).toBeInTheDocument()
+})
+
+it('切换平台时仍显示该平台已存脱敏密钥（不被活跃平台覆盖）', async () => {
+  vi.mocked(getModelInfo).mockResolvedValue({
+    config: {
+      modelPlatform: 'doubao',
+      modelId: 'doubao-seed-1-6-flash-250828',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      apiKey: '',
+      embeddingModelId: 'doubao-embedding-vision-250615',
+      embeddingBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      embeddingApiKey: ''
+    },
+    hasApiKey: true,
+    apiKeyMasked: 'sk-d••••••••oubao',
+    providers: {
+      doubao: {
+        modelId: 'doubao-seed-1-6-flash-250828',
+        hasApiKey: true,
+        apiKeyMasked: 'sk-d••••••••oubao'
+      },
+      openai: {
+        modelId: 'gpt-5-nano',
+        hasApiKey: true,
+        apiKeyMasked: 'sk-o••••••••penai'
+      }
+    }
+  })
+  renderSettings()
+
+  expect(await screen.findByDisplayValue('sk-d••••••••oubao')).toBeInTheDocument()
+  fireEvent.click(screen.getByTestId('model-platform-openai'))
+  expect(await screen.findByDisplayValue('sk-o••••••••penai')).toBeInTheDocument()
+  expect(screen.queryByDisplayValue('sk-d••••••••oubao')).not.toBeInTheDocument()
+  expect(screen.getByTestId('api-key-configured-hint')).toBeInTheDocument()
 })
 
 it('引导态加载中不盖遮罩：开始使用按钮仍可点', async () => {
