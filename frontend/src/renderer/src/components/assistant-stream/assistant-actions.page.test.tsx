@@ -6,6 +6,14 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { AssistantStream } from './assistant-stream'
 
+vi.mock('@renderer/hooks/use-vault', () => ({
+  useVaults: () => ({
+    selectedVaultId: null,
+    setSelectedVaultId: () => undefined,
+    getVaultRoots: () => []
+  })
+}))
+
 type Emit = (event: StreamEvent) => void
 let emit: Emit
 let finish: (() => void) | undefined

@@ -12,7 +12,16 @@ import {
   updateVaultThunk
 } from '@renderer/store/thunk/vault-thunk'
 import { Vault, VaultTreeNode } from '@renderer/types'
-import { collectAllNodeIds, findNodeById, findParentNodeById, getNodePath, traverseNodes } from '@renderer/utils/vault'
+import {
+  collectAllNodeIds,
+  findNodeById,
+  findParentNodeById,
+  getNodePath,
+  getVaultRoots,
+  readActiveVaultId,
+  traverseNodes,
+  writeActiveVaultId
+} from '@renderer/utils/vault'
 import { getLogger } from '@shared/logger/renderer'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -22,6 +31,7 @@ const logger = getLogger('useVaults')
 interface UseVaultsReturn {
   // Data
   vaults: VaultTreeNode
+  /** Active vault root for assistant/RAG isolation (top-level folder id). */
   selectedVaultId: number | null
   // Status
   loading: boolean
@@ -43,6 +53,8 @@ interface UseVaultsReturn {
   findParentVault: (id: number) => VaultTreeNode | null
   getVaultPath: (id: number) => VaultTreeNode[] | null
   getAllVaultIds: () => number[]
+  /** Top-level folders usable as vault roots. */
+  getVaultRoots: () => VaultTreeNode[]
 
   // Filtering and searching
   searchVaults: (keyword: string) => VaultTreeNode[]
@@ -54,7 +66,7 @@ interface UseVaultsReturn {
   hasChildren: (vault: VaultTreeNode) => boolean
   getChildrenCount: (vault: VaultTreeNode) => number
 
-  // Set selected vault
+  // Set active vault root (persisted)
   setSelectedVaultId: (id: number | null) => void
 }
 
@@ -62,10 +74,15 @@ export const useVaults = (): UseVaultsReturn => {
   const dispatch = useAppDispatch()
   const vaults = useSelector((state: RootState) => state.vault.vaults)
 
-  // Local state management
-  const [selectedVaultId, setSelectedVaultId] = useState<number | null>(null)
+  // Active vault root for session/RAG isolation (persisted across reloads).
+  const [selectedVaultId, setSelectedVaultId] = useState<number | null>(() => readActiveVaultId())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const selectVaultRoot = useCallback((id: number | null) => {
+    setSelectedVaultId(id)
+    writeActiveVaultId(id)
+  }, [])
 
   // Initialize vaults
   const initVaults = useCallback(async () => {
@@ -284,6 +301,8 @@ export const useVaults = (): UseVaultsReturn => {
     return folders
   }, [vaults])
 
+  const listVaultRoots = useCallback(() => getVaultRoots(vaults), [vaults])
+
   // Utility methods
   const isFolder = useCallback((vault: VaultTreeNode) => {
     return vault.is_folder === 1
@@ -331,6 +350,7 @@ export const useVaults = (): UseVaultsReturn => {
     findParentVault,
     getVaultPath,
     getAllVaultIds,
+    getVaultRoots: listVaultRoots,
 
     // Filtering and searching
     searchVaults,
@@ -342,7 +362,7 @@ export const useVaults = (): UseVaultsReturn => {
     hasChildren,
     getChildrenCount,
 
-    // Set selected vault
-    setSelectedVaultId
+    // Set active vault root
+    setSelectedVaultId: selectVaultRoot
   }
 }

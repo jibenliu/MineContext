@@ -27,6 +27,7 @@ MineContext 把用户主动导入与本机采集的内容写入笔记树（`docu
 | Meeting records | `.vtt` / `.srt` / `.ics` 经文件导入，标签 `meeting` |
 | RSS / Atom | `POST /api/v1/rss`；笔记树「导入 RSS」 |
 | Deep Research（轻量） | `POST /api/v1/research`：主题 + 公开 URL 汇编一篇研究笔记（不接独立搜索引擎账号） |
+| Vault backup / export | `GET /api/v1/vault/export` / `POST /api/v1/vault/import`；设置页「数据备份」；zip 含笔记树 + `uploads/` |
 
 ## Deferred（需外部账号 / 硬件 / 独立产物）
 

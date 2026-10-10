@@ -217,6 +217,7 @@ async fn conversations_payload_matches_fixture() {
         .create_conversation(
             Some("APEX-389 我昨天查到哪里了？"),
             "home",
+            None,
             Timestamp::from_millis(1_756_000_000_000),
         )
         .expect("建对话");

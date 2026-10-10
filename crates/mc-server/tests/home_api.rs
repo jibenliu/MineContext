@@ -359,7 +359,7 @@ async fn heatmap_counts_every_source() {
 
     ctx.state
         .db
-        .create_conversation(Some("问了点什么"), "home", Timestamp::from_millis(T0))
+        .create_conversation(Some("问了点什么"), "home", None, Timestamp::from_millis(T0))
         .unwrap();
     ctx.state
         .db
