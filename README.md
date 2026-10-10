@@ -277,8 +277,10 @@ Enumerating capture targets is slow on first use (the OS is asked for displays a
 One command (recommended; includes the launch check):
 
 ```bash
-./scripts/package-macos-tauri.sh
+./scripts/package-macos-tauri.sh              # build only (no launch smoke)
+./scripts/package-macos-tauri.sh --with-smoke # build + launch check (before release)
 # artifact: src-tauri/target/release/bundle/dmg/MineContext_<version>_<arch>.dmg
+# then: ./scripts/tests/packaged-smoke-checklist.sh --auto   # release packaged smoke
 ```
 
 Step by step (when you want control over each stage):
@@ -328,9 +330,12 @@ needs a capture implementation plus real-machine verification; neither exists ye
 
 The full gate has eight steps: contract fixtures → guards and their self-test → `fmt` →
 `clippy -D warnings` → full Rust tests (parallel) → macOS artifacts and real-process smoke →
-frontend lint/types/three test layers/build → summary. What the gate cannot cover
-(real-machine look and feel, signing, soak, golden dataset) is registered item by item in
-[`docs/operations.md`](docs/operations.md) §6/§7 and is **never marked done because the code exists**.
+frontend lint/types/three test layers/build → summary. Smoke runs only with `--with-smoke`
+(or `./scripts/verify-smoke.sh`); everyday commits do not. Before a release, also run the
+packaged checklist (`./scripts/tests/packaged-smoke-checklist.sh --auto`, then `--record`
+for recording / assistant / file-or-link ingest) — see [`docs/operations.md`](docs/operations.md) §5.1.
+What the gate cannot cover (tray look and feel, signing, soak, golden dataset) is registered
+item by item in [`docs/operations.md`](docs/operations.md) §6/§7 and is **never marked done because the code exists**.
 
 ## 🏗️ Backend Architecture
 
