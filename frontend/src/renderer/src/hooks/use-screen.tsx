@@ -3,6 +3,7 @@
 
 import { Message } from '@arco-design/web-react'
 import { CaptureSource } from '@interface/common/source'
+import { isCapturePlatformSupported } from '@renderer/pages/screen-monitor/capture-platform'
 import axiosInstance from '@renderer/services/axios-config'
 import { RootState, useAppDispatch } from '@renderer/store'
 import {
@@ -41,14 +42,21 @@ export const useScreen = () => {
   const isMonitoring = useSelector((state: RootState) => state.screen.isMonitoring)
   const currentSession = useSelector((state: RootState) => state.screen.currentSession) as MonitorSession | null
   const [hasPermission, setHasPermission] = useState(false)
+  const [captureSupported, setCaptureSupported] = useState(true)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
 
   const checkPermissions = useMemoizedFn(async (opts?: { quiet?: boolean }) => {
     // 后端返回的是结构体（screen_recording / permission），不是裸 boolean；
     // 直接 `if (result)` 会把「已拒绝」也当成有权限。
     const result = await window.screenMonitorAPI.checkPermissions()
+    const supported = isCapturePlatformSupported(result)
+    setCaptureSupported(supported)
     const granted = isScreenRecordingGranted(result)
     setHasPermission(granted)
+    // 平台未实现时不弹「需要屏幕录制权限」——那会把用户引到 macOS 设置。
+    if (!supported) {
+      return granted
+    }
     if (!granted && !opts?.quiet) {
       Message.error('Screen recording permission is required.')
     }
@@ -56,6 +64,9 @@ export const useScreen = () => {
   })
 
   const grantPermission = useMemoizedFn(async () => {
+    if (!captureSupported) {
+      return
+    }
     // openPrefs → daemon Request + 打开系统设置，让采集进程出现在 TCC 列表。
     try {
       const result = await window.screenMonitorAPI.openPrefs()
@@ -229,6 +240,7 @@ export const useScreen = () => {
     removeScreenshot,
     captureScreenshot,
     hasPermission,
+    captureSupported,
     grantPermission,
     selectedImage,
     setSelectedImage,
