@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest'
-
 import type { VaultTreeNode } from '@renderer/types'
+import { describe, expect, it } from 'vitest'
 
 import { getVaultRoots } from './vault'
 

@@ -75,12 +75,12 @@ export const useVaults = (): UseVaultsReturn => {
   const vaults = useSelector((state: RootState) => state.vault.vaults)
 
   // Active vault root for session/RAG isolation (persisted across reloads).
-  const [selectedVaultId, setSelectedVaultIdState] = useState<number | null>(() => readActiveVaultId())
+  const [selectedVaultId, setSelectedVaultId] = useState<number | null>(() => readActiveVaultId())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const setSelectedVaultId = useCallback((id: number | null) => {
-    setSelectedVaultIdState(id)
+  const selectVaultRoot = useCallback((id: number | null) => {
+    setSelectedVaultId(id)
     writeActiveVaultId(id)
   }, [])
 
@@ -363,6 +363,6 @@ export const useVaults = (): UseVaultsReturn => {
     getChildrenCount,
 
     // Set active vault root
-    setSelectedVaultId
+    setSelectedVaultId: selectVaultRoot
   }
 }

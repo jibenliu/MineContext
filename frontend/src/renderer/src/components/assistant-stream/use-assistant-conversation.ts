@@ -31,10 +31,7 @@ export interface Turn {
   error?: string
 }
 interface ChatApi {
-  listConversations?: (
-    limit?: number,
-    vaultId?: number | null
-  ) => Promise<Conversation[] | { items?: Conversation[] }>
+  listConversations?: (limit?: number, vaultId?: number | null) => Promise<Conversation[] | { items?: Conversation[] }>
   listMessages?: (id: number) => Promise<StoredMessage[]>
   deleteConversation?: (id: number) => Promise<unknown>
 }
