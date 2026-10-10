@@ -73,9 +73,7 @@ export function groupActivityTimeline<T extends TimelineActivityLike>(
   const uncategorizedLabel = options.uncategorizedLabel ?? '未分类'
   if (activities.length === 0) return []
 
-  const sorted = [...activities].sort(
-    (a, b) => dayjs(b.start_time).valueOf() - dayjs(a.start_time).valueOf()
-  )
+  const sorted = [...activities].sort((a, b) => dayjs(b.start_time).valueOf() - dayjs(a.start_time).valueOf())
 
   const periodOrder: string[] = []
   const byPeriod = new Map<string, T[]>()
@@ -112,9 +110,7 @@ export function groupActivityTimeline<T extends TimelineActivityLike>(
       const items = byCategory.get(cat) ?? []
       const starts = items.map((item) => item.start_time)
       const ends = items.map((item) => item.end_time)
-      const start_time = starts.reduce((earliest, next) =>
-        dayjs(next).isBefore(dayjs(earliest)) ? next : earliest
-      )
+      const start_time = starts.reduce((earliest, next) => (dayjs(next).isBefore(dayjs(earliest)) ? next : earliest))
       const end_time = ends.reduce((latest, next) => (dayjs(next).isAfter(dayjs(latest)) ? next : latest))
       return {
         key: cat,

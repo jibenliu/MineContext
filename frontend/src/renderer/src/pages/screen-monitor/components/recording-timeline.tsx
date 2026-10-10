@@ -59,6 +59,16 @@ const RecordingTimeline: React.FC<RecordingTimelineProps> = ({
   const [picked, setPicked] = React.useState<{ from: string; to: string } | null>(null)
   const [requestedPage, setRequestedPage] = React.useState(0)
 
+  // 扩展面分类按 legacy id 索引；只依赖 rows，避免把整个 provenance 对象放进 deps
+  const categoriesById = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [id, row] of provenance.rows) {
+      const category = row.category?.trim()
+      if (category) map.set(id, category)
+    }
+    return map
+  }, [provenance.rows])
+
   // 排序用副本：直接 sort(props) 会改调用方的数组
   const sorted = React.useMemo(
     () =>
@@ -67,12 +77,12 @@ const RecordingTimeline: React.FC<RecordingTimelineProps> = ({
           ...activity,
           category:
             activity.category?.trim() ||
-            provenance.categoryFor(activity.id) ||
+            categoriesById.get(String(activity.id)) ||
             categoryFromMetadata(activity.metadata) ||
             null
         }))
         .sort((a, b) => dayjs(b.start_time).valueOf() - dayjs(a.start_time).valueOf()),
-    [activities, provenance.rows]
+    [activities, categoriesById]
   )
   const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const page = Math.min(requestedPage, pages - 1)

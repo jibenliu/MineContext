@@ -12,14 +12,7 @@ vi.mock('./components/activitie-timeline-item', () => ({
   )
 }))
 
-const activity = (
-  id: number,
-  start: string,
-  end: string,
-  title: string,
-  category: string | null,
-  images = 1
-) => ({
+const activity = (id: number, start: string, end: string, title: string, category: string | null, images = 1) => ({
   id: String(id),
   start_time: start,
   end_time: end,

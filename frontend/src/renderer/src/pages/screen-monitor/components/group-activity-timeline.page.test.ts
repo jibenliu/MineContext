@@ -6,14 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import { categoryFromMetadata, groupActivityTimeline } from './group-activity-timeline'
 
-const act = (
-  id: string,
-  start: string,
-  end: string,
-  title: string,
-  category: string | null = null,
-  images = 0
-) => ({
+const act = (id: string, start: string, end: string, title: string, category: string | null = null, images = 0) => ({
   id,
   start_time: start,
   end_time: end,
