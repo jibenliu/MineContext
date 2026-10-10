@@ -156,7 +156,7 @@ else
   echo "构建完成（未运行启动验收）：${dmg}"
   echo '交付前验收：./scripts/package-macos-tauri.sh --with-smoke'
 fi
-
+echo "发版前人确认（录制/助手/摄入，不进日常提交）：./scripts/tests/packaged-smoke-checklist.sh --auto"
 if [ "$notarize" -eq 1 ]; then
   echo "Developer ID 签名并已请求/完成公证（以 Tauri / notarytool 日志为准）。"
 else

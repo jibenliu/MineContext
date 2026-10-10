@@ -130,6 +130,14 @@ export const AssistantStream: FC = () => {
                     {turn.query}
                   </div>
                   <div className="max-w-[80%] self-start rounded-2xl rounded-bl-[4px] border border-[var(--color-border-2)] bg-[var(--color-bg-2)] px-4 py-2">
+                    {turn.mode === 'local' && (
+                      <span
+                        data-testid="assistant-mode-local"
+                        title={t('assistant.mode.localHint')}
+                        className="mb-2 inline-block rounded-[4px] bg-[var(--color-fill-2)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-3)]">
+                        {t('assistant.mode.local')}
+                      </span>
+                    )}
                     <div
                       data-testid={!live && index === chat.history.length - 1 ? 'assistant-text' : undefined}
                       className={answerClass}

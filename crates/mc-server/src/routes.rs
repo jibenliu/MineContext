@@ -559,7 +559,8 @@ pub async fn search(
         })
         .collect();
 
-    envelope::ok(json!({ "query": query, "results": results }))
+    // `mode: keyword`：本入口不调用 embedding / chat；前端据此显示「仅本地」。
+    envelope::ok(json!({ "query": query, "results": results, "mode": "keyword" }))
 }
 
 // ---------------------------------------------------------------- 模型设置
