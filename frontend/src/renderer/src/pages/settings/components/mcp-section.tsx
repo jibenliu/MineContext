@@ -232,7 +232,12 @@ export function McpSection() {
               onChange={setFormEnvRef}
               data-testid="mcp-form-env"
             />
-            <Button type="secondary" size="small" disabled={pending} onClick={() => void onSaveServer()} data-testid="mcp-save-server">
+            <Button
+              type="secondary"
+              size="small"
+              disabled={pending}
+              onClick={() => void onSaveServer()}
+              data-testid="mcp-save-server">
               {t('settings.mcp.saveServer')}
             </Button>
           </div>
@@ -249,9 +254,7 @@ export function McpSection() {
                   className="flex items-start justify-between gap-3 border-b border-[var(--color-border-2)] py-2"
                   data-testid={`mcp-server-${server.id}`}>
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-[13px] text-[var(--color-text-1)]">
-                      {server.name || server.id}
-                    </span>
+                    <span className="truncate text-[13px] text-[var(--color-text-1)]">{server.name || server.id}</span>
                     <Text type="secondary" className="!text-[12px]">
                       {server.transport}
                       {server.allowed_tools.length
@@ -278,7 +281,9 @@ export function McpSection() {
           </div>
 
           <div className="flex flex-col gap-1" data-testid="mcp-tool-list">
-            <Text className="!text-[13px] font-medium text-[var(--color-text-1)]">{t('settings.mcp.allowedTools')}</Text>
+            <Text className="!text-[13px] font-medium text-[var(--color-text-1)]">
+              {t('settings.mcp.allowedTools')}
+            </Text>
             {tools.length === 0 ? (
               <Text type="secondary" className="!text-[12px]">
                 {t('settings.mcp.noVisibleTools')}
