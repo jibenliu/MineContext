@@ -424,10 +424,12 @@ export interface SettingsFormBase {
 export type SettingsFormProps = SettingsFormBase & {
   [K in ModelTypeList as `${K}-modelId` | `${K}-apiKey`]?: string
 } & {
-  [K in
-    | `${ModelTypeList.Custom}-embeddingModelId`
-    | `${ModelTypeList.Custom}-embeddingBaseUrl`
-    | `${ModelTypeList.Custom}-embeddingApiKey`]?: string
+  [
+    K in
+      | `${ModelTypeList.Custom}-embeddingModelId`
+      | `${ModelTypeList.Custom}-embeddingBaseUrl`
+      | `${ModelTypeList.Custom}-embeddingApiKey`
+  ]?: string
 }
 /** HashRouter 下 query 在 hash 里：`#/settings?section=ai-upload` */
 function settingsSectionFromLocation(): string | null {
@@ -537,10 +539,7 @@ const Settings: FC<SettingsProps> = (props) => {
       return
     }
     try {
-      const key = await getStoredApiKey(
-        storedFieldForFormField(String(field)),
-        providerForFormField(String(field))
-      )
+      const key = await getStoredApiKey(storedFieldForFormField(String(field)), providerForFormField(String(field)))
       if (!key) {
         return
       }
@@ -565,9 +564,7 @@ const Settings: FC<SettingsProps> = (props) => {
       const apiKeyField = `${values.modelPlatform}-apiKey` as keyof SettingsFormProps
       const rawKey = String(values[apiKeyField] ?? '').trim()
       const platformMask = String(providersRef.current[values.modelPlatform]?.apiKeyMasked || maskedRef.current)
-      const platformHasKey = Boolean(
-        providersRef.current[values.modelPlatform]?.hasApiKey ?? hasStoredKey
-      )
+      const platformHasKey = Boolean(providersRef.current[values.modelPlatform]?.hasApiKey ?? hasStoredKey)
       // 脱敏串或空串 = 未改密钥，交给后端沿用该平台已存分档
       const effectiveKey = !rawKey || rawKey === platformMask ? '' : rawKey
       if (!effectiveKey && !platformHasKey) {
@@ -678,16 +675,10 @@ const Settings: FC<SettingsProps> = (props) => {
           settingsValue.set(`${platform}-baseUrl` as keyof SettingsFormProps, slot.baseUrl)
         }
         if (slot.embeddingModelId && platform === ModelTypeList.Custom) {
-          settingsValue.set(
-            `${platform}-embeddingModelId` as keyof SettingsFormProps,
-            slot.embeddingModelId
-          )
+          settingsValue.set(`${platform}-embeddingModelId` as keyof SettingsFormProps, slot.embeddingModelId)
         }
         if (slot.embeddingBaseUrl && platform === ModelTypeList.Custom) {
-          settingsValue.set(
-            `${platform}-embeddingBaseUrl` as keyof SettingsFormProps,
-            slot.embeddingBaseUrl
-          )
+          settingsValue.set(`${platform}-embeddingBaseUrl` as keyof SettingsFormProps, slot.embeddingBaseUrl)
         }
         if (slot.hasApiKey && slot.apiKeyMasked) {
           settingsValue.set(`${platform}-apiKey` as keyof SettingsFormProps, slot.apiKeyMasked)

@@ -822,11 +822,7 @@ fn provider_masks_json(sidecar: &ModelKeySidecar) -> Value {
         let embed = slot
             .embedding_api_key
             .as_deref()
-            .or(if id == PROVIDER_CUSTOM {
-                None
-            } else {
-                vision
-            });
+            .or(if id == PROVIDER_CUSTOM { None } else { vision });
         // 自建：独立向量槽才算 hasEmbedding；标准平台共用视觉钥匙时也标 hasEmbedding=false
         let has_embed = if id == PROVIDER_CUSTOM {
             slot.embedding_api_key.is_some()
@@ -1059,9 +1055,8 @@ pub async fn model_settings_update(
 
     let vision_in = body.api_key.trim();
     let embed_in = body.embedding_api_key.trim();
-    let platform = normalize_provider_id(&body.model_platform).unwrap_or_else(|| {
-        infer_provider_from_base_url(&body.base_url).to_string()
-    });
+    let platform = normalize_provider_id(&body.model_platform)
+        .unwrap_or_else(|| infer_provider_from_base_url(&body.base_url).to_string());
     let is_custom = platform == PROVIDER_CUSTOM;
 
     let current = state.config.current();
@@ -1106,9 +1101,8 @@ pub async fn model_settings_update(
 
     let had_any_ref = current.config.ai.vision.api_key_ref.is_some()
         || current.config.ai.embedding.api_key_ref.is_some();
-    let same_as_previous_active = normalize_provider_id(&sidecar.active_provider)
-        .as_deref()
-        == Some(platform.as_str());
+    let same_as_previous_active =
+        normalize_provider_id(&sidecar.active_provider).as_deref() == Some(platform.as_str());
 
     if !slot.has_any_key() {
         let allow_keychain_only =

@@ -64,10 +64,7 @@ export const getModelInfo = async (): Promise<ModelInfoResponseData | undefined>
 export type StoredApiKeyField = 'vision' | 'embedding'
 
 /** 设置页「复制」：显式取已存明文（本机 + token）。找不到时返回空串，其它错误原样抛出。 */
-export const getStoredApiKey = async (
-  field: StoredApiKeyField = 'vision',
-  provider?: string
-): Promise<string> => {
+export const getStoredApiKey = async (field: StoredApiKeyField = 'vision', provider?: string): Promise<string> => {
   try {
     const params: Record<string, string> = {}
     if (field === 'embedding') {

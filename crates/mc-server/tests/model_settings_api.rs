@@ -538,7 +538,10 @@ async fn switching_active_provider_keeps_previous_provider_keys() {
         openai_mask.contains('•'),
         "get 应带回非活跃 OpenAI 的脱敏串：{get_after_b}"
     );
-    assert_eq!(get_after_b["data"]["providers"]["openai"]["hasApiKey"], true);
+    assert_eq!(
+        get_after_b["data"]["providers"]["openai"]["hasApiKey"],
+        true
+    );
     assert!(!get_after_b.to_string().contains(OPENAI_SECRET));
     assert!(!get_after_b.to_string().contains(DOUBAO_SECRET));
 
@@ -613,7 +616,10 @@ async fn custom_dual_keys_survive_switching_to_another_provider() {
     let (status, get) = call(&ctx.state, "GET", "/api/model_settings/get", None).await;
     assert_eq!(status, StatusCode::OK, "{get}");
     assert_eq!(get["data"]["providers"]["custom"]["hasApiKey"], true);
-    assert_eq!(get["data"]["providers"]["custom"]["hasEmbeddingApiKey"], true);
+    assert_eq!(
+        get["data"]["providers"]["custom"]["hasEmbeddingApiKey"],
+        true
+    );
     let vision_mask = get["data"]["providers"]["custom"]["apiKeyMasked"]
         .as_str()
         .unwrap_or_default();
