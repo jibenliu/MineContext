@@ -1,7 +1,7 @@
 //! `POST /api/v1/files/import` —— 用户上传本地文件，抽取正文落成笔记树文档并进入检索。
 //!
-//! P1 只验收结构化文档 / 非结构化文档 / 图片：合法文件变成可搜的本地笔记；
-//! 音频 / 视频 / 代码（P4）与未知类型给出结构化错误，而不是静默空笔记。
+//! 验收：文档 / 图片 / 代码 / 音视频 / 会议记录变成可搜的本地笔记；
+//! 未知类型与空正文给出结构化错误，而不是静默空笔记。
 
 use std::io::Write;
 use std::sync::Arc;
@@ -208,41 +208,78 @@ async fn importing_image_creates_vault_note_with_filename_and_keeps_blob() {
 }
 
 #[tokio::test]
-async fn rejects_audio_video_and_code_as_out_of_scope() {
+async fn importing_code_creates_a_searchable_vault_note() {
     let ctx = ctx();
-    for (name, bytes) in [
-        ("clip.mp3", b"ID3fake".as_slice()),
-        ("demo.mp4", b"ftypisom".as_slice()),
-        ("main.rs", b"fn main() {}".as_slice()),
-        ("app.py", b"print(1)".as_slice()),
+    let source = "fn ownership_demo() { /* borrow checker */ }\n";
+    let (status, envelope) = call(
+        &ctx.state,
+        Some(serde_json::json!({
+            "name": "ownership.rs",
+            "data": source.as_bytes(),
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{envelope}");
+    let id = envelope["data"]["id"].as_i64().expect("id");
+    assert_eq!(envelope["data"]["kind"], "code");
+    let row = ctx.state.db.vault_row_by_id(id).unwrap().unwrap();
+    assert!(row.content.contains("borrow checker"));
+    assert!(row.tags.contains("code"), "tags={}", row.tags);
+    assert_searchable(&ctx.state, id, "borrow checker");
+}
+
+#[tokio::test]
+async fn importing_audio_and_video_creates_metadata_notes() {
+    let ctx = ctx();
+    for (name, kind, needle) in [
+        ("standup.mp3", "audio", "standup"),
+        ("demo.mp4", "video", "demo"),
     ] {
         let (status, envelope) = call(
             &ctx.state,
             Some(serde_json::json!({
                 "name": name,
-                "data": bytes,
+                "data": b"media-bytes-not-empty",
             })),
         )
         .await;
-        assert_eq!(
-            status,
-            StatusCode::BAD_REQUEST,
-            "name={name} envelope={envelope}"
+        assert_eq!(status, StatusCode::OK, "name={name} envelope={envelope}");
+        assert_eq!(envelope["data"]["kind"], kind);
+        let id = envelope["data"]["id"].as_i64().expect("id");
+        let row = ctx.state.db.vault_row_by_id(id).unwrap().unwrap();
+        assert!(
+            row.content.contains("不进行语音转写"),
+            "content={}",
+            row.content
         );
-        assert_eq!(envelope["error_code"], "domain_invalid_range");
-        let rows = ctx
-            .state
-            .db
-            .query_vault_rows(&mc_storage::vaults::VaultQuery {
-                document_type: vec!["vaults".into()],
-                parent_id: None,
-                title: None,
-                is_folder: Some(0),
-                is_deleted: Some(0),
-            })
-            .unwrap();
-        assert!(rows.is_empty(), "P4 类型不得落库：{name} → {rows:?}");
+        assert!(row.tags.contains(kind), "tags={}", row.tags);
+        assert!(
+            ctx.state.data_dir.join("uploads").join(name).is_file(),
+            "blob missing for {name}"
+        );
+        assert_searchable(&ctx.state, id, needle);
     }
+}
+
+#[tokio::test]
+async fn importing_meeting_transcript_creates_a_searchable_note() {
+    let ctx = ctx();
+    let vtt = "WEBVTT\n\n1\n00:00:01.000 --> 00:00:04.000\nQuarterly roadmap review decided to ship RSS ingest.\n";
+    let (status, envelope) = call(
+        &ctx.state,
+        Some(serde_json::json!({
+            "name": "roadmap-review.vtt",
+            "data": vtt.as_bytes(),
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{envelope}");
+    let id = envelope["data"]["id"].as_i64().expect("id");
+    assert_eq!(envelope["data"]["kind"], "meeting");
+    let row = ctx.state.db.vault_row_by_id(id).unwrap().unwrap();
+    assert!(row.content.contains("RSS ingest"));
+    assert!(row.tags.contains("meeting"), "tags={}", row.tags);
+    assert_searchable(&ctx.state, id, "RSS ingest");
 }
 
 #[tokio::test]

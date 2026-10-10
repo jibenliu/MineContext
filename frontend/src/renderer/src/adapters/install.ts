@@ -102,6 +102,19 @@ export function installAdapters(options: InstallOptions): void {
         source_host: string
       }>
   })
+  // RSS / 研究 / 目录导入与跟踪
+  install('contextSourceApi', {
+    importRss: (url: string, parentId?: number | null, limit?: number | null) =>
+      backend.invoke('v1:import-rss', url, parentId ?? null, limit ?? null),
+    importResearch: (topic: string, urls: string[], parentId?: number | null) =>
+      backend.invoke('v1:import-research', topic, urls, parentId ?? null),
+    importFolder: (path: string, parentId?: number | null, recursive?: boolean) =>
+      backend.invoke('v1:import-folder', path, parentId ?? null, recursive ?? true),
+    trackFolder: (path: string) => backend.invoke('v1:track-folder', path),
+    listTrackedFolders: () => backend.invoke('v1:list-tracked-folders'),
+    syncTrackedFolders: (path?: string | null, parentId?: number | null) =>
+      backend.invoke('v1:sync-tracked-folders', path ?? null, parentId ?? null)
+  })
 
   // 落盘出口：优先用调用方注入的 shellCapabilities；否则按 target 再探测一次。
   // main 已在 bootstrap 前装过一次；这里再装保证 installAdapters 单独调用时也有出口。

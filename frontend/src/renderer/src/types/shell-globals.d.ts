@@ -140,6 +140,46 @@ interface LinkApi {
   ) => Promise<{ id: number; title: string; url: string; source_host: string }>
 }
 
+interface ContextSourceApi {
+  importRss: (
+    url: string,
+    parentId?: number | null,
+    limit?: number | null
+  ) => Promise<{
+    feed_title: string
+    feed_url: string
+    source_host: string
+    imported: Array<{ id: number; title: string; link: string }>
+    skipped: number
+  }>
+  importResearch: (
+    topic: string,
+    urls: string[],
+    parentId?: number | null
+  ) => Promise<{ id: number; title: string; sources: string[] }>
+  importFolder: (
+    path: string,
+    parentId?: number | null,
+    recursive?: boolean
+  ) => Promise<{
+    path: string
+    imported: Array<{ id: number; title: string; name: string; kind: string; file_path: string }>
+    skipped: number
+    errors: string[]
+  }>
+  trackFolder: (path: string) => Promise<{ path: string }>
+  listTrackedFolders: () => Promise<{ folders: Array<{ path: string }> }>
+  syncTrackedFolders: (
+    path?: string | null,
+    parentId?: number | null
+  ) => Promise<{
+    path: string
+    imported: Array<{ id: number; title: string; name: string; kind: string; file_path: string }>
+    skipped: number
+    errors: string[]
+  }>
+}
+
 declare global {
   interface Window {
     /**
@@ -154,5 +194,6 @@ declare global {
     serverPushAPI: serverPushAPI
     eventLoop: EventLoopAPI
     linkApi: LinkApi
+    contextSourceApi: ContextSourceApi
   }
 }
