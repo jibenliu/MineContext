@@ -236,6 +236,7 @@ token）与文件系统路径 —— 由 `scripts/check-source.sh` 里的日志�
 
 **打 tag 前**先把 Cargo.toml / src-tauri / frontend / tauri.conf 四处版本改成与即将打的 `vX.Y.Z` 一致
 （`create-release-tag.sh` 会校验；勿绕过脚本直接推一个与仓库版本不符的 tag）。
+Release CI 打包前也会跑 `./scripts/create-release-tag.sh --assert-only <tag>`，不一致即失败。
 
 macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
 `xattr -dr com.apple.quarantine /Applications/MineContext.app`。
