@@ -13,6 +13,8 @@ export interface ActivityTimelineItemProps {
   activity: Activity
   /** 结论来源；拿不到扩展面时为 null（不标，而不是猜） */
   provenance?: ProvenanceBadge | null
+  /** 分组时间线默认折叠截图，避免又变回一堵墙；点展开看全部 */
+  compactScreenshots?: boolean
   /** 用户改名；不给就不显示改名入口（例如拿不到扩展面的外壳） */
   onRename?: (title: string) => Promise<void> | void
   /** 并入时间上的上一条活动（合并修正）；不给就不显示入口 */
@@ -20,13 +22,17 @@ export interface ActivityTimelineItemProps {
   /** 在某时刻把这条活动切成两段；参数是毫秒时间戳与后半段标题 */
   onSplit?: (atMs: number, tailTitle: string) => Promise<void> | void
 }
+
+const COMPACT_SCREENSHOT_LIMIT = 2
+
 const ActivityTimelineItem: FC<ActivityTimelineItemProps> = (props) => {
-  const { activity, provenance, onRename, onMergeInto, onSplit } = props
+  const { activity, provenance, compactScreenshots = false, onRename, onMergeInto, onSplit } = props
   const { t } = useI18n()
   const [editing, setEditing] = useState(false)
   const [splitting, setSplitting] = useState(false)
   const [splitTitle, setSplitTitle] = useState('')
   const [draft, setDraft] = useState(activity.title)
+  const [expandedScreenshots, setExpandedScreenshots] = useState(false)
 
   const commit = async (): Promise<void> => {
     const title = draft.trim()
@@ -150,18 +156,33 @@ const ActivityTimelineItem: FC<ActivityTimelineItemProps> = (props) => {
       )}
       <div className="screenshots-container flex flex-wrap align-center gap-2">
         <Image.PreviewGroup infinite className="[&_.arco-image-preview-img]:!scale-80">
-          {(activity?.resources || [])
-            .filter((resource) => resource.type === 'image')
-            .map((resource, index) => {
-              return (
-                <ScreenshotImage
-                  key={resource.id ?? index}
-                  path={resource.path}
-                  alt={`screenshot-${index + 1}`}
-                  index={index}
-                />
-              )
-            })}
+          {(() => {
+            const images = (activity?.resources || []).filter((resource) => resource.type === 'image')
+            const hidden =
+              compactScreenshots && !expandedScreenshots ? Math.max(0, images.length - COMPACT_SCREENSHOT_LIMIT) : 0
+            const visible = hidden > 0 ? images.slice(0, COMPACT_SCREENSHOT_LIMIT) : images
+            return (
+              <>
+                {visible.map((resource, index) => (
+                  <ScreenshotImage
+                    key={resource.id ?? index}
+                    path={resource.path}
+                    alt={`screenshot-${index + 1}`}
+                    index={index}
+                  />
+                ))}
+                {hidden > 0 ? (
+                  <button
+                    type="button"
+                    data-testid={`expand-screenshots-${activity.id}`}
+                    className="cursor-pointer text-[10px] text-[#5252FF]"
+                    onClick={() => setExpandedScreenshots(true)}>
+                    {t('screenMonitor.timeline.moreScreenshots', { count: hidden })}
+                  </button>
+                ) : null}
+              </>
+            )
+          })()}
         </Image.PreviewGroup>
       </div>
     </div>
