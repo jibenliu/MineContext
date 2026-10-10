@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { reclaimBackend, runtimeIdentityChanged } from '../daemon-heal.ts'
 import type { BootstrapRuntime } from '../../bootstrap-backend.ts'
+import { reclaimBackend, runtimeIdentityChanged } from '../daemon-heal.ts'
 
 const previous: BootstrapRuntime = { port: 43117, token: 'old' }
 const next: BootstrapRuntime = { port: 43118, token: 'new' }
