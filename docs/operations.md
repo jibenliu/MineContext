@@ -156,7 +156,8 @@ DEFERRED / SHELL_CHANNELS 并写明原因，用到时会在控制台告警一次
 | 真机窗口采集 | 应用名 / 标题 / 窗口图像正确 | 未执行 |
 | 8 / 24 / 72 小时长跑 | 无崩溃、RSS 增长 < 10% | 未执行 |
 | 真机 4 小时活动数量合理性 | 活动数量与人工观察一致 | 未执行 |
-| 界面人工确认 | `./scripts/tests/manual-smoke.sh --launch` 的 8 项清单 | 未执行 |
+| 打包产物冒烟（录制/助手/摄入） | `./scripts/tests/packaged-smoke-checklist.sh --auto` + `--record` | 未执行 |
+| 界面人工确认（托盘/通知/自启） | `./scripts/tests/manual-smoke.sh --launch` 的 8 项清单 | 未执行 |
 | 签名与公证、新机安装 | Gatekeeper 通过、可直接安装 | 豁免（无签名身份） |
 | 黄金数据集准确率 | Activity ≥ 90% / App ≥ 98% / Stage F1 ≥ 85% | 未测（需人工标注） |
 
@@ -246,9 +247,20 @@ macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
 ## 5.1 发布前还差什么
 
 自动部分已经固化在 `verify-all.sh`（门禁 + 产物 + 启动检查）与
-`verify-external.sh`（外部条件项）。**人在回路的三件事**：
+`verify-external.sh`（外部条件项）。打版本前再跑一遍打包产物冒烟清单
+（**不**接入日常 `verify-affected`，避免每笔业务提交跑完整冒烟）：
 
-1. 真机人工确认：`./scripts/tests/manual-smoke.sh --launch`（8 项观感与交互清单）；
+```bash
+./scripts/package-macos-tauri.sh --with-smoke   # 出 dmg + 产物启动验收
+./scripts/tests/packaged-smoke-checklist.sh --auto   # R1 产物 / R2 daemon·渲染层
+# 人确认 R3 录制、R4 助手一条消息、R5 文件或链接摄入：
+./scripts/tests/packaged-smoke-checklist.sh --launch --record
+```
+
+**人在回路的其余项**：
+
+1. 托盘 / 通知 / 自启观感：`./scripts/tests/manual-smoke.sh --launch`（8 项清单；
+   与上表互补，不重复录制/助手/摄入主路径）；
 2. 签名与公证：本仓库没有 Developer ID 与公证账号 → 产物未签名，属豁免项；
    要对外分发需要先决定签名身份，或只发未签名包并附上面的 `xattr` 说明；
 3. 长跑与准确率：8 / 24 / 72 小时 soak 与黄金数据集评测 —— 脚本与判据在本机留档，

@@ -165,6 +165,11 @@ if [ "${do_scripts}" -eq 1 ]; then
       [ "${LIST_ONLY}" -eq 0 ] && timed "macOS 打包脚本模式" bash ./scripts/tests/package-modes.sh
       ;;
   esac
+  case " ${changed} " in
+    *scripts/tests/packaged-smoke-checklist.sh* | *scripts/tests/packaged-smoke-checklist-modes.sh*)
+      [ "${LIST_ONLY}" -eq 0 ] && timed "打包冒烟清单模式" bash ./scripts/tests/packaged-smoke-checklist-modes.sh
+      ;;
+  esac
   [ "${LIST_ONLY}" -eq 0 ] && timed "源码类门禁（10 条）" ./scripts/check-source.sh
   case " ${changed} " in
     *scripts/tests/selftest-lints.sh* | *scripts/checks/*)

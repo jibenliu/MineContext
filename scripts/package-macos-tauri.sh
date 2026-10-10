@@ -134,6 +134,7 @@ else
   echo "构建完成（未运行启动验收）：${dmg}"
   echo '交付前验收：./scripts/package-macos-tauri.sh --with-smoke'
 fi
+echo "发版前人确认（录制/助手/摄入，不进日常提交）：./scripts/tests/packaged-smoke-checklist.sh --auto"
 echo "adhoc 签名、未公证（无 Developer ID）。若提示「已损坏」："
 echo "  xattr -cr ~/Downloads/MineContext_*.dmg"
 echo "  xattr -dr com.apple.quarantine /Applications/MineContext.app"
