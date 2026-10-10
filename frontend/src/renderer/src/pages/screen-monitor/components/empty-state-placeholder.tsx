@@ -12,15 +12,33 @@ const { Text } = Typography
 interface EmptyStatePlaceholderProps {
   hasPermission: boolean
   isToday: boolean
+  /** false = 当前平台没有屏幕/窗口采集实现（非 macOS） */
+  captureSupported?: boolean
   onGrantPermission: () => void
 }
 
-const EmptyStatePlaceholder: React.FC<EmptyStatePlaceholderProps> = ({ hasPermission, isToday, onGrantPermission }) => {
+const EmptyStatePlaceholder: React.FC<EmptyStatePlaceholderProps> = ({
+  hasPermission,
+  isToday,
+  captureSupported = true,
+  onGrantPermission
+}) => {
   const { t } = useI18n()
   return (
     <div className="flex items-center justify-center flex-1 min-h-[300px]">
       <div className="text-center flex flex-col items-center justify-center">
-        {hasPermission ? (
+        {!captureSupported ? (
+          <>
+            <div className="flex h-[96px] w-[96px] items-center justify-center rounded-[12px] border border-[var(--color-border-2)] bg-white">
+              <img src={screenMonitorEmpty} alt="" style={{ width: 66, height: 78 }} />
+            </div>
+            <Text
+              data-testid="capture-unsupported-empty"
+              style={{ marginTop: 16, width: 440, color: 'var(--color-text-2)', fontSize: 12 }}>
+              {t('screenMonitor.empty.unsupportedHint')}
+            </Text>
+          </>
+        ) : hasPermission ? (
           isToday ? (
             <>
               <div className="flex h-[96px] w-[96px] items-center justify-center rounded-[12px] border border-[var(--color-border-2)] bg-white">
