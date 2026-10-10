@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-export-diagnostics"
+description = "允许渲染层一键导出脱敏诊断包到 Downloads。"
+commands.allow = ["export_diagnostics"]

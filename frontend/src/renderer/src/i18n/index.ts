@@ -179,6 +179,13 @@ const zh: Messages = {
   'settings.backfill.statusSkipped': '已跳过：{reason}',
   'settings.backfill.statusFailed': '失败：{error}',
   'settings.backfill.pollFailed': '无法读取作业状态',
+  'settings.diagnosticExport': '导出诊断包',
+  'settings.diagnosticExport.hint':
+    '一键导出脱敏后的日志尾巴与运行信息（版本、端口、权限状态），可直接发给支持或贴进 issue',
+  'settings.diagnosticExport.run': '导出诊断包',
+  'settings.diagnosticExport.success': '已导出到 {path}',
+  'settings.diagnosticExport.failed': '诊断包导出失败',
+  'settings.diagnosticExport.unsupported': '诊断导出需要桌面外壳',
   'settings.retention': '截图占用',
   'settings.retention.hint':
     '按保留天数和/或容量上限自动清理采集截图（不含笔记与上传文件）。天数为 0 表示不按天删除；容量为 0 表示不按容量删除。',
@@ -627,6 +634,13 @@ const en: Messages = {
   'settings.backfill.statusSkipped': 'Skipped: {reason}',
   'settings.backfill.statusFailed': 'Failed: {error}',
   'settings.backfill.pollFailed': 'Could not read job status',
+  'settings.diagnosticExport': 'Export diagnostics',
+  'settings.diagnosticExport.hint':
+    'One-click export of redacted log tails and runtime info (version, port, permissions) to share with support or attach to an issue',
+  'settings.diagnosticExport.run': 'Export diagnostics',
+  'settings.diagnosticExport.success': 'Exported to {path}',
+  'settings.diagnosticExport.failed': 'Failed to export diagnostics',
+  'settings.diagnosticExport.unsupported': 'Diagnostic export needs the desktop shell',
   'settings.retention': 'Screenshot storage',
   'settings.retention.hint':
     'Automatically prune capture screenshots by retention days and/or capacity (vault notes and uploads are never deleted). 0 days means no age limit; 0 GiB means no capacity limit.',

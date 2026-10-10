@@ -181,6 +181,8 @@ dmg 链接（设置页可点「检查更新」）；**静默下载与安装未�
 
 ```bash
 mc-cli doctor                    # 五段自检：config / storage / model / platform / capture
+# 设置页「导出诊断包」会生成脱敏 zip（日志尾巴 + info/diagnostics）；
+# 也可只拉 JSON：
 tail -50 "<数据目录>/logs/daemon.log"
 curl -s -H "x-mc-token: <token>" http://127.0.0.1:<port>/api/v1/diagnostics/export
 tail -50 ~/Library/Logs/MineContext/main.log     # 桌面外壳日志

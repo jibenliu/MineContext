@@ -5,6 +5,8 @@
 //! 因此这里用一个**初始化脚本**把它接到 Tauri 命令上 —— 渲染层与适配层
 //! 一行都不用改。
 
+mod diagnostic_export;
+
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -384,6 +386,20 @@ fn clipboard_write_text(text: String) -> Result<(), String> {
     clipboard.set_text(text).map_err(|error| error.to_string())
 }
 
+/// 一键导出脱敏诊断包（zip + 同名目录）到 Downloads。
+#[tauri::command]
+fn export_diagnostics(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<ShellState>>,
+) -> Result<diagnostic_export::ExportResult, String> {
+    let data_dir = state
+        .lock()
+        .map_err(|_| "shell state lock poisoned".to_string())?
+        .data_dir
+        .clone();
+    diagnostic_export::export_pack(&app, &data_dir)
+}
+
 /// 对照 GitHub Releases 检查是否有新版本（不下载、不安装）。
 #[tauri::command]
 fn check_for_update() -> Result<mc_update::CheckForUpdateResult, String> {
@@ -574,6 +590,7 @@ pub fn run() {
             tray_recording_status,
             renderer_log,
             clipboard_write_text,
+            export_diagnostics,
             check_for_update,
             open_external_url
         ])

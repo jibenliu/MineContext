@@ -15,6 +15,7 @@
     "allow-tray-recording-status",
     "allow-launch-at-login",
     "allow-set-launch-at-login",
+    "allow-export-diagnostics",
     "allow-check-for-update",
     "allow-open-external-url"
   ]
