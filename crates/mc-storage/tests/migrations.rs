@@ -212,6 +212,7 @@ fn compat_tables_match_legacy_columns() {
                 "page_name",
                 "status",
                 "metadata",
+                "vault_id",
                 "created_at",
                 "updated_at",
             ],

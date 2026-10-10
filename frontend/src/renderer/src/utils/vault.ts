@@ -7,6 +7,30 @@ import dayjs from 'dayjs'
 
 import { isWithinSevenDays } from './time'
 
+/** localStorage key for the active vault root used by assistant / RAG isolation. */
+export const ACTIVE_VAULT_STORAGE_KEY = 'mc.activeVaultId'
+
+/**
+ * Top-level folders under the virtual tree root — these are multi-vault switch targets.
+ */
+export const getVaultRoots = (tree: VaultTreeNode): VaultTreeNode[] => {
+  return (tree.children || []).filter((node) => node.id !== -1 && node.is_folder === 1)
+}
+
+export const readActiveVaultId = (): number | null => {
+  if (typeof localStorage === 'undefined') return null
+  const raw = localStorage.getItem(ACTIVE_VAULT_STORAGE_KEY)
+  if (raw == null || raw === '') return null
+  const id = Number(raw)
+  return Number.isFinite(id) ? id : null
+}
+
+export const writeActiveVaultId = (id: number | null): void => {
+  if (typeof localStorage === 'undefined') return
+  if (id == null) localStorage.removeItem(ACTIVE_VAULT_STORAGE_KEY)
+  else localStorage.setItem(ACTIVE_VAULT_STORAGE_KEY, String(id))
+}
+
 /**
  * Recursively find a node with the specified ID
  * @param node The root node to search from

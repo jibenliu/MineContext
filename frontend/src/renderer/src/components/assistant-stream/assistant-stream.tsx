@@ -1,4 +1,5 @@
 import { Button, Input, Modal } from '@arco-design/web-react'
+import { useVaults } from '@renderer/hooks/use-vault'
 import { useI18n } from '@renderer/i18n'
 import MarkdownIt from 'markdown-it'
 import { FC, useRef, useState } from 'react'
@@ -12,7 +13,9 @@ const answerClass =
 
 export const AssistantStream: FC = () => {
   const { t } = useI18n()
-  const chat = useAssistantConversation()
+  const { selectedVaultId, setSelectedVaultId, getVaultRoots } = useVaults()
+  const vaultRoots = getVaultRoots()
+  const chat = useAssistantConversation(selectedVaultId)
   const [draft, setDraft] = useState('')
   const [copyFeedback, setCopyFeedback] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
@@ -48,6 +51,26 @@ export const AssistantStream: FC = () => {
   return (
     <div className="assistant-stream flex h-full w-full min-w-0 flex-1 gap-4 self-stretch">
       <aside className="flex w-[220px] flex-shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[var(--color-border-2)] bg-[var(--color-fill-1)] p-3">
+        {vaultRoots.length > 0 && (
+          <select
+            aria-label={t('assistant.vaultLabel')}
+            disabled={chat.busy}
+            value={selectedVaultId ?? ''}
+            onChange={(event) => {
+              const next = event.target.value ? Number(event.target.value) : null
+              setSelectedVaultId(next)
+              setDraft('')
+              setCopyFeedback('')
+            }}
+            className="h-8 rounded-[6px] border border-[var(--color-border-2)] bg-[var(--color-bg-2)] px-2 text-[13px] text-[var(--color-text-1)]">
+            <option value="">{t('assistant.vaultAll')}</option>
+            {vaultRoots.map((root) => (
+              <option key={root.id} value={root.id}>
+                {root.title || t('assistant.vaultUntitled')}
+              </option>
+            ))}
+          </select>
+        )}
         <Button
           type="primary"
           long

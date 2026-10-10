@@ -41,6 +41,8 @@
 |---|---|
 | `/api/health` | 启动握手（**唯一公开路径**） |
 | `/api/diagnostics`、`/api/v1/diagnostics/export` | 不变量自检；可分享的诊断 JSON。设置页「导出诊断包」另由外壳写出脱敏 zip（日志尾巴 + info/diagnostics） |
+| `/api/diagnostics`、`/api/v1/diagnostics/export` | 不变量自检；可分享的诊断包（不含用户内容） |
+| `/api/v1/vault/export`、`/api/v1/vault/import` | 笔记树 + `uploads/` 备份 zip（含用户内容；重装可恢复） |
 | `/api/model_settings/*` | 模型配置读写与校验（密钥不回传，只回「有没有配」） |
 | `/api/capture/*` | 权限、目标列表与选择、配置、立即截图、删除单张截图 |
 | `/api/db/*` | 兼容面：活动、笔记树、待办、提示、热力图（**字段名不能改**） |
@@ -57,6 +59,8 @@
 | `/api/v1/files/track`、`/api/v1/files/track/sync` | 文件跟踪：登记目录、列出、同步仅导入未见过的支持文件 |
 | `/api/v1/rss` | RSS/Atom：`POST {url, parent_id?, limit?}` 抓取公开订阅源条目写入笔记树 |
 | `/api/v1/research` | Deep Research（轻量）：`POST {topic, urls, parent_id?}` 抓取公开 URL 汇编一篇研究笔记 |
+| `/api/v1/vault/export` | 导出笔记树与 `uploads/`：成功响应为 `application/zip`（`manifest.json` + `vaults.json` + `uploads/*`），需 token |
+| `/api/v1/vault/import` | 导入同格式备份：`POST { data: "<base64 zip>" }`；重映射笔记 id / `parent_id`，并把正文里的 `file://…/uploads/<name>` 改写到本机 data_dir |
 
 ### 1.3 SSE
 
