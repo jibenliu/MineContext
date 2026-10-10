@@ -524,16 +524,7 @@ const ScreenMonitor: React.FC = () => {
       setTempRecordingHours(recordingHours as [string, string])
       setTempApplyToDays(applyToDays)
     }
-  }, [
-    settingSources,
-    sources,
-    entry,
-    recordInterval,
-    enableRecordingHours,
-    pauseOnLock,
-    recordingHours,
-    applyToDays
-  ])
+  }, [settingSources, sources, entry, recordInterval, enableRecordingHours, pauseOnLock, recordingHours, applyToDays])
 
   const handleRequestPermission = useMemoizedFn(async () => {
     await grantPermission()

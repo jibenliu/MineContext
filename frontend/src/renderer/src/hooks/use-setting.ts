@@ -10,8 +10,7 @@ export const useSetting = () => {
   const dispatch = useAppDispatch()
   const screenSettings = useSelector((state: RootState) => state.setting.screenSettings)
 
-  const { recordInterval, recordingHours, enableRecordingHours, applyToDays, pauseOnLock } =
-    screenSettings
+  const { recordInterval, recordingHours, enableRecordingHours, applyToDays, pauseOnLock } = screenSettings
 
   const setRecordInterval = useCallback(
     (interval: number) => {

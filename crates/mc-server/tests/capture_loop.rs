@@ -509,10 +509,7 @@ async fn lock_pauses_capture_by_default_without_clearing_enabled() {
 /// 用户关掉 pause_on_lock 后，锁屏不再硬暂停（空闲降频仍可生效）。
 #[tokio::test]
 async fn lock_does_not_pause_when_pause_on_lock_is_disabled() {
-    let ctx = ctx_toml(
-        "[capture]\ninterval_secs = 1\npause_on_lock = false\n",
-        0,
-    );
+    let ctx = ctx_toml("[capture]\ninterval_secs = 1\npause_on_lock = false\n", 0);
     assert!(!ctx.state.config.current().config.capture.pause_on_lock);
     ctx.state.capture.as_ref().unwrap().start();
     let signals = Arc::new(std::sync::Mutex::new(CaptureSignals {
