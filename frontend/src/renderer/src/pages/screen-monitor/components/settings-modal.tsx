@@ -5,7 +5,14 @@ import { ApplyToDays } from '@renderer/store/setting'
 import clsx from 'clsx'
 import React from 'react'
 
-import { isWindowListPermissionBlocked, shouldShowRecordingNotStarted } from '../recording-status-copy'
+import {
+  captureRecordingState,
+  isWindowListPermissionBlocked,
+  shouldShowQuitRelaunchHint,
+  shouldShowRecordingNotStarted,
+  shouldShowTccDenied,
+  windowListHintKind
+} from '../recording-status-copy'
 import { Application } from './application'
 
 interface SettingsModalProps {
@@ -23,6 +30,8 @@ interface SettingsModalProps {
   isMonitoring: boolean
   /** capture.enabled；false = 用户停过录 */
   captureEnabled?: boolean
+  /** 进程 TCC 原值（与经验证后的 screen_recording 区分） */
+  screenRecordingTcc?: boolean
   /** 后端 windows_reason */
   windowsReason?: string | null
   onCancel: () => void
@@ -48,6 +57,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   tempApplyToDays,
   isMonitoring,
   captureEnabled,
+  screenRecordingTcc,
   windowsReason,
   onCancel,
   onSave,
@@ -61,6 +71,41 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const { t } = useI18n()
   const showNotStarted = shouldShowRecordingNotStarted(isMonitoring, captureEnabled)
   const showWindowPermission = isWindowListPermissionBlocked(windowsReason)
+  const showTccDenied = shouldShowTccDenied(screenRecordingTcc)
+  const showQuitRelaunch = shouldShowQuitRelaunchHint(screenRecordingTcc, windowsReason)
+  const recordingState = captureRecordingState(isMonitoring, captureEnabled)
+  const windowHint = windowListHintKind(windowsReason)
+
+  const tccLabel =
+    screenRecordingTcc === true
+      ? t('screenMonitor.settings.tccGranted')
+      : screenRecordingTcc === false
+        ? t('screenMonitor.settings.tccDenied')
+        : t('screenMonitor.settings.tccUnknown')
+
+  const recordingLabel =
+    recordingState === 'running'
+      ? t('screenMonitor.settings.recordingRunning')
+      : recordingState === 'enabled_idle'
+        ? t('screenMonitor.settings.recordingEnabledIdle')
+        : t('screenMonitor.settings.recordingStopped')
+
+  const windowListLabel =
+    windowHint === 'permission'
+      ? t('screenMonitor.settings.windowListPermission')
+      : windowHint === 'empty'
+        ? t('screenMonitor.settings.windowListEmpty')
+        : windowHint === 'ok'
+          ? t('screenMonitor.settings.windowListOk')
+          : t('screenMonitor.settings.windowListUnknown')
+
+  const windowSectionHint =
+    windowHint === 'permission'
+      ? t('screenMonitor.settings.windowPermissionBlocked')
+      : windowHint === 'empty'
+        ? t('screenMonitor.settings.windowListEmpty')
+        : t('screenMonitor.settings.onlyOpenedApps')
+
   return (
     <Modal
       title={t('common.settings')}
@@ -85,6 +130,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       }
       style={{ width: 682 }}>
       <Form layout="vertical" form={form}>
+        <div
+          data-testid="capture-status-panel"
+          className="mb-3 rounded-[8px] border border-[var(--color-border-2)] bg-[var(--color-fill-1)] px-3 py-2 text-[12px] leading-[18px] text-[var(--color-text-2)]">
+          <div data-testid="capture-tcc-status">
+            {t('screenMonitor.settings.tccLabel')}: {tccLabel}
+          </div>
+          <div data-testid="capture-recording-status">
+            {t('screenMonitor.settings.recordingStateLabel')}: {recordingLabel}
+          </div>
+          <div data-testid="capture-window-list-status">
+            {t('screenMonitor.settings.windowListLabel')}: {windowListLabel}
+          </div>
+          {showQuitRelaunch ? (
+            <div data-testid="quit-relaunch-hint" className="mt-1 text-[var(--color-text-3)]">
+              {t('screenMonitor.settings.quitRelaunchAfterTcc')}
+            </div>
+          ) : null}
+          {(showTccDenied || showWindowPermission) && onRequestPermission ? (
+            <div className="mt-2">
+              <Button size="mini" type="primary" onClick={onRequestPermission}>
+                {t('screenMonitor.settings.openScreenRecording')}
+              </Button>
+            </div>
+          ) : null}
+        </div>
         {showNotStarted ? (
           <Alert
             type="info"
@@ -247,9 +317,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {t('screenMonitor.settings.windowSection')}
               </div>
               <div className="text-[10px] leading-[12px] text-[var(--color-text-3)] mb-[4px]">
-                {showWindowPermission
-                  ? t('screenMonitor.settings.windowPermissionBlocked')
-                  : t('screenMonitor.settings.onlyOpenedApps')}
+                {windowSectionHint}
               </div>
               <Form.Item field="windowSources">
                 <Checkbox.Group className="flex flex-col space-y-4">

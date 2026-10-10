@@ -179,12 +179,14 @@ const ScreenMonitor: React.FC = () => {
   const [recordBlockReason, setRecordBlockReason] = useState<string | undefined>(undefined)
   const [captureEnabled, setCaptureEnabled] = useState<boolean | undefined>(undefined)
   const [windowsReason, setWindowsReason] = useState<string | null | undefined>(undefined)
+  const [screenRecordingTcc, setScreenRecordingTcc] = useState<boolean | undefined>(undefined)
   const checkCanRecord = useMemoizedFn(async () => {
     const result = await window.screenMonitorAPI.checkCanRecord()
     setCanRecord(result.canRecord)
     setRecordBlockReason(result.reason)
     setCaptureEnabled(result.enabled)
     setWindowsReason(result.windows_reason)
+    setScreenRecordingTcc(result.screen_recording_tcc)
     setIsMonitoring(result.status === 'running')
     return result
   })
@@ -607,6 +609,7 @@ const ScreenMonitor: React.FC = () => {
           tempApplyToDays={tempApplyToDays}
           isMonitoring={isMonitoring}
           captureEnabled={captureEnabled}
+          screenRecordingTcc={screenRecordingTcc}
           windowsReason={windowsReason}
           onCancel={handleCancelSettings}
           onSave={handleSave}
