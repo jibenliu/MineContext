@@ -1,3 +1,4 @@
+import { isCapturePlatformSupported } from '@renderer/pages/screen-monitor/capture-platform'
 import { describe, expect, it } from 'vitest'
 
 import { isScreenRecordingGranted } from './use-screen'
@@ -15,5 +16,17 @@ describe('isScreenRecordingGranted', () => {
     expect(isScreenRecordingGranted(true)).toBe(true)
     expect(isScreenRecordingGranted(false)).toBe(false)
     expect(isScreenRecordingGranted(null)).toBe(false)
+  })
+})
+
+describe('isCapturePlatformSupported（与权限正交）', () => {
+  it('capture_supported=false 时即使 permission 字段存在也不当「可授权」', () => {
+    expect(
+      isCapturePlatformSupported({
+        capture_supported: false,
+        screen_recording: false,
+        permission: 'unknown'
+      })
+    ).toBe(false)
   })
 })
