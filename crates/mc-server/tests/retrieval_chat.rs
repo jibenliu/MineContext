@@ -153,6 +153,11 @@ async fn chat_cites_retrieved_records() {
     assert_eq!(citations.len(), 1, "应当引用到那条活动：{complete}");
     assert_eq!(citations[0]["document_id"], "act-1");
     assert_eq!(citations[0]["kind"], "activity");
+    assert!(
+        citations[0]["at"].as_i64().unwrap_or(0) > 0,
+        "引用要带时间，前端才能切到对应截图日：{}",
+        citations[0]
+    );
 
     // 没配模型时也要如实列出找到的内容
     let content: String = frames

@@ -28,6 +28,8 @@ interface RecordingTimelineProps {
   /** 不能录制时的原因（后端 /api/capture/status 的 reason） */
   recordReason?: string
   onSummarizeRange?: (from: string, to: string) => void
+  /** 助手引用跳转：滚到并高亮这条活动（截图就在条目里） */
+  focusActivityId?: string | null
 }
 
 function formatDuration(ms: number): string {
@@ -45,7 +47,8 @@ const RecordingTimeline: React.FC<RecordingTimelineProps> = ({
   activities,
   recordingStats,
   recordReason,
-  onSummarizeRange
+  onSummarizeRange,
+  focusActivityId
 }) => {
   const { t } = useI18n()
   // 结论来源与改名都来自扩展面；拿不到就只少一个标记，时间线照常渲染
@@ -110,6 +113,20 @@ const RecordingTimeline: React.FC<RecordingTimelineProps> = ({
     setPicked(null)
   }
 
+  // 引用跳转：先翻到含目标活动的那一页，再滚入视口
+  React.useEffect(() => {
+    if (!focusActivityId) return
+    const index = sorted.findIndex((activity) => activity.id === focusActivityId)
+    if (index < 0) return
+    setRequestedPage(Math.floor(index / PAGE_SIZE))
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-activity-id="${CSS.escape(focusActivityId)}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusActivityId, sorted])
+
   const isSelected = (index: number): boolean => {
     if (anchor === null) return false
     const other = hovered ?? anchor
@@ -129,11 +146,16 @@ const RecordingTimeline: React.FC<RecordingTimelineProps> = ({
       <TimelineItem label={formatTime(activity?.end_time)} key={activity.id}>
         <div
           data-testid={`timeline-item-${index}`}
+          data-activity-id={activity.id}
           onMouseDown={() => setAnchor(index)}
           onMouseEnter={() => setHovered(index)}
           onMouseUp={() => commitSelection(index)}
           // 选中底色走语义变量：写死浅紫在暗色主题下会亮成一块，与整页割裂
-          className={isSelected(index) ? 'rounded-[8px] bg-[var(--color-primary-light-1)]' : undefined}>
+          className={
+            isSelected(index) || activity.id === focusActivityId
+              ? 'rounded-[8px] bg-[var(--color-primary-light-1)]'
+              : undefined
+          }>
           <ActivityTimelineItem
             activity={activity}
             compactScreenshots={compact}

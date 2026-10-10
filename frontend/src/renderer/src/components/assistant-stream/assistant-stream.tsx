@@ -1,10 +1,13 @@
 import { Button, Input, Modal } from '@arco-design/web-react'
+import { useNavigation } from '@renderer/hooks/use-navigation'
 import { useVaults } from '@renderer/hooks/use-vault'
 import { useI18n } from '@renderer/i18n'
 import MarkdownIt from 'markdown-it'
 import { FC, useRef, useState } from 'react'
 
+import { citationPath } from './citation-target'
 import { conversationDisplayTitle } from './conversation-title'
+import { openCitation } from './open-citation'
 import { useAssistantConversation } from './use-assistant-conversation'
 
 const markdown = new MarkdownIt({ html: false, linkify: false, breaks: true })
@@ -16,6 +19,7 @@ export const AssistantStream: FC = () => {
   const { selectedVaultId, setSelectedVaultId, getVaultRoots } = useVaults()
   const vaultRoots = getVaultRoots()
   const chat = useAssistantConversation(selectedVaultId)
+  const { navigateToVault, navigateToMainTab } = useNavigation()
   const [draft, setDraft] = useState('')
   const [copyFeedback, setCopyFeedback] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
@@ -169,12 +173,28 @@ export const AssistantStream: FC = () => {
                     {turn.sources.length > 0 && (
                       <details className="mt-2 text-xs text-[var(--color-text-3)]">
                         <summary>{t('assistant.sources', { count: turn.sources.length })}</summary>
-                        <ul>
-                          {turn.sources.map((source, sourceIndex) => (
-                            <li key={source.kind + source.document_id + sourceIndex}>
-                              {source.title} · {source.kind}
-                            </li>
-                          ))}
+                        <ul className="mt-1 flex flex-col gap-1">
+                          {turn.sources.map((source, sourceIndex) => {
+                            const href = citationPath(source)
+                            const label = `${source.title} · ${source.kind}`
+                            return (
+                              <li key={source.kind + source.document_id + sourceIndex}>
+                                {href ? (
+                                  <button
+                                    type="button"
+                                    data-testid="assistant-citation"
+                                    data-citation-kind={source.kind}
+                                    data-citation-id={source.document_id}
+                                    className="text-left text-[var(--mc-brand)] underline-offset-2 hover:underline"
+                                    onClick={() => openCitation(source, { navigateToVault, navigateToMainTab })}>
+                                    {label}
+                                  </button>
+                                ) : (
+                                  <span data-testid="assistant-citation-static">{label}</span>
+                                )}
+                              </li>
+                            )
+                          })}
                         </ul>
                       </details>
                     )}

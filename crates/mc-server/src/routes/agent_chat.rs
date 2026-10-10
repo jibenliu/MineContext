@@ -471,6 +471,7 @@ fn write_answer_metadata(
                 "document_id": citation.document_id,
                 "title": citation.title,
                 "kind": citation.kind,
+                "at": citation.at,
             })).collect::<Vec<_>>(),
         }),
         now,
@@ -490,6 +491,7 @@ fn emit_stream_complete(
             "document_id": citation.document_id,
             "title": citation.title,
             "kind": citation.kind,
+            "at": citation.at,
         })).collect::<Vec<_>>(),
     }));
 }
@@ -1082,6 +1084,7 @@ mod streaming_tests {
                     document_id: "act-1".to_string(),
                     title: "排查 APEX-389".to_string(),
                     kind: "activity".to_string(),
+                    at: 0,
                 }],
                 history: Vec::new(),
             },
@@ -1141,6 +1144,7 @@ mod streaming_tests {
                     document_id: "act-1".to_string(),
                     title: "排查 APEX-389".to_string(),
                     kind: "activity".to_string(),
+                    at: 0,
                 }],
                 history: Vec::new(),
             },
