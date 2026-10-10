@@ -6,23 +6,29 @@
 #   ./scripts/create-release-tag.sh 0.1.6           # 指定版本（可带或不带 v）
 #   ./scripts/create-release-tag.sh --dry-run       # 只打印将要打的标签
 #   ./scripts/create-release-tag.sh --local 0.1.6   # 只在本机建 tag，不 push
+#   ./scripts/create-release-tag.sh --assert-only [VERSION]
+#       # 只跑版本闸门（四处一致，可选等于 VERSION/tag）；不建 tag。Release CI 用。
 #
-# CI：`.github/workflows/tag-release.yml` 调本脚本；推送 `v*` 后由
-# `release.yml` 接手各环境二进制 + macOS dmg + draft Release。
+# CI：`.github/workflows/tag-release.yml` 调本脚本；`release.yml` 在打包前
+# `--assert-only` 对照 tag；推送 `v*` 后由 release.yml 接手二进制 + dmg + draft Release。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+. "$(dirname "$0")/lib/version-gate.sh"
+
 DRY_RUN=0
 LOCAL_ONLY=0
+ASSERT_ONLY=0
 VERSION_ARG=""
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --local) LOCAL_ONLY=1 ;;
+    --assert-only) ASSERT_ONLY=1 ;;
     -h | --help)
-      sed -n '2,14p' "$0"
+      sed -n '2,13p' "$0"
       exit 0
       ;;
     -*)
@@ -39,50 +45,22 @@ for arg in "$@"; do
   esac
 done
 
-read_cargo_version() {
-  # 取文件里第一处顶格 `version = "..."`（workspace / crate 清单）
-  sed -n 's/^version = "\([^"]*\)"/\1/p' "$1" | head -1
-}
-
-read_json_version() {
-  # 不引 jq：用 python 读顶层 version（CI / 本机都有）
-  python3 - "$1" <<'PY'
-import json, sys
-path = sys.argv[1]
-with open(path, encoding="utf-8") as fh:
-    data = json.load(fh)
-version = data.get("version")
-if not isinstance(version, str) or not version:
-    raise SystemExit(f"{path} 里没有 version 字段")
-print(version)
-PY
-}
-
-workspace_version="$(read_cargo_version Cargo.toml)"
-tauri_crate_version="$(read_cargo_version src-tauri/Cargo.toml)"
-frontend_version="$(read_json_version frontend/package.json)"
-tauri_conf_version="$(read_json_version src-tauri/tauri.conf.json)"
-
-if [ -z "$workspace_version" ]; then
-  echo "读不到 Cargo.toml 的 workspace version" >&2
-  exit 1
-fi
-
-mismatched=0
-for pair in \
-  "src-tauri/Cargo.toml:${tauri_crate_version}" \
-  "frontend/package.json:${frontend_version}" \
-  "src-tauri/tauri.conf.json:${tauri_conf_version}"; do
-  source="${pair%%:*}"
-  value="${pair#*:}"
-  if [ "$value" != "$workspace_version" ]; then
-    echo "版本不一致：Cargo.toml = ${workspace_version}，但 ${source} = ${value}" >&2
-    mismatched=1
+if [ "$ASSERT_ONLY" -eq 1 ]; then
+  if [ -n "$VERSION_ARG" ]; then
+    VERSION="${VERSION_ARG#v}"
+    if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+      echo "非法版本号：${VERSION}（需要 SemVer，例如 0.1.5 或 v0.1.5）" >&2
+      exit 1
+    fi
+    workspace_version="$(version_gate_assert "$VERSION")"
+  else
+    workspace_version="$(version_gate_assert)"
   fi
-done
-if [ "$mismatched" -ne 0 ]; then
-  exit 1
+  echo "版本闸门通过（仓库版本 ${workspace_version}${VERSION_ARG:+，期望 ${VERSION_ARG#v}}）"
+  exit 0
 fi
+
+workspace_version="$(version_gate_assert)"
 
 if [ -n "$VERSION_ARG" ]; then
   VERSION="${VERSION_ARG#v}"

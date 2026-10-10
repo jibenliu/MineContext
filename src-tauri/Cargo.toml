@@ -24,6 +24,10 @@ tauri-plugin-log = "2"
 log = "0.4.34"
 # 渲染层剪贴板：WKWebView 的 navigator.clipboard 常失败，走原生命令写入。
 arboard = "3"
+# GitHub Releases 轻量更新检查（同步 HTTP，不引入 tokio）
+ureq = { version = "2", default-features = false, features = ["tls"] }
+# 纯解析与版本比较（与 workspace 同源，外壳侧只负责拉网）
+mc-update = { path = "../crates/mc-update" }
 
 [profile.release]
 opt-level = "s"

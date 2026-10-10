@@ -18,12 +18,20 @@ MineContext 把用户主动导入与本机采集的内容写入笔记树（`docu
 
 ## Deferred（需外部账号 / 硬件 / 独立产物）
 
-| Capability | Blocker |
-|---|---|
-| Browser extension（AI 对话 / 网页精炼） | 独立浏览器扩展与分发 |
-| Application MCP/API（Notion 云、Slack、Jira、Figma、Linear、Todoist、邮件、新闻、支付、论文 API 等） | 各服务 OAuth / API 密钥与线上联调 |
-| WeChat / QQ 聊天捕获 | 平台私有协议与合规边界 |
-| Mobile screenshot monitor | 移动端配套与硬件 |
-| Smart glasses / bracelet sync | 可穿戴硬件与厂商 SDK |
+| Capability | Blocker | Tracking |
+|---|---|---|
+| Browser extension（AI 对话 / 网页精炼） | 独立浏览器扩展与分发 | [#50](https://github.com/jibenliu/MineContext/issues/50) |
+| Application MCP/API（Notion 云、Slack、Jira、Figma、Linear、Todoist、邮件、新闻、支付、论文 API 等） | 各服务 OAuth / API 密钥与线上联调 | 下一外部入口见下；其余仍按服务拆分 |
+| WeChat / QQ 聊天捕获 | 平台私有协议与合规边界 | [#52](https://github.com/jibenliu/MineContext/issues/52)（伞形） |
+| Mobile screenshot monitor | 移动端配套与硬件 | [#52](https://github.com/jibenliu/MineContext/issues/52)（伞形） |
+| Smart glasses / bracelet sync | 可穿戴硬件与厂商 SDK | [#52](https://github.com/jibenliu/MineContext/issues/52)（伞形） |
 
 本地 Obsidian 库与 Memory Bank 目录通过「导入本地目录 / 文件跟踪」覆盖，不依赖云端 MCP。
+
+## Next（外部入口）
+
+**下一外部 Context Source：Google Calendar（MCP/OAuth）** — [#51](https://github.com/jibenliu/MineContext/issues/51)。
+
+优先于完整浏览器扩展：会议记录已支持 `.ics` / 字幕文件导入，日历 OAuth 是最小的云账号闭环。验收草图与非目标写在该 issue；本仓库暂无足够安全的半成品 OAuth 钩子可单独合入。
+
+相关已知坑（非新能力）：屏幕录制 TCC → 0 张截图 [#54](https://github.com/jibenliu/MineContext/issues/54)；embedding/API 401 与模型配置 [#55](https://github.com/jibenliu/MineContext/issues/55)；打 tag 前版本对齐 [#53](https://github.com/jibenliu/MineContext/issues/53)。
