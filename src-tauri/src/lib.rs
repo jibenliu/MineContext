@@ -16,6 +16,8 @@ use tauri::tray::TrayIconBuilder;
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
+mod update_check;
+
 /// `runtime.json` 里渲染层需要的最小字段。
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeInfo {
@@ -254,6 +256,18 @@ fn clipboard_write_text(text: String) -> Result<(), String> {
     clipboard.set_text(text).map_err(|error| error.to_string())
 }
 
+/// 对照 GitHub Releases 检查是否有新版本（不下载、不安装）。
+#[tauri::command]
+fn check_for_update() -> Result<mc_update::CheckForUpdateResult, String> {
+    update_check::fetch_and_evaluate(env!("CARGO_PKG_VERSION"))
+}
+
+/// 用系统默认浏览器 / 下载器打开发布页或 dmg 链接。
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    update_check::open_external_url(&url)
+}
+
 
 /// 进程级单实例锁：`<数据目录>/.shell.lock` 存 pid。
 ///
@@ -434,7 +448,9 @@ pub fn run() {
             set_launch_at_login,
             tray_recording_status,
             renderer_log,
-            clipboard_write_text
+            clipboard_write_text,
+            check_for_update,
+            open_external_url
         ])
         .setup(move |app| {
             let resource_dir = app.path().resource_dir().ok();

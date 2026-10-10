@@ -24,6 +24,7 @@ import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
 import ModelRadio from './components/model-radio/model-radio'
 import { NotificationSwitch } from './components/notification-switch'
+import { UpdateCheckSection } from './components/update-check-section'
 import {
   BaseUrl,
   embeddingModels,
@@ -751,6 +752,7 @@ const Settings: FC<SettingsProps> = (props) => {
           <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.startup')}</div>
           <LaunchAtLoginSwitch />
           <NotificationSwitch />
+          <UpdateCheckSection />
           {/* 语言切换入口：设置页里的位置固定在启动项下面，不随页面结构漂移 */}
           <LanguageSwitch />
           <BackfillSection />

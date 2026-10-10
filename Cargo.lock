@@ -2011,6 +2011,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc-update"
+version = "1.0.7"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "md-5"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
