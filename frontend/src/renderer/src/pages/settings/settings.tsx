@@ -9,6 +9,8 @@ import { find, get, isEmpty, pick } from 'lodash'
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ErrorBoundary } from '../../components/error-boundary'
+import FirstRunChecklist from '../../components/first-run-checklist'
+import { useFirstRunChecklist } from '../../components/first-run-checklist/use-first-run-checklist'
 import {
   getModelInfo,
   getStoredApiKey,
@@ -446,6 +448,7 @@ const Settings: FC<SettingsProps> = (props) => {
   const [hasStoredEmbeddingKey, setHasStoredEmbeddingKey] = useState(false)
   const [embeddingMaskedValue, setEmbeddingMaskedValue] = useState('')
   const embeddingMaskedRef = useRef('')
+  const firstRun = useFirstRunChecklist({ apiKeyConfiguredOverride: hasStoredKey })
 
   const { run: updateModelSettings, loading: updateLoading } = useRequest(updateModelSettingsAPI, {
     manual: true,
@@ -655,6 +658,18 @@ const Settings: FC<SettingsProps> = (props) => {
             </Text>
           ) : null}
         </div>
+
+        {init && firstRun.visible ? (
+          <FirstRunChecklist
+            steps={firstRun.steps}
+            apiKeyInline
+            onRequestPermission={() => void firstRun.requestPermission()}
+            onGoApiKey={() => undefined}
+            onStartRecording={() => closeSetting?.()}
+            onClearWaiting={firstRun.clearWaiting}
+            onDismiss={firstRun.dismiss}
+          />
+        ) : null}
 
         <div>
           <Form
