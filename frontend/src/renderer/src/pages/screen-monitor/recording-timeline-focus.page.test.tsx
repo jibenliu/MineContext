@@ -8,7 +8,9 @@ import { RecordingTimeline } from './components/recording-timeline'
 
 vi.mock('./hooks/use-activity-provenance', () => ({
   useActivityProvenance: () => ({
+    rows: new Map(),
     badgeFor: () => null,
+    categoryFor: () => null,
     rename: async () => undefined,
     merge: async () => undefined,
     split: async () => undefined

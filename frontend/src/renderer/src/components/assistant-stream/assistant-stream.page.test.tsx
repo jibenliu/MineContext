@@ -92,7 +92,7 @@ describe('助手流式气泡（5.41）', () => {
       'data: {"type":"completed"}\n\n'
     ])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
 
     await waitFor(() => expect(screen.getByTestId('assistant-mode-local')).toHaveTextContent('仅本地'))
