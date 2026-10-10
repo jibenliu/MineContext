@@ -151,15 +151,15 @@ if [ "${do_scripts}" -eq 1 ]; then
       ;;
   esac
   case " ${changed} " in
-    *scripts/create-release-tag.sh* | *scripts/tests/create-release-tag-modes.sh* | *tag-release.yml*)
+    *scripts/create-release-tag.sh* | *scripts/lib/version-gate.sh* | *scripts/tests/create-release-tag-modes.sh* | *tag-release.yml* | *workflows/release.yml*)
       [ "${LIST_ONLY}" -eq 0 ] && timed "发版标签脚本模式" ./scripts/tests/create-release-tag-modes.sh
       ;;
-  esac
-  case " ${changed} " in
+    esac
+    case " ${changed} " in
     *scripts/package-release-binaries.sh* | *scripts/tests/package-release-binaries-modes.sh* | *workflows/release.yml*)
       [ "${LIST_ONLY}" -eq 0 ] && timed "发版二进制脚本模式" ./scripts/tests/package-release-binaries-modes.sh
       ;;
-  esac
+    esac
   case " ${changed} " in
     *scripts/package-macos-tauri.sh* | *scripts/tests/package-modes.sh*)
       [ "${LIST_ONLY}" -eq 0 ] && timed "macOS 打包脚本模式" bash ./scripts/tests/package-modes.sh
