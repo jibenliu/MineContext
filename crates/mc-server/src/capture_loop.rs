@@ -141,11 +141,13 @@ pub fn policy_from(config: &mc_config::Config) -> PumpPolicy {
         warn!("{notice}");
     }
     let capture = &config.capture;
+    let interval_secs = capture.interval_secs.max(1);
     PumpPolicy {
         capture: CapturePolicy {
-            interval_secs: capture.interval_secs.max(1),
-            // 空闲降频：取间隔的 4 倍，但不小于 30 秒（用户离开后仍保留粗粒度记录）
-            idle_interval_secs: (capture.interval_secs.saturating_mul(4)).max(30),
+            interval_secs,
+            // 空闲降频读配置；夹到 ≥ 正常间隔，避免「空闲反而采得更勤」。
+            // 与锁屏硬暂停的组合：锁屏优先、零帧；见 docs/decisions/capture-idle-and-lock.md。
+            idle_interval_secs: capture.idle_interval_secs.max(1).max(interval_secs),
             idle_threshold_secs: capture.idle_threshold_secs,
             queue_capacity: capture.capture_queue_capacity.max(1),
             max_parallel_targets: capture.max_parallel_targets.max(1),
@@ -167,7 +169,7 @@ pub fn policy_from(config: &mc_config::Config) -> PumpPolicy {
 
 /// 每 tick 的外界信号来源。
 ///
-/// 抽成可注入的一层：调度器会按 `idle_for_secs` 把节奏降到 30 秒一次，
+/// 抽成可注入的一层：调度器会按 `idle_for_secs` 与策略里的空闲间隔降频，
 /// 而开发机有没有输入不受测试控制 —— 直接读系统会让测试结果取决于运行环境。
 pub type SignalsSource = Arc<dyn Fn() -> CaptureSignals + Send + Sync>;
 

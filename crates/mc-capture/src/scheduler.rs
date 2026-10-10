@@ -13,7 +13,8 @@ use mc_common::time::Timestamp;
 pub struct CapturePolicy {
     /// 正常采集间隔
     pub interval_secs: u64,
-    /// 用户空闲时的采集间隔（降频，省电省磁盘）
+    /// 用户空闲时的采集间隔（降频，省电省磁盘）。
+    /// 锁屏时本字段不生效：`locked` 信号走硬暂停（[`SkipReason::Locked`]）。
     pub idle_interval_secs: u64,
     /// 连续空闲多久算「用户离开」
     pub idle_threshold_secs: u64,
@@ -175,7 +176,7 @@ impl CaptureScheduler {
         self.last_seen = Some(now);
         self.last_idle_secs = signals.idle_for_secs;
 
-        // ---- 锁屏 / 睡眠：不采集，并且复位调度，避免恢复时补采 ----
+        // ---- 锁屏 / 睡眠：硬暂停（优先于空闲降频），并复位调度避免恢复时补采 ----
         if signals.locked || signals.suspended {
             if self.away_since.is_none() {
                 self.away_since = Some(now);
@@ -290,6 +291,7 @@ mod tests {
         let policy = CapturePolicy::default();
         assert_eq!(policy.interval_secs, 15);
         assert_eq!(policy.idle_threshold_secs, 300);
+        assert_eq!(policy.idle_interval_secs, 60);
         assert_eq!(policy.queue_capacity, 32);
     }
 

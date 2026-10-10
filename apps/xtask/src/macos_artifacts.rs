@@ -103,7 +103,14 @@ pub fn check(root: &Path, minimum: (u64, u64)) -> Result<(), String> {
         }
     }
     if checked == 0 {
-        problems.push("没有找到可校验的 Mach-O 产物（先在 macOS 上构建一次）".to_string());
+        // Linux / 未打包环境没有 Mach-O：与 launch-check-tauri 一样 SKIP，
+        // 不把「还没在本机构建」当成业务冒烟失败。macOS 上缺产物仍要失败。
+        if cfg!(target_os = "macos") {
+            problems.push("没有找到可校验的 Mach-O 产物（先在 macOS 上构建一次）".to_string());
+        } else {
+            println!("SKIP: 没有可校验的 Mach-O 产物（非 macOS 或尚未构建）");
+            return Ok(());
+        }
     }
 
     if problems.is_empty() {

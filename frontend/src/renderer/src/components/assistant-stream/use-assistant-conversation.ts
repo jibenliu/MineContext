@@ -28,6 +28,8 @@ export interface Turn {
   answer: string
   state: ConversationState
   sources: Source[]
+  /** `local` = 仅本地列表（未配置或模型调用失败后的诚实降级） */
+  mode?: 'local' | 'model' | string
   error?: string
 }
 interface ChatApi {
@@ -53,6 +55,15 @@ function storedSources(metadata?: string): Source[] {
     return sourcesFrom(JSON.parse(metadata ?? '{}').sources)
   } catch {
     return []
+  }
+}
+
+function storedMode(metadata?: string): string | undefined {
+  try {
+    const mode = JSON.parse(metadata ?? '{}').mode
+    return typeof mode === 'string' ? mode : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -176,6 +187,7 @@ export function useAssistantConversation(vaultId: number | null = null) {
           const turn = turns[turns.length - 1]
           turn.answer = row.content ?? ''
           turn.sources = storedSources(row.metadata)
+          turn.mode = storedMode(row.metadata)
         }
       }
       setHistory(turns)
@@ -197,6 +209,7 @@ export function useAssistantConversation(vaultId: number | null = null) {
     const turnId = `turn-${request}`
     let answer = ''
     let sources: Source[] = []
+    let mode: string | undefined
     let finished = false
     const current = () => mountedRef.current && request === requestRef.current && !finished
     const patchTurn = (patch: Partial<Turn>) => {
@@ -210,7 +223,7 @@ export function useAssistantConversation(vaultId: number | null = null) {
       setText(failure ?? answer)
       setProgress('')
       // 发送时已插入提问；这里只收尾，避免「输入被清空却要等流结束才看见自己的话」。
-      patchTurn({ answer, sources, state: finalState, error: failure })
+      patchTurn({ answer, sources, mode, state: finalState, error: failure })
     }
     pendingRef.current = { finish }
     setText('')
@@ -245,6 +258,7 @@ export function useAssistantConversation(vaultId: number | null = null) {
           } else if (event.type === 'stream_complete') {
             if (typeof event.content === 'string') answer = event.content
             sources = sourcesFrom(event.citations)
+            if (typeof event.mode === 'string') mode = event.mode
             finish('completed')
           } else if (event.type === 'fail' || event.type === 'error')
             finish('failed', event.message ?? event.content ?? t('assistant.generationFailed'))

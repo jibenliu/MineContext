@@ -16,12 +16,13 @@ import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 
 import { type BackendBootPhase, loadingStatusForBootPhase, shouldOfferSettingsEscape } from './adapters/backend-boot'
+import { reclaimBackend } from './adapters/daemon-heal'
 import { fetchInitCheckFromHealth } from './adapters/init-check-health'
 import { installHttpBackendFromRuntime } from './adapters/install'
 import { shouldShowOnboarding } from './adapters/onboarding'
 import { watchSummaryProgress } from './adapters/summary-progress'
 import { ServiceProvider } from './atom/event-loop.atom'
-import { bootstrapBackend } from './bootstrap-backend'
+import { bootstrapBackend, type BootstrapRuntime } from './bootstrap-backend'
 import { ErrorBoundary } from './components/error-boundary'
 import LoadingComponent from './components/loading'
 import { NotificationProvider } from './context/notification-provider'
@@ -35,6 +36,18 @@ const logger = getLogger('App.tsx')
 /** 首次 bootstrap 未就绪时，App 内继续等外壳补齐 runtime（勿立刻硬错误）。 */
 const RECOVERY_RETRY = { attempts: 40, delayMs: 250 }
 
+/** daemon kill 后 health 探测间隔：给外壳 cooldown + 重写 runtime 留窗口。 */
+const DAEMON_HEALTH_PROBE_MS = 4000
+
+async function loadRuntimeSafe(): Promise<BootstrapRuntime | null> {
+  try {
+    return (await window.mcRuntime?.get?.()) ?? null
+  } catch (error) {
+    logger.warn('[mc] 读 runtime 失败，继续重试', error)
+    return null
+  }
+}
+
 // Arco 组件库的界面语言。业务文案目前是中文，因此这里**不能**硬编码英文 ——
 // 那会得到「英文按钮/日期控件 + 中文正文」的混杂界面。真正接入 i18n（语言切换 +
 // 后端 general.locale）属于产品决定，已登记在 docs/operations.md 的已知缺口一节。
@@ -44,6 +57,12 @@ function AppContent({ backendReady: initialReady }: { backendReady: boolean }): 
   const [recoveryNonce, setRecoveryNonce] = useState(0)
   // 本地服务迟迟不起时仍允许进设置：文案已写「从设置继续配置」，不能只剩重试死循环。
   const [enterUiWithoutBackend, setEnterUiWithoutBackend] = useState(false)
+  const [installedRuntime, setInstalledRuntime] = useState<BootstrapRuntime | null>(null)
+  const bootPhaseRef = React.useRef(bootPhase)
+  const installedRuntimeRef = React.useRef<BootstrapRuntime | null>(null)
+  const healingRef = React.useRef(false)
+  bootPhaseRef.current = bootPhase
+  installedRuntimeRef.current = installedRuntime
 
   // PersistGate rehydrate 之后本组件才会挂载：这时再拆 index.html 占位，
   // 避免「占位已拆 + React 子树仍空」的 Tauri 白屏窗口。
@@ -51,40 +70,120 @@ function AppContent({ backendReady: initialReady }: { backendReady: boolean }): 
     requestAnimationFrame(() => requestAnimationFrame(() => removeStartupSpinner()))
   }, [])
 
+  // 首屏已就绪时记下当前 runtime，供 kill 后身份对比。
+  useEffect(() => {
+    if (!initialReady) return
+    void loadRuntimeSafe().then((runtime) => {
+      if (runtime) {
+        setInstalledRuntime(runtime)
+        installedRuntimeRef.current = runtime
+      }
+    })
+  }, [initialReady])
+
   // 外壳已 wait runtime 再开窗口；此处再等一轮是为了兜住「setup 超时后才写出
   // runtime.json」——那时首次 bootstrap 会失败，但不应立刻显示无法连接。
   // 依赖只有 initialReady / recoveryNonce：把 bootPhase 放进 deps 会在 failed 时
   // 把自己打回 waiting，形成空转。
+  // initialReady 且 nonce=0：首屏已装好，跳过；用户重试（nonce>0）仍走自愈。
   useEffect(() => {
-    if (initialReady) return
+    if (initialReady && recoveryNonce === 0) return
     let cancelled = false
     setBootPhase('waiting')
-    void bootstrapBackend({
-      loadRuntime: async () => {
-        try {
-          return (await window.mcRuntime?.get?.()) ?? null
-        } catch (error) {
-          logger.warn('[mc] 恢复阶段读 runtime 失败，继续重试', error)
-          return null
-        }
-      },
-      install: (runtime) => installHttpBackendFromRuntime(runtime),
-      onEvent: (event) => logger.info('[mc] recover', event),
-      retry: RECOVERY_RETRY
-    }).then((result) => {
-      if (cancelled) return
-      if (result === 'http') {
-        logger.info('[mc] 恢复阶段装上 HTTP 后端')
-        setBootPhase('ready')
-      } else {
-        logger.warn('[mc] 恢复阶段仍无 runtime，升为失败态')
-        setBootPhase('failed')
-      }
-    })
+    const previous = installedRuntimeRef.current
+    const run =
+      previous != null
+        ? reclaimBackend({
+            previous,
+            loadRuntime: loadRuntimeSafe,
+            install: (runtime) => {
+              installHttpBackendFromRuntime(runtime)
+              setInstalledRuntime(runtime)
+              installedRuntimeRef.current = runtime
+            },
+            retry: RECOVERY_RETRY
+          }).then((result) => {
+            if (cancelled) return
+            if (result === 'unavailable') {
+              logger.warn('[mc] 自愈重连仍无 runtime，升为失败态')
+              setBootPhase('failed')
+            } else {
+              logger.info('[mc] 自愈重连完成', result)
+              setBootPhase('ready')
+            }
+          })
+        : bootstrapBackend({
+            loadRuntime: loadRuntimeSafe,
+            install: (runtime) => {
+              installHttpBackendFromRuntime(runtime)
+              setInstalledRuntime(runtime)
+              installedRuntimeRef.current = runtime
+            },
+            onEvent: (event) => logger.info('[mc] recover', event),
+            retry: RECOVERY_RETRY
+          }).then((result) => {
+            if (cancelled) return
+            if (result === 'http') {
+              logger.info('[mc] 恢复阶段装上 HTTP 后端')
+              setBootPhase('ready')
+            } else {
+              logger.warn('[mc] 恢复阶段仍无 runtime，升为失败态')
+              setBootPhase('failed')
+            }
+          })
+    void run
     return () => {
       cancelled = true
     }
   }, [initialReady, recoveryNonce])
+
+  // daemon 被 kill 后：health 失败 → soft waiting + reclaim，避免假「无法连接」。
+  // 用 ref 持有 phase，避免 setWaiting 拆掉 in-flight reclaim。
+  useEffect(() => {
+    let cancelled = false
+    const probe = async (): Promise<void> => {
+      if (cancelled || healingRef.current) return
+      if (bootPhaseRef.current !== 'ready') return
+      const runtime = (await loadRuntimeSafe()) ?? installedRuntimeRef.current
+      if (!runtime) return
+      try {
+        const response = await fetch(`http://127.0.0.1:${runtime.port}/api/health`)
+        if (!response.ok) throw new Error(`health ${response.status}`)
+      } catch {
+        if (cancelled) return
+        healingRef.current = true
+        logger.warn('[mc] daemon health 失败，开始自愈重连（waiting，不升硬错误）')
+        setBootPhase('waiting')
+        const result = await reclaimBackend({
+          previous: installedRuntimeRef.current,
+          loadRuntime: loadRuntimeSafe,
+          install: (next) => {
+            installHttpBackendFromRuntime(next)
+            setInstalledRuntime(next)
+            installedRuntimeRef.current = next
+          },
+          retry: RECOVERY_RETRY
+        })
+        if (!cancelled) {
+          if (result === 'unavailable') {
+            logger.warn('[mc] 自愈重连失败，升为失败态')
+            setBootPhase('failed')
+          } else {
+            logger.info('[mc] 自愈重连成功', result)
+            setBootPhase('ready')
+          }
+        }
+        healingRef.current = false
+      }
+    }
+    const id = window.setInterval(() => {
+      void probe()
+    }, DAEMON_HEALTH_PROBE_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
 
   useEffect(() => {
     if (bootPhase !== 'ready') return
