@@ -62,13 +62,20 @@ pub fn build_export_zip(
 
         zip.start_file("manifest.json", options)
             .map_err(zip_error)?;
-        zip.write_all(serde_json::to_vec_pretty(&manifest).map_err(json_error)?.as_slice())
-            .map_err(io_error)?;
+        zip.write_all(
+            serde_json::to_vec_pretty(&manifest)
+                .map_err(json_error)?
+                .as_slice(),
+        )
+        .map_err(io_error)?;
 
-        zip.start_file("vaults.json", options)
-            .map_err(zip_error)?;
-        zip.write_all(serde_json::to_vec_pretty(&vaults).map_err(json_error)?.as_slice())
-            .map_err(io_error)?;
+        zip.start_file("vaults.json", options).map_err(zip_error)?;
+        zip.write_all(
+            serde_json::to_vec_pretty(&vaults)
+                .map_err(json_error)?
+                .as_slice(),
+        )
+        .map_err(io_error)?;
 
         for (name, bytes) in &uploads {
             let entry = format!("{UPLOADS_DIR}/{name}");
@@ -347,12 +354,9 @@ fn read_required_entry(
     archive: &mut ZipArchive<Cursor<&[u8]>>,
     name: &str,
 ) -> Result<Vec<u8>, AppError> {
-    let mut file = archive.by_name(name).map_err(|_| {
-        AppError::new(
-            ErrorCode::DomainInvalidRange,
-            format!("备份包缺少 {name}"),
-        )
-    })?;
+    let mut file = archive
+        .by_name(name)
+        .map_err(|_| AppError::new(ErrorCode::DomainInvalidRange, format!("备份包缺少 {name}")))?;
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes).map_err(io_error)?;
     Ok(bytes)

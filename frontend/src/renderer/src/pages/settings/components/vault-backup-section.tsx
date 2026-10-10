@@ -2,12 +2,7 @@
 
 import { Button, Message, Typography, Upload } from '@arco-design/web-react'
 import { useI18n } from '@renderer/i18n'
-import {
-  blobToBase64,
-  createVaultBackupApi,
-  downloadBlob,
-  type VaultBackupApi
-} from '@renderer/services/vault-backup'
+import { blobToBase64, createVaultBackupApi, downloadBlob, type VaultBackupApi } from '@renderer/services/vault-backup'
 import { useCallback, useState } from 'react'
 
 const { Text } = Typography
@@ -47,10 +42,12 @@ export function VaultBackupSection({ api }: { api?: VaultBackupApi }) {
             files: result.file_count
           })
         )
-        Message.success(t('settings.vaultBackup.importDone', {
-          vaults: result.vault_count,
-          files: result.file_count
-        }))
+        Message.success(
+          t('settings.vaultBackup.importDone', {
+            vaults: result.vault_count,
+            files: result.file_count
+          })
+        )
       } catch {
         Message.error(t('settings.vaultBackup.importFailed'))
       } finally {
@@ -86,11 +83,7 @@ export function VaultBackupSection({ api }: { api?: VaultBackupApi }) {
             void onImportFile(file)
             return false
           }}>
-          <Button
-            type="secondary"
-            className="mc-secondary-btn"
-            loading={importing}
-            data-testid="vault-backup-import">
+          <Button type="secondary" className="mc-secondary-btn" loading={importing} data-testid="vault-backup-import">
             {t('settings.vaultBackup.import')}
           </Button>
         </Upload>

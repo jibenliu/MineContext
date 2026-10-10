@@ -28,11 +28,11 @@ pub mod retention;
 pub mod retrieval;
 pub mod routes;
 pub mod rss_ingest;
-pub mod vault_backup;
 pub mod runtime;
 pub mod stages;
 pub mod state;
 pub mod summary;
+pub mod vault_backup;
 
 pub use capture::CaptureControls;
 pub use state::ServerState;

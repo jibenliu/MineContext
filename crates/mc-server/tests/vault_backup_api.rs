@@ -186,7 +186,9 @@ async fn export_zip_contains_manifest_vaults_and_uploads() {
         serde_json::from_slice(&read_zip_entry(&mut archive, "vaults.json")).unwrap();
     assert_eq!(vaults.len(), 3);
     assert!(
-        vaults.iter().any(|row| row["id"] == folder_id && row["is_folder"] == 1),
+        vaults
+            .iter()
+            .any(|row| row["id"] == folder_id && row["is_folder"] == 1),
         "文件夹必须进备份：{vaults:?}"
     );
     assert!(
@@ -310,7 +312,9 @@ async fn import_restores_vault_tree_and_uploads_with_rewritten_file_urls() {
         note.content
     );
     assert!(
-        !note.content.contains(&source.dir.path().display().to_string()),
+        !note
+            .content
+            .contains(&source.dir.path().display().to_string()),
         "不得残留源机器绝对路径：{}",
         note.content
     );

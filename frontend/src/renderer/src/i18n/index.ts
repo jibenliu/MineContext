@@ -150,8 +150,7 @@ const zh: Messages = {
   'settings.backfill.statusFailed': '失败：{error}',
   'settings.backfill.pollFailed': '无法读取作业状态',
   'settings.vaultBackup': '数据备份',
-  'settings.vaultBackup.hint':
-    '导出笔记树与已导入文件（zip）。重装或换机后可再导入，避免丢失本地上下文。',
+  'settings.vaultBackup.hint': '导出笔记树与已导入文件（zip）。重装或换机后可再导入，避免丢失本地上下文。',
   'settings.vaultBackup.export': '导出备份',
   'settings.vaultBackup.import': '导入备份',
   'settings.vaultBackup.exportDone': '已开始下载备份',

@@ -66,7 +66,9 @@ fn zip_download(bytes: Vec<u8>, manifest: &Manifest) -> Response {
             (
                 header::CONTENT_DISPOSITION,
                 HeaderValue::from_str(&disposition).unwrap_or_else(|_| {
-                    HeaderValue::from_static("attachment; filename=\"minecontext-vault-backup.zip\"")
+                    HeaderValue::from_static(
+                        "attachment; filename=\"minecontext-vault-backup.zip\"",
+                    )
                 }),
             ),
             (
