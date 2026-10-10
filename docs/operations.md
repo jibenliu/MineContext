@@ -86,8 +86,10 @@ daemon 生命周期与打包。Tauri 侧已实现：读 `runtime.json` 的桥（
 窗口藏着不动等于「点了没反应」）。渲染层上报的录制状态走 `tray_recording_status`
 命令更新托盘提示与菜单文案。渲染层日志经 `renderer_log` 命令落盘到
 `<日志目录>/renderer.log`（同时进 stdout），因此渲染层除了控制台还有一条
-可查的通道。**尚未实现**：自动更新（需要签名与公证）——相关渠道在适配层登记为
-DEFERRED / SHELL_CHANNELS 并写明原因，用到时会在控制台告警一次，不会静默失效。
+可查的通道。**检查更新**：外壳命令 `check_for_update` 对照
+`jibenliu/MineContext` 的 GitHub Releases 最新 tag，与本机版本比较后返回发布页 /
+dmg 链接（设置页可点「检查更新」）；**静默下载与安装未实现**（需要签名与公证，
+`quitAndInstall` / `cancelDownload` 仍明确失败）。
 
 ## 2. 怎么知道它没问题
 
@@ -278,8 +280,8 @@ OCR 廉价层未做**（语义未定义，配置点名时启动日志如实报�
 （`~/Library/Logs/com.minecontext.desktop/renderer.log`，同时进 stdout），
 启动检查就靠它判断"渲染层真的起来了"；
 **托盘录制状态由 app shell 同步**（订阅采集 SSE + 启动时拉 `/api/capture/status`）；
-**没有自动更新**（Tauri updater 需要签名与公证，当前一律显式失败，界面上不再有
-更新按钮）；**多窗口状态同步是 no-op**（单窗口产品，登记为 DEFERRED）；
+**检查更新可用、静默安装不可用**（GitHub Releases 比对 + 打开发布页/dmg；
+Tauri updater 静默安装需要签名与公证，仍明确失败）；**多窗口状态同步是 no-op**（单窗口产品，登记为 DEFERRED）；
 **`backend:status-changed` 不推送**（渲染层每 3 秒轮询 `/api/backend/status`）。
 
 文档面：根 `README.md` / `README_zh.md` 已按当前形态重写 —— 不再有上游项目的
@@ -426,6 +428,7 @@ sqlite3 "<数据目录>/data/minecontext.db" \
 | 开机自启 / 系统通知（Tauri） | 可用 | 设置页 Startup 分组；**是否真的弹出/真的自启需真机确认**（§7） |
 | Tauri 外壳 | **唯一外壳** | 托盘（显示窗口 / 开始-暂停录制 / 屏幕监控 / 退出）、单实例、通知、自启、关窗收进托盘、未签名 dmg 均已实现；渲染层在打包版里的观感待真机确认（§7） |
 | 托盘快捷动作 / 托盘录制状态 | 可用 | 菜单事件由外壳发、业务由渲染层做（不复制采集开关）；录制状态由 app shell 同步（§6） |
-| 自动更新 | 未实现 | 需要签名与公证；`window.api.checkForUpdate()` 显式失败，界面已移除永远不出现的更新按钮（§6） |
+| 检查更新 | 可用 | 设置页对照 GitHub Releases；有新版本时打开发布页 / dmg（§6） |
+| 静默自动安装 | 未实现 | 需要签名与公证；`quitAndInstall` / `cancelDownload` 显式失败（§6） |
 | 渲染层日志落盘 | 可用 | 走外壳 `renderer_log` 命令写 `~/Library/Logs/com.minecontext.desktop/renderer.log`（同时进 stdout）；外壳不在时只写控制台，日志器本身不依赖外壳（§6） |
 | 多窗口状态同步 | no-op | 单窗口产品；`store-sync:*` 四个渠道登记为 DEFERRED，并写明原因（§6） |

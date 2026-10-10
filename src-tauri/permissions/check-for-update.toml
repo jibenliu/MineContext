@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-check-for-update"
+description = "允许渲染层对照 GitHub Releases 检查是否有新版本。"
+commands.allow = ["check_for_update"]
+
+[[permission]]
+identifier = "allow-open-external-url"
+description = "允许渲染层打开发布页或 dmg 的 http(s) 链接。"
+commands.allow = ["open_external_url"]
