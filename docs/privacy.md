@@ -61,7 +61,8 @@ macOS 桌面版默认是 `~/Library/Application Support/MineContext`：
 | 残留运行态 | `runtime.json`、`.shell.lock` | 无，启动时会重建 |
 | 钥匙串里的密钥 | `security delete-generic-password -s mc -a model` | 需要重新在设置页填入模型密钥 |
 
-截图本身也会**自动**轮转：`capture.retention_days` 到期后由 daemon 删除，并在同一次
+截图本身也会**自动**轮转：按 `capture.retention_days` 和/或 `storage.max_total_gb`
+由 daemon 删除（只动 `blobs/screenshots` 与缩略图，不动 vault 笔记），并在同一次
 操作里清掉库里的引用（`crates/mc-storage/src/retention.rs`），所以长期不用手工删。
 
 完整卸载 = 退出应用 → 删 `/Applications/MineContext.app` → 删数据目录 → 删钥匙串条目。
@@ -96,7 +97,7 @@ macOS 卸载应用不会碰数据目录，这三步要分别做。
 | 只关 AI 但保留本地记录 | `ai.enabled = false` |
 | 只录某些时段 | `capture.enable_recording_hours` + `recording_hours`（[`troubleshooting.md`](troubleshooting.md) 有排查） |
 | 只录某几块屏 | `capture.target_ids`（空 = 全部可见目标） |
-| 删掉旧截图 | `capture.retention_days` 控制轮转；单张用 `DELETE /api/capture/screenshots?path=<相对路径>` |
+| 删掉旧截图 | `capture.retention_days` / `storage.max_total_gb` 控制轮转；单张用 `DELETE /api/capture/screenshots?path=<相对路径>` |
 | 完全清除 | 删除数据目录（位置见 §2） |
 
 ## 5. 拦截：被判定为敏感的内容

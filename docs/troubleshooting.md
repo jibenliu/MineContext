@@ -112,9 +112,10 @@ macOS 在缺少屏幕录制权限时**不报错，只返回全黑帧**。查
 
 ### 磁盘一直涨 / 图片没有被清理
 
-`capture.retention_days = 0` 表示**永久保留**。检查
-`/api/diagnostics` 的 `retention` 段：`last_run_at` 为空说明轮转还没跑过；
-`deleted_files` / `freed_bytes` 是最近一次的结果。手动删单张用
+轮转同时看 `capture.retention_days` 与 `storage.max_total_gb`
+（均为 `0` 才表示该项不限制）。检查 `/api/diagnostics` 的 `retention` 段：
+`last_run_at` 为空说明轮转还没跑过；`deleted_files` / `freed_bytes` 是最近一次的结果。
+设置页「截图占用」会显示近似磁盘用量。手动删单张用
 `DELETE /api/capture/screenshots?path=<相对路径>`。
 
 ### 改了设置但行为没变

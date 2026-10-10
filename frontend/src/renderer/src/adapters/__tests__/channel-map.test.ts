@@ -174,6 +174,19 @@ test('新增面：补偿推断作业入队与查状态', () => {
   assert.equal(status.path, '/api/v1/jobs/42')
 })
 
+test('新增面：截图占用配置读与写', () => {
+  const get = resolveChannel('v1:capture-config', [])
+  assert.ok(get)
+  assert.equal(get.method, 'GET')
+  assert.equal(get.path, '/api/capture/config')
+
+  const patch = resolveChannel('v1:capture-config-patch', [{ retentionDays: 14, maxTotalGb: 5 }])
+  assert.ok(patch)
+  assert.equal(patch.method, 'PATCH')
+  assert.equal(patch.path, '/api/capture/config')
+  assert.deepEqual(patch.body, { retentionDays: 14, maxTotalGb: 5 })
+})
+
 test('新增面：链接上传映射到 /api/v1/links', () => {
   const request = resolveChannel('v1:import-link', ['https://example.com/a', 12])
   assert.ok(request)

@@ -93,6 +93,12 @@ export function installAdapters(options: InstallOptions): void {
     enqueueBackfill: (from: string, to: string) => backend.invoke('v1:jobs-backfill', from, to),
     jobStatus: (jobId: number) => backend.invoke('v1:jobs-status', jobId)
   })
+  // 截图占用：设置页读策略 / 写天数与容量上限
+  install('retentionApi', {
+    getConfig: () => backend.invoke('v1:capture-config'),
+    saveConfig: (patch: { retentionDays: number; maxTotalGb: number }) =>
+      backend.invoke('v1:capture-config-patch', patch)
+  })
   // 链接上传：笔记树「导入链接」入口
   install('linkApi', {
     importUrl: (url: string, parentId?: number | null) =>
