@@ -161,7 +161,8 @@ if [ "${do_scripts}" -eq 1 ]; then
       ;;
     esac
   case " ${changed} " in
-    *scripts/package-macos-tauri.sh* | *scripts/tests/package-modes.sh*)
+    *scripts/package-macos-tauri.sh* | *scripts/tests/package-modes.sh* | *scripts/lib/macos-notarize-env.sh* | *scripts/tests/macos-notarize-env-modes.sh*)
+      [ "${LIST_ONLY}" -eq 0 ] && timed "公证凭据检测" bash ./scripts/tests/macos-notarize-env-modes.sh
       [ "${LIST_ONLY}" -eq 0 ] && timed "macOS 打包脚本模式" bash ./scripts/tests/package-modes.sh
       ;;
   esac
