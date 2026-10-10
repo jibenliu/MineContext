@@ -50,12 +50,32 @@ export function IndexingPauseBanner({ api, pollMs = 8000 }: { api?: IndexingApi;
   }, [client])
 
   useEffect(() => {
-    void refresh()
+    let alive = true
+    const tick = async () => {
+      try {
+        const data = await client.status()
+        if (!alive) {
+          return
+        }
+        const next = data?.indexing_pause
+        if (data?.paused && next?.message) {
+          setPause(next)
+        } else {
+          setPause(null)
+        }
+      } catch {
+        // 轮询失败不打扰：设置页其它操作仍可用
+      }
+    }
+    void tick()
     const id = setInterval(() => {
-      void refresh()
+      void tick()
     }, pollMs)
-    return () => clearInterval(id)
-  }, [pollMs, refresh])
+    return () => {
+      alive = false
+      clearInterval(id)
+    }
+  }, [client, pollMs])
 
   const onResume = useCallback(async () => {
     setBusy(true)

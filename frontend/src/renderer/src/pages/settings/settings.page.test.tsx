@@ -11,6 +11,7 @@
 import store from '@renderer/store'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 
 import { getModelInfo, getStoredApiKey, ModelInfoResponseData } from '../../services/settings'
@@ -24,6 +25,16 @@ vi.mock('../../services/settings', async () => {
 
 vi.mock('../../utils/write-clipboard', () => ({
   writeClipboard: vi.fn().mockResolvedValue(undefined)
+}))
+
+// DatePicker 在卸载后仍可能 setTimeout → jsdom 已拆时变成 `window is not defined`，
+// 把整份页面测试打成「全绿但仍失败」。本文件不测补推断，直接桩掉。
+vi.mock('./components/backfill-section', () => ({
+  BackfillSection: () => null
+}))
+
+vi.mock('../../components/indexing-pause-banner', () => ({
+  IndexingPauseBanner: () => null
 }))
 
 vi.mock('@arco-design/web-react', async () => {
@@ -88,9 +99,11 @@ const selfHostedConfig: ModelInfoResponseData = {
 
 function renderSettings() {
   return render(
-    <Provider store={store}>
-      <Settings />
-    </Provider>
+    <MemoryRouter>
+      <Provider store={store}>
+        <Settings />
+      </Provider>
+    </MemoryRouter>
   )
 }
 
@@ -224,9 +237,11 @@ it('点眼睛显示密钥时换成明文，而不是脱敏串', async () => {
 
 it('引导态设置页仍渲染模型表单与隐私出网入口（首屏不能空）', async () => {
   render(
-    <Provider store={store}>
-      <Settings init closeSetting={() => undefined} />
-    </Provider>
+    <MemoryRouter>
+      <Provider store={store}>
+        <Settings init closeSetting={() => undefined} />
+      </Provider>
+    </MemoryRouter>
   )
 
   expect(await screen.findByText('选择模型')).toBeInTheDocument()
@@ -237,9 +252,11 @@ it('引导态设置页仍渲染模型表单与隐私出网入口（首屏不能�
 it('引导态可点「稍后再说」离开，不依赖保存成功', async () => {
   const closeSetting = vi.fn()
   render(
-    <Provider store={store}>
-      <Settings init closeSetting={closeSetting} />
-    </Provider>
+    <MemoryRouter>
+      <Provider store={store}>
+        <Settings init closeSetting={closeSetting} />
+      </Provider>
+    </MemoryRouter>
   )
 
   fireEvent.click(await screen.findByTestId('settings-skip-onboarding'))
@@ -254,9 +271,11 @@ it('非引导态不展示「稍后再说」', async () => {
 
 it('引导态也会回填已存密钥（可沿用密钥点开始使用，不必重填）', async () => {
   render(
-    <Provider store={store}>
-      <Settings init closeSetting={() => undefined} />
-    </Provider>
+    <MemoryRouter>
+      <Provider store={store}>
+        <Settings init closeSetting={() => undefined} />
+      </Provider>
+    </MemoryRouter>
   )
 
   expect(await screen.findByDisplayValue('sk-l••••••••6789')).toBeInTheDocument()
@@ -302,9 +321,11 @@ it('引导态加载中不盖遮罩：开始使用按钮仍可点', async () => {
   // getModelInfo 挂起时整页 loading mask 不得吞掉 CTA 点击（否则无日志、无反馈）。
   vi.mocked(getModelInfo).mockImplementation(() => new Promise(() => undefined))
   render(
-    <Provider store={store}>
-      <Settings init closeSetting={() => undefined} />
-    </Provider>
+    <MemoryRouter>
+      <Provider store={store}>
+        <Settings init closeSetting={() => undefined} />
+      </Provider>
+    </MemoryRouter>
   )
 
   expect(await screen.findByTestId('settings-loading-hint')).toBeInTheDocument()
