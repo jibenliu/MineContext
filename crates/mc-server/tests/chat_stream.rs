@@ -403,6 +403,7 @@ async fn provider_unavailable_listing_does_not_claim_unconfigured() {
                 document_id: "act-1".to_string(),
                 title: "排查 APEX-389".to_string(),
                 kind: "activity".to_string(),
+                at: 0,
             }],
             history: Vec::new(),
         })
