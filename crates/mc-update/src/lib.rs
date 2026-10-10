@@ -85,8 +85,8 @@ pub fn evaluate_latest_release(
     current_version: &str,
     body: &str,
 ) -> Result<CheckForUpdateResult, String> {
-    let release: GithubRelease =
-        serde_json::from_str(body).map_err(|error| format!("解析 GitHub Releases 失败：{error}"))?;
+    let release: GithubRelease = serde_json::from_str(body)
+        .map_err(|error| format!("解析 GitHub Releases 失败：{error}"))?;
     let latest = strip_v_prefix(&release.tag_name).to_string();
     let asset_pairs: Vec<(String, String)> = release
         .assets
