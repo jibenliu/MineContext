@@ -153,6 +153,15 @@ fn permissions_endpoint_reports_readiness() {
         data.get("windows_reason").is_some(),
         "必须带 windows_reason（可为 null）：{data}"
     );
+    assert!(
+        data["capture_supported"].is_boolean(),
+        "必须报告 capture_supported，前端据此区分「缺权限」与「平台未实现」：{data}"
+    );
+    assert_eq!(
+        data["capture_supported"],
+        mc_capture::platform::capture_supported(),
+        "capture_supported 必须与平台探测一致：{data}"
+    );
 }
 
 #[test]
@@ -659,4 +668,13 @@ fn capture_status_explains_why_recording_is_unavailable() {
         let reason = json["data"]["reason"].as_str().unwrap_or_default();
         assert!(!reason.is_empty(), "不可录制时必须说明原因：{json}");
     }
+    assert!(
+        json["data"]["capture_supported"].is_boolean(),
+        "status 必须带 capture_supported：{json}"
+    );
+    assert_eq!(
+        json["data"]["capture_supported"],
+        mc_capture::platform::capture_supported(),
+        "status.capture_supported 必须与平台探测一致：{json}"
+    );
 }

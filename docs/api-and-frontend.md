@@ -204,7 +204,8 @@
   "enabled": false,
   "screen_recording_tcc": false,
   "windows_reason": "screen_recording_permission",
-  "reason": "屏幕录制不可用：可能是缺少屏幕录制权限，或当前没有可用显示器"
+  "reason": "屏幕录制不可用：可能是缺少屏幕录制权限，或当前没有可用显示器",
+  "capture_supported": true
 }
 ```
 
@@ -216,6 +217,9 @@
 - `reason`：**不能采集时的原因**，可采集时为 `null`。界面必须把它显示出来 ——
   用户看到「不能录制」却不知道是权限问题还是无显示会话时，只能去点一次「开始」才知道，
   而且很容易被误导成「现在不在录制时段」（时间窗口与权限问题需要完全不同的处置）。
+- `capture_supported`：当前构建是否带有屏幕 / 窗口采集实现（今日仅 macOS 为 `true`）。
+  `false` 时界面走「平台未实现」横幅与禁用开始录制，**不得**再引导去开屏幕录制权限。
+  `/api/capture/permissions` 同名字段同源。
 
 原因与 `POST /api/capture/start` 的拒绝理由**同源**（都取自 `CaptureReadiness`），
 因此两处不会互相矛盾。设置页应同时展示 TCC、录制开关与窗口列表原因；改完 TCC 后须从托盘完全退出再重开。

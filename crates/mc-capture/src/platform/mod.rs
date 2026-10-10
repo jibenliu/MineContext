@@ -9,6 +9,14 @@ pub mod macos;
 #[cfg(not(target_os = "macos"))]
 pub mod unsupported;
 
+/// 当前构建是否带有可用的屏幕 / 窗口采集实现。
+///
+/// 仅 macOS 为 `true`。Windows / Linux 上 daemon 与 UI 仍可跑，但不得假装能采屏；
+/// HTTP 层通过 `capture_supported` 把这个事实交给前端（区分「缺权限」与「平台未实现」）。
+pub fn capture_supported() -> bool {
+    cfg!(target_os = "macos")
+}
+
 /// 采集就绪度：给 `mc-cli doctor` 与首启引导用。
 ///
 /// 保持平台无关，因此上层（CLI / 服务）不需要写 `#[cfg]`。
