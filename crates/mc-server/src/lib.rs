@@ -28,6 +28,7 @@ pub mod retention;
 pub mod retrieval;
 pub mod routes;
 pub mod rss_ingest;
+pub mod vault_backup;
 pub mod runtime;
 pub mod stages;
 pub mod state;
@@ -140,6 +141,9 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/v1/links",
     "/api/v1/rss",
     "/api/v1/research",
+    // 笔记树 + uploads 备份（内容包，与诊断包不同）
+    "/api/v1/vault/export",
+    "/api/v1/vault/import",
     "/api/settings/{key}",
     // 首页「最新活动」推送开关
     "/api/v1/latest-activity/poll",
@@ -154,6 +158,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::agent_chat::router())
         .merge(routes::threads::router())
         .merge(routes::vaults::router())
+        .merge(routes::vault_backup::router())
         .merge(routes::links::router())
         .merge(routes::file_import::router())
         .merge(routes::folder_import::router())
