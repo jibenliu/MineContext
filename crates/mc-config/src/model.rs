@@ -91,6 +91,11 @@ pub struct Capture {
     /// 采集时段适用于一周里的哪些天
     pub apply_to_days: ApplyToDays,
     pub idle_threshold_secs: u64,
+    /// 锁屏时是否暂停采集（默认开启）。
+    ///
+    /// 锁屏画面属于隐私内容；关掉后仍会推 power-monitor 事件给界面，
+    /// 但采集环不再因锁屏 `continue`（空闲降频仍可按 `idle_*` 生效）。
+    pub pause_on_lock: bool,
     pub retention_days: u32,
     /// 采集池并发
     pub max_parallel_targets: usize,
@@ -115,6 +120,7 @@ impl Default for Capture {
             recording_hours: None,
             apply_to_days: ApplyToDays::Weekday,
             idle_threshold_secs: 300,
+            pause_on_lock: true,
             retention_days: 7,
             max_parallel_targets: 4,
             capture_queue_capacity: 32,

@@ -248,6 +248,30 @@ fn pause_resume_on_lock_unlock() {
     assert_eq!(unlocked.started, vec!["display-1"], "解锁后必须恢复采集");
 }
 
+/// 锁屏硬暂停优先于空闲降频：locked + 很长 idle 仍是 Locked，不是降频后继续采。
+#[test]
+fn lock_pause_wins_over_idle_backoff() {
+    let mut scheduler = scheduler_with(&["display-1"]);
+    scheduler.tick(ms(1_000), &running());
+    scheduler.mark_captured("display-1");
+    scheduler.drain_pending(1);
+
+    let outcome = scheduler.tick(
+        ms(2_000),
+        &CaptureSignals {
+            locked: true,
+            idle_for_secs: 600,
+            suspended: false,
+        },
+    );
+    assert!(outcome.started.is_empty(), "锁屏期间不得因空闲降频而采集");
+    assert_eq!(
+        outcome.skipped,
+        Some(SkipReason::Locked),
+        "组合信号时跳过原因必须是 Locked，而不是继续按 idle_interval 调度"
+    );
+}
+
 #[test]
 fn lock_reports_state_change_with_away_duration() {
     let mut scheduler = scheduler_with(&["display-1"]);

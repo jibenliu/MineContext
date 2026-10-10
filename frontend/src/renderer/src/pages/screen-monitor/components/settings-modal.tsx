@@ -17,6 +17,7 @@ interface SettingsModalProps {
   applicationVisible: boolean
   tempRecordInterval: number
   tempEnableRecordingHours: boolean
+  tempPauseOnLock: boolean
   tempRecordingHours: [string, string]
   tempApplyToDays: string
   /** 是否正在录制；false 时 interval 滑块不等于采集环在跑 */
@@ -30,6 +31,7 @@ interface SettingsModalProps {
   onSetApplicationVisible: (visible: boolean) => void
   onSetTempRecordInterval: (value: number) => void
   onSetTempEnableRecordingHours: (value: boolean) => void
+  onSetTempPauseOnLock: (value: boolean) => void
   onSetTempRecordingHours: (value: [string, string]) => void
   onSetTempApplyToDays: (value: ApplyToDays) => void
   onRequestPermission?: () => void
@@ -44,6 +46,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   applicationVisible,
   tempRecordInterval,
   tempEnableRecordingHours,
+  tempPauseOnLock,
   tempRecordingHours,
   tempApplyToDays,
   isMonitoring,
@@ -54,6 +57,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onSetApplicationVisible,
   onSetTempRecordInterval,
   onSetTempEnableRecordingHours,
+  onSetTempPauseOnLock,
   onSetTempRecordingHours,
   onSetTempApplyToDays,
   onRequestPermission
@@ -144,8 +148,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               }}
             </Form.Item>
             <Form.Item
+              label={t('screenMonitor.settings.pauseOnLock')}
+              className="[&_.arco-form-item-label]:!text-xs !mb-0"
+              extra={t('screenMonitor.settings.pauseOnLockHint')}>
+              <Switch
+                data-testid="pause-on-lock-switch"
+                checked={tempPauseOnLock}
+                onChange={onSetTempPauseOnLock}
+                className={
+                  !tempPauseOnLock
+                    ? '[&_.arco-switch]: !bg-[var(--color-fill-2)]'
+                    : '[&_.arco-switch]: !bg-[rgb(var(--primary-6))]'
+                }
+              />
+            </Form.Item>
+            <Form.Item
               label={t('screenMonitor.settings.enableRecordingHours')}
-              className="[&_.arco-form-item-label]:!text-xs !mb-0">
+              className="[&_.arco-form-item-label]:!text-xs !mb-0 !mt-3">
               <Switch
                 checked={tempEnableRecordingHours}
                 onChange={onSetTempEnableRecordingHours}

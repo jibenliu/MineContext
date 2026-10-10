@@ -418,11 +418,11 @@ pub async fn selection(State(state): State<Arc<ServerState>>, Json(body): Json<V
     }
 }
 
-/// `PATCH /api/capture/config` —— 保存采集设置（间隔、录制时段）。
+/// `PATCH /api/capture/config` —— 保存采集设置（间隔、录制时段、锁屏暂停）。
 ///
 /// 兼容 UI 的 `ScreenSettings` 形状：`recordInterval`（秒）、
 /// `enableRecordingHours`、`recordingHours`（`["HH:mm:ss","HH:mm:ss"]`）、
-/// `applyToDays`（`weekday` / `everyday`）。没给的字段不动。
+/// `applyToDays`（`weekday` / `everyday`）、`pauseOnLock`。没给的字段不动。
 pub async fn patch_config(
     State(state): State<Arc<ServerState>>,
     Json(body): Json<Value>,
@@ -437,6 +437,8 @@ pub async fn patch_config(
             "success": true,
             "interval_secs": loaded.config.capture.interval_secs,
             "enable_recording_hours": loaded.config.capture.enable_recording_hours,
+            "pause_on_lock": loaded.config.capture.pause_on_lock,
+            "pauseOnLock": loaded.config.capture.pause_on_lock,
         })),
         Err(error) => envelope::compat_failure(&error),
     }
@@ -468,6 +470,8 @@ pub async fn get_config(State(state): State<Arc<ServerState>>) -> Response {
             mc_config::model::ApplyToDays::Everyday => "everyday",
             mc_config::model::ApplyToDays::Weekday => "weekday",
         },
+        "pauseOnLock": capture.pause_on_lock,
+        "pause_on_lock": capture.pause_on_lock,
         "retention_days": capture.retention_days,
     }))
 }

@@ -122,12 +122,19 @@ struct Ctx {
 }
 
 fn ctx(interval_secs: u64, fail_until: usize) -> Ctx {
+    ctx_toml(
+        &format!("[capture]\ninterval_secs = {interval_secs}\n"),
+        fail_until,
+    )
+}
+
+fn ctx_toml(toml: &str, fail_until: usize) -> Ctx {
     let dir = tempfile::tempdir().unwrap();
     let db = Arc::new(Database::open(dir.path().join("minecontext.db")).unwrap());
     let config = mc_config::load::load(&mc_config::load::LoadRequest {
         layers: vec![mc_config::load::LayerSource::Inline {
             name: "test".to_string(),
-            toml: format!("[capture]\ninterval_secs = {interval_secs}\n"),
+            toml: toml.to_string(),
         }],
         env: Vec::new(),
         read_process_env: false,
@@ -440,4 +447,93 @@ async fn lock_state_changes_are_pushed_to_the_renderer() {
     assert_eq!(unlocked.data["eventKey"], "unlock-screen");
 
     handle.abort();
+}
+
+/// 默认开启锁屏暂停：锁屏期间不得新增观测，且不改 `capture.enabled`。
+#[tokio::test]
+async fn lock_pauses_capture_by_default_without_clearing_enabled() {
+    let ctx = ctx(1, 0);
+    assert!(
+        ctx.state.config.current().config.capture.pause_on_lock,
+        "默认必须开启锁屏暂停"
+    );
+    ctx.state.capture.as_ref().unwrap().start();
+    let signals = Arc::new(std::sync::Mutex::new(CaptureSignals::RUNNING));
+    let handle = spawn_loop_with_shared_signals(
+        Arc::clone(&ctx.state),
+        Duration::from_millis(20),
+        Arc::clone(&signals),
+    );
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while observations(&ctx.state) == 0 && tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(observations(&ctx.state) > 0, "前置：先采到至少一帧");
+
+    *signals.lock().unwrap() = CaptureSignals {
+        locked: true,
+        // 与空闲降频组合：锁屏优先，空闲再长也不该采
+        idle_for_secs: 600,
+        suspended: false,
+    };
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    let frozen = observations(&ctx.state);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(
+        observations(&ctx.state),
+        frozen,
+        "锁屏（默认 pause_on_lock）期间不得新增观测"
+    );
+    assert!(
+        ctx.state.config.current().config.capture.enabled,
+        "锁屏不得改写 capture.enabled；解锁后按原开启状态继续"
+    );
+    assert!(
+        ctx.state.capture.as_ref().unwrap().is_running(),
+        "锁屏不得 stop 采集控制"
+    );
+
+    *signals.lock().unwrap() = CaptureSignals::RUNNING;
+    let resume_deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while observations(&ctx.state) <= frozen && tokio::time::Instant::now() < resume_deadline {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    handle.abort();
+    assert!(
+        observations(&ctx.state) > frozen,
+        "解锁后必须在原 enabled/running 状态下继续采集"
+    );
+}
+
+/// 用户关掉 pause_on_lock 后，锁屏不再硬暂停（空闲降频仍可生效）。
+#[tokio::test]
+async fn lock_does_not_pause_when_pause_on_lock_is_disabled() {
+    let ctx = ctx_toml(
+        "[capture]\ninterval_secs = 1\npause_on_lock = false\n",
+        0,
+    );
+    assert!(!ctx.state.config.current().config.capture.pause_on_lock);
+    ctx.state.capture.as_ref().unwrap().start();
+    let signals = Arc::new(std::sync::Mutex::new(CaptureSignals {
+        locked: true,
+        suspended: false,
+        idle_for_secs: 0,
+    }));
+    let handle = spawn_loop_with_shared_signals(
+        Arc::clone(&ctx.state),
+        Duration::from_millis(20),
+        Arc::clone(&signals),
+    );
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while observations(&ctx.state) < 2 && tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    handle.abort();
+    assert!(
+        observations(&ctx.state) >= 2,
+        "pause_on_lock=false 时锁屏仍应继续采集，实际 {}",
+        observations(&ctx.state)
+    );
 }

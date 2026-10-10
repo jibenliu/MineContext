@@ -280,6 +280,33 @@ async fn patch_capture_config_updates_interval_and_hours() {
     );
 }
 
+#[tokio::test]
+async fn get_and_patch_expose_pause_on_lock() {
+    let ctx = ctx("");
+    let got = call(&ctx.state, "GET", "/api/capture/config", None).await;
+    assert_eq!(
+        got["data"]["pauseOnLock"], true,
+        "GET 默认必须暴露 pauseOnLock=true：{got}"
+    );
+    assert_eq!(got["data"]["pause_on_lock"], true);
+
+    let patched = call(
+        &ctx.state,
+        "PATCH",
+        "/api/capture/config",
+        Some(serde_json::json!({ "pauseOnLock": false })),
+    )
+    .await;
+    assert_eq!(patched["data"]["success"], true, "{patched}");
+    assert!(
+        !ctx.state.config.current().config.capture.pause_on_lock,
+        "PATCH pauseOnLock=false 必须落进配置"
+    );
+
+    let again = call(&ctx.state, "GET", "/api/capture/config", None).await;
+    assert_eq!(again["data"]["pauseOnLock"], false, "{again}");
+}
+
 /// 停止录制必须把 `capture.enabled=false` 落盘，否则 daemon 重启会按默认 true 再自动开录。
 #[tokio::test]
 async fn stop_persists_enabled_false_and_start_persists_true() {

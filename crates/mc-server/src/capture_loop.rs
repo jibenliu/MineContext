@@ -306,21 +306,28 @@ pub fn spawn_capture_loop_with_signals(
             }
 
             // 锁屏就先不采：锁屏画面属于隐私内容，录进去等于把用户离开后的桌面记下来。
-            // 探测读不出来时按「未锁定」处理 —— 宁可多采，也不能因探测失败整体停采。
-            let signals = signals();
+            // 可由 `capture.pause_on_lock` 关掉（默认开）。探测读不出来时按「未锁定」
+            // 处理 —— 宁可多采，也不能因探测失败整体停采。
+            // 锁屏硬暂停优先于空闲降频：locked 时 continue，不会走到 idle_interval。
+            // 锁屏不改 `capture.enabled` / running，解锁后按原状态继续。
+            let mut signals = signals();
             // 状态**变化**时通知渲染层：它订阅了 push:power-monitor 用来暂停/恢复轮询。
-            // 只在变化时发，避免每个 tick 都推一条没人要的心跳。
+            // 只在变化时发，避免每个 tick 都推一条没人要的心跳。开关关掉时仍推事件。
             publish_power_state(&state, &mut last_power, signals.locked, signals.suspended);
-            if signals.locked {
+            if signals.locked && config.capture.pause_on_lock {
                 if should_record_failure(last_failure_recorded, at) {
                     let error = AppError::new(
-                        mc_common::error::ErrorCode::CaptureUnsupported,
+                        mc_common::error::ErrorCode::CaptureLocked,
                         "屏幕已锁定，暂停采集（解锁后自动继续）",
                     );
                     record_capture_failure(&state.db, at, &error);
                     last_failure_recorded = Some(at);
                 }
                 continue;
+            }
+            // 关掉锁屏暂停时，清掉 locked 再交给泵：否则调度器仍会 SkipReason::Locked。
+            if signals.locked && !config.capture.pause_on_lock {
+                signals.locked = false;
             }
 
             // 磁盘将满就先停采：写到一半失败会留下半张图与一条坏观测，
