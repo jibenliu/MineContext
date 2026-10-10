@@ -5,8 +5,10 @@ import { Button, Empty, List, Message, Tabs, Tag, Typography } from '@arco-desig
 import { useI18n } from '@renderer/i18n'
 import {
   confirmHandoff,
+  ContactEvent,
   dismissRisk,
   exportHandoff,
+  FollowUpHint,
   getFollowUps,
   getLearningTopics,
   getReviewPlan,
@@ -22,8 +24,6 @@ import {
   ReviewPlan,
   RiskFinding,
   StuckPattern,
-  ContactEvent,
-  FollowUpHint,
   VisitPrepPack
 } from '@renderer/services/insights'
 import { FC, useCallback, useEffect, useState } from 'react'
@@ -77,11 +77,7 @@ export const InsightsPage: FC = () => {
   }, [])
 
   const refreshLearning = useCallback(async () => {
-    const [topicList, patterns, review] = await Promise.all([
-      getLearningTopics(),
-      getStuckPatterns(),
-      getReviewPlan()
-    ])
+    const [topicList, patterns, review] = await Promise.all([getLearningTopics(), getStuckPatterns(), getReviewPlan()])
     setTopics(topicList)
     setStuck(patterns)
     setPlan(review)
@@ -290,12 +286,7 @@ export const InsightsPage: FC = () => {
                 onClick={async () => {
                   const exported = await exportHandoff()
                   setPack(exported)
-                  Message.success(
-                    t('insights.handoff.exported').replace(
-                      '{n}',
-                      String(exported.manifest.item_count)
-                    )
-                  )
+                  Message.success(t('insights.handoff.exported').replace('{n}', String(exported.manifest.item_count)))
                 }}>
                 {t('insights.handoff.export')}
               </Button>

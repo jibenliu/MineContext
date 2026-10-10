@@ -198,7 +198,7 @@ fn detect_contact(text: &str) -> Option<(String, String)> {
         if let Some(idx) = lower.find(prefix) {
             let rest = lower[idx + prefix.len()..].trim();
             let name = rest
-                .split(|c: char| c == '|' || c == '-' || c == '—' || c == '/')
+                .split(['|', '-', '—', '/'])
                 .next()
                 .unwrap_or(rest)
                 .trim();
@@ -218,11 +218,7 @@ fn detect_contact(text: &str) -> Option<(String, String)> {
     for marker in ["meeting with ", "call with ", "拜访 ", "会见 "] {
         if let Some(idx) = lower.find(marker) {
             let rest = text[idx + marker.len()..].trim();
-            let name = rest
-                .split(|c: char| c == '-' || c == '|' || c == '—')
-                .next()
-                .unwrap_or(rest)
-                .trim();
+            let name = rest.split(['-', '|', '—']).next().unwrap_or(rest).trim();
             if name.chars().count() >= 2 {
                 return Some((slug(name), name.to_string()));
             }
@@ -248,7 +244,9 @@ fn is_commitment(lower: &str) -> bool {
 
 fn extract_email(text: &str) -> Option<String> {
     for token in text.split_whitespace() {
-        let cleaned = token.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '@' && c != '.' && c != '_' && c != '-');
+        let cleaned = token.trim_matches(|c: char| {
+            !c.is_ascii_alphanumeric() && c != '@' && c != '.' && c != '_' && c != '-'
+        });
         if cleaned.contains('@') && cleaned.contains('.') {
             return Some(cleaned.to_lowercase());
         }
@@ -287,7 +285,10 @@ fn truncate(s: &str, max: usize) -> String {
     if count <= max {
         return s.to_string();
     }
-    format!("{}…", s.chars().take(max.saturating_sub(1)).collect::<String>())
+    format!(
+        "{}…",
+        s.chars().take(max.saturating_sub(1)).collect::<String>()
+    )
 }
 
 #[cfg(test)]
@@ -306,11 +307,7 @@ mod tests {
     fn builds_timeline_commitments_and_visit_prep_from_local_signals() {
         let observations = vec![
             obs("1", "Zoom Meeting with Contoso — Q3 pipeline", 1_000),
-            obs(
-                "2",
-                "客户:Contoso | 承诺下周给报价方案 follow up",
-                2_000,
-            ),
+            obs("2", "客户:Contoso | 承诺下周给报价方案 follow up", 2_000),
             obs("3", "Mail - jane@contoso.com — contract draft", 3_000),
             obs("4", "Browsing weather", 4_000),
         ];
@@ -323,8 +320,8 @@ mod tests {
         assert!(!commitments.is_empty(), "{commitments:?}");
         let hints = suggest_follow_ups(&timeline, &commitments, Timestamp::from_millis(3_000));
         assert!(hints.iter().any(|h| h.contact_id.contains("contoso")));
-        let pack = build_visit_prep("contoso", &timeline, &commitments, &hints)
-            .expect("visit prep");
+        let pack =
+            build_visit_prep("contoso", &timeline, &commitments, &hints).expect("visit prep");
         assert!(pack.prep_notes.contains("Contoso") || pack.prep_notes.contains("contoso"));
         assert!(!pack.recent.is_empty());
     }

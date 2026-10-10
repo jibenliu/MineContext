@@ -33,18 +33,20 @@ fn ctx() -> (tempfile::TempDir, Arc<ServerState>) {
 fn seed_activities(state: &ServerState, rows: &[(&str, &str, i64)]) {
     let activities = rows
         .iter()
-        .map(|(id, title, end_offset)| mc_domain::activity::ActivityView {
-            id: (*id).to_string(),
-            start: at(end_offset - 60),
-            end: at(*end_offset),
-            title: (*title).to_string(),
-            original_title: (*title).to_string(),
-            category: Some("工作".into()),
-            observations: Vec::new(),
-            origin: mc_domain::activity::Provenance::Observed,
-            confidence: 1.0,
-            is_user_modified: false,
-        })
+        .map(
+            |(id, title, end_offset)| mc_domain::activity::ActivityView {
+                id: (*id).to_string(),
+                start: at(end_offset - 60),
+                end: at(*end_offset),
+                title: (*title).to_string(),
+                original_title: (*title).to_string(),
+                category: Some("工作".into()),
+                observations: Vec::new(),
+                origin: mc_domain::activity::Provenance::Observed,
+                confidence: 1.0,
+                is_user_modified: false,
+            },
+        )
         .collect();
     mc_storage::projectors::activities::store(
         state.db.as_ref(),
@@ -117,8 +119,12 @@ async fn risk_scan_lists_findings_report_and_accepts_dismiss() {
     let json = get(&state, "/api/v1/risks").await;
     let findings = json["data"]["findings"].as_array().unwrap();
     assert!(!findings.is_empty(), "{json}");
-    assert!(findings.iter().any(|f| f["kind"] == "commitment" || f["kind"] == "waiting_on"));
-    assert!(findings.iter().any(|f| f["kind"] == "open_question" || f["kind"] == "unresolved"));
+    assert!(findings
+        .iter()
+        .any(|f| f["kind"] == "commitment" || f["kind"] == "waiting_on"));
+    assert!(findings
+        .iter()
+        .any(|f| f["kind"] == "open_question" || f["kind"] == "unresolved"));
 
     let report = get(&state, "/api/v1/risks/report").await;
     let md = report["data"]["markdown"].as_str().unwrap();
@@ -143,11 +149,7 @@ async fn sales_memory_builds_timeline_and_visit_prep() {
         &state,
         &[
             ("s1", "Zoom Meeting with Contoso — pipeline review", 100),
-            (
-                "s2",
-                "客户:Contoso | 承诺下周给报价方案 follow up",
-                200,
-            ),
+            ("s2", "客户:Contoso | 承诺下周给报价方案 follow up", 200),
             ("s3", "Mail - jane@contoso.com — NDA", 300),
         ],
     );
@@ -155,10 +157,9 @@ async fn sales_memory_builds_timeline_and_visit_prep() {
     let timeline = get(&state, "/api/v1/sales/timeline").await;
     let events = timeline["data"]["events"].as_array().unwrap();
     assert!(
-        events.iter().any(|e| e["contact_id"]
-            .as_str()
-            .unwrap_or("")
-            .contains("contoso")),
+        events
+            .iter()
+            .any(|e| e["contact_id"].as_str().unwrap_or("").contains("contoso")),
         "{timeline}"
     );
 

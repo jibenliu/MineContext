@@ -51,13 +51,15 @@ pub fn detect_topics(obs: &[LearningObservation]) -> Vec<LearningTopic> {
         std::collections::BTreeMap::new();
     for item in obs {
         if let Some((topic_id, label)) = classify_topic(&item.text) {
-            let entry = buckets.entry(topic_id.clone()).or_insert_with(|| LearningTopic {
-                topic_id: topic_id.clone(),
-                label: label.clone(),
-                hit_count: 0,
-                last_at: item.at,
-                source_ids: Vec::new(),
-            });
+            let entry = buckets
+                .entry(topic_id.clone())
+                .or_insert_with(|| LearningTopic {
+                    topic_id: topic_id.clone(),
+                    label: label.clone(),
+                    hit_count: 0,
+                    last_at: item.at,
+                    source_ids: Vec::new(),
+                });
             entry.hit_count += 1;
             entry.source_ids.push(item.id.clone());
             if item.at.as_millis() >= entry.last_at.as_millis() {
@@ -81,9 +83,9 @@ pub fn detect_stuck_patterns(obs: &[LearningObservation]) -> Vec<StuckPattern> {
         std::collections::BTreeMap::new();
     for item in obs {
         if let Some((pattern_id, label)) = classify_stuck(&item.text) {
-            let entry = counts.entry(pattern_id.clone()).or_insert_with(|| {
-                (label.clone(), 0, item.at, Vec::new())
-            });
+            let entry = counts
+                .entry(pattern_id.clone())
+                .or_insert_with(|| (label.clone(), 0, item.at, Vec::new()));
             entry.1 += 1;
             entry.3.push(item.id.clone());
             if item.at.as_millis() >= entry.2.as_millis() {
@@ -105,7 +107,7 @@ pub fn detect_stuck_patterns(obs: &[LearningObservation]) -> Vec<StuckPattern> {
             hint: format!("反复遇到「{label}」{repeats} 次，建议专题复盘"),
         });
     }
-    out.sort_by(|a, b| b.repeats.cmp(&a.repeats));
+    out.sort_by_key(|a| std::cmp::Reverse(a.repeats));
     out
 }
 
@@ -142,7 +144,7 @@ pub fn build_spaced_review_plan(
             reason: format!("stuck_repeats={}", pattern.repeats),
         });
     }
-    items.sort_by(|a, b| a.due_at.as_millis().cmp(&b.due_at.as_millis()));
+    items.sort_by_key(|a| a.due_at.as_millis());
     let summary = if items.is_empty() {
         "暂无学习主题，继续记录本地活动后可生成复习计划。".to_string()
     } else {

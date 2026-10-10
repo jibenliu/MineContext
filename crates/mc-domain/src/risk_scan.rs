@@ -125,7 +125,7 @@ pub fn render_progress_report(findings: &[RiskFinding]) -> String {
 }
 
 fn split_lines(text: &str) -> Vec<String> {
-    text.split(|c| c == '\n' || c == ';' || c == '；')
+    text.split(['\n', ';', '；'])
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect()
@@ -297,7 +297,9 @@ mod tests {
         assert!(findings.iter().any(|f| f.kind == RiskKind::OpenQuestion));
         assert!(findings.iter().any(|f| f.kind == RiskKind::Unresolved));
         assert!(
-            !findings.iter().any(|f| f.source_id == "noise" || f.source_id == "noise2"),
+            !findings
+                .iter()
+                .any(|f| f.source_id == "noise" || f.source_id == "noise2"),
             "quality gate should drop noise: {findings:?}"
         );
     }

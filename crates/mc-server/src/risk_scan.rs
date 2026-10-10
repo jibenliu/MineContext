@@ -31,12 +31,8 @@ pub fn report(db: &Database) -> Result<String, AppError> {
 }
 
 pub fn dismiss(db: &Database, finding_id: &str, at: Timestamp) -> Result<(), AppError> {
-    let event = NewEvent::new(
-        KIND_RISK_DISMISSED,
-        at,
-        json!({ "finding_id": finding_id }),
-    )
-    .by("user");
+    let event =
+        NewEvent::new(KIND_RISK_DISMISSED, at, json!({ "finding_id": finding_id })).by("user");
     db.append_events(&[event])?;
     Ok(())
 }
@@ -54,11 +50,7 @@ fn load_dismissals(db: &Database) -> Result<Vec<RiskDismissed>, AppError> {
             if envelope.kind != KIND_RISK_DISMISSED {
                 continue;
             }
-            if let Some(id) = envelope
-                .payload
-                .get("finding_id")
-                .and_then(|v| v.as_str())
-            {
+            if let Some(id) = envelope.payload.get("finding_id").and_then(|v| v.as_str()) {
                 out.push(RiskDismissed {
                     finding_id: id.to_string(),
                     at: envelope.at,

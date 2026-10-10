@@ -132,7 +132,7 @@ pub fn confirmed_items(
             });
         }
     }
-    out.sort_by(|a, b| b.confirmed_at.as_millis().cmp(&a.confirmed_at.as_millis()));
+    out.sort_by_key(|a| std::cmp::Reverse(a.confirmed_at.as_millis()));
     out
 }
 
@@ -146,7 +146,11 @@ pub fn export_pack(items: &[HandoffItem], at: Timestamp) -> HandoffPack {
     };
     let mut markdown = String::from("# 交接包（本地）\n\n");
     markdown.push_str("本包仅含用户确认过的记忆条目；无团队云、无 SSO。\n\n");
-    for kind in [HandoffKind::Decision, HandoffKind::Incident, HandoffKind::OpsNote] {
+    for kind in [
+        HandoffKind::Decision,
+        HandoffKind::Incident,
+        HandoffKind::OpsNote,
+    ] {
         let section: Vec<_> = items.iter().filter(|i| i.kind == kind).collect();
         if section.is_empty() {
             continue;
@@ -187,13 +191,7 @@ fn matches_incident(lower: &str) -> bool {
 
 fn matches_decision(lower: &str) -> bool {
     const KEYS: &[&str] = &[
-        "decision",
-        "decided",
-        "adr",
-        "决策",
-        "决议",
-        "选定",
-        "adopt",
+        "decision", "decided", "adr", "决策", "决议", "选定", "adopt",
     ];
     KEYS.iter().any(|k| lower.contains(k))
 }
