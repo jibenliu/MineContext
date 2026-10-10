@@ -20,7 +20,9 @@ const initialState = {
   systemNotificationsEnabled: true,
   screenSettings: defaultScreenSettings,
   // 界面语言：随 store 持久化，设置页有切换入口（见 i18n/index.ts）
-  locale: 'zh-CN' as 'zh-CN' | 'en-US'
+  locale: 'zh-CN' as 'zh-CN' | 'en-US',
+  /** 首次引导清单已完成或用户跳过；随 store 持久化，冷启动不再弹出。 */
+  firstRunOnboardingComplete: false
 }
 
 const settingSlice = createSlice({
@@ -35,10 +37,14 @@ const settingSlice = createSlice({
     },
     setLocale(state, action: PayloadAction<'zh-CN' | 'en-US'>) {
       state.locale = action.payload
+    },
+    setFirstRunOnboardingComplete(state, action: PayloadAction<boolean>) {
+      state.firstRunOnboardingComplete = action.payload
     }
   }
 })
 
-export const { setScreenSettings, setLocale, setSystemNotificationsEnabled } = settingSlice.actions
+export const { setScreenSettings, setLocale, setSystemNotificationsEnabled, setFirstRunOnboardingComplete } =
+  settingSlice.actions
 
 export default settingSlice.reducer

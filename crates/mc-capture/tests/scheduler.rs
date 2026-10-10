@@ -273,6 +273,22 @@ fn lock_pause_wins_over_idle_backoff() {
 }
 
 #[test]
+fn lock_hard_pause_wins_over_idle_backoff() {
+    // 锁屏硬暂停与空闲降频必须可组合：同时满足时锁屏优先，零帧。
+    let mut scheduler = scheduler_with(&["display-1"]);
+    let outcome = scheduler.tick(
+        ms(1_000),
+        &CaptureSignals {
+            locked: true,
+            suspended: false,
+            idle_for_secs: 999,
+        },
+    );
+    assert!(outcome.started.is_empty(), "锁屏时不得因空闲降频而仍采集");
+    assert_eq!(outcome.skipped, Some(SkipReason::Locked));
+}
+
+#[test]
 fn lock_reports_state_change_with_away_duration() {
     let mut scheduler = scheduler_with(&["display-1"]);
     scheduler.tick(ms(1_000), &running());

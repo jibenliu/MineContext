@@ -90,12 +90,18 @@ pub struct Capture {
     pub recording_hours: Option<[String; 2]>,
     /// 采集时段适用于一周里的哪些天
     pub apply_to_days: ApplyToDays,
+    /// 连续空闲多久算「用户离开」，之后改用 [`Self::idle_interval_secs`]。
     pub idle_threshold_secs: u64,
+<<<<<<< HEAD
     /// 锁屏时是否暂停采集（默认开启）。
     ///
     /// 锁屏画面属于隐私内容；关掉后仍会推 power-monitor 事件给界面，
     /// 但采集环不再因锁屏 `continue`（空闲降频仍可按 `idle_*` 生效）。
     pub pause_on_lock: bool,
+=======
+    /// 用户空闲时的采集间隔（秒）。省磁盘与电池；锁屏硬暂停见采集环 / 调度器。
+    pub idle_interval_secs: u64,
+>>>>>>> origin/main
     pub retention_days: u32,
     /// 采集池并发
     pub max_parallel_targets: usize,
@@ -120,6 +126,7 @@ impl Default for Capture {
             recording_hours: None,
             apply_to_days: ApplyToDays::Weekday,
             idle_threshold_secs: 300,
+            idle_interval_secs: 60,
             pause_on_lock: true,
             retention_days: 7,
             max_parallel_targets: 4,

@@ -86,8 +86,10 @@ daemon 生命周期与打包。Tauri 侧已实现：读 `runtime.json` 的桥（
 窗口藏着不动等于「点了没反应」）。渲染层上报的录制状态走 `tray_recording_status`
 命令更新托盘提示与菜单文案。渲染层日志经 `renderer_log` 命令落盘到
 `<日志目录>/renderer.log`（同时进 stdout），因此渲染层除了控制台还有一条
-可查的通道。**尚未实现**：自动更新（需要签名与公证）——相关渠道在适配层登记为
-DEFERRED / SHELL_CHANNELS 并写明原因，用到时会在控制台告警一次，不会静默失效。
+可查的通道。**检查更新**：外壳命令 `check_for_update` 对照
+`jibenliu/MineContext` 的 GitHub Releases 最新 tag，与本机版本比较后返回发布页 /
+dmg 链接（设置页可点「检查更新」）；**静默下载与安装未实现**（需要签名与公证，
+`quitAndInstall` / `cancelDownload` 仍明确失败）。
 
 ## 2. 怎么知道它没问题
 
@@ -156,7 +158,8 @@ DEFERRED / SHELL_CHANNELS 并写明原因，用到时会在控制台告警一次
 | 真机窗口采集 | 应用名 / 标题 / 窗口图像正确 | 未执行 |
 | 8 / 24 / 72 小时长跑 | 无崩溃、RSS 增长 < 10% | 未执行 |
 | 真机 4 小时活动数量合理性 | 活动数量与人工观察一致 | 未执行 |
-| 界面人工确认 | `./scripts/tests/manual-smoke.sh --launch` 的 8 项清单 | 未执行 |
+| 打包产物冒烟（录制/助手/摄入） | `./scripts/tests/packaged-smoke-checklist.sh --auto` + `--record` | 未执行 |
+| 界面人工确认（托盘/通知/自启） | `./scripts/tests/manual-smoke.sh --launch` 的 8 项清单 | 未执行 |
 | 签名与公证、新机安装 | Gatekeeper 通过、可直接安装 | 豁免（无签名身份） |
 | 黄金数据集准确率 | Activity ≥ 90% / App ≥ 98% / Stage F1 ≥ 85% | 未测（需人工标注） |
 
@@ -236,6 +239,7 @@ token）与文件系统路径 —— 由 `scripts/check-source.sh` 里的日志�
 
 **打 tag 前**先把 Cargo.toml / src-tauri / frontend / tauri.conf 四处版本改成与即将打的 `vX.Y.Z` 一致
 （`create-release-tag.sh` 会校验；勿绕过脚本直接推一个与仓库版本不符的 tag）。
+Release CI 打包前也会跑 `./scripts/create-release-tag.sh --assert-only <tag>`，不一致即失败。
 
 macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
 `xattr -dr com.apple.quarantine /Applications/MineContext.app`。
@@ -245,9 +249,20 @@ macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
 ## 5.1 发布前还差什么
 
 自动部分已经固化在 `verify-all.sh`（门禁 + 产物 + 启动检查）与
-`verify-external.sh`（外部条件项）。**人在回路的三件事**：
+`verify-external.sh`（外部条件项）。打版本前再跑一遍打包产物冒烟清单
+（**不**接入日常 `verify-affected`，避免每笔业务提交跑完整冒烟）：
 
-1. 真机人工确认：`./scripts/tests/manual-smoke.sh --launch`（8 项观感与交互清单）；
+```bash
+./scripts/package-macos-tauri.sh --with-smoke   # 出 dmg + 产物启动验收
+./scripts/tests/packaged-smoke-checklist.sh --auto   # R1 产物 / R2 daemon·渲染层
+# 人确认 R3 录制、R4 助手一条消息、R5 文件或链接摄入：
+./scripts/tests/packaged-smoke-checklist.sh --launch --record
+```
+
+**人在回路的其余项**：
+
+1. 托盘 / 通知 / 自启观感：`./scripts/tests/manual-smoke.sh --launch`（8 项清单；
+   与上表互补，不重复录制/助手/摄入主路径）；
 2. 签名与公证：本仓库没有 Developer ID 与公证账号 → 产物未签名，属豁免项；
    要对外分发需要先决定签名身份，或只发未签名包并附上面的 `xattr` 说明；
 3. 长跑与准确率：8 / 24 / 72 小时 soak 与黄金数据集评测 —— 脚本与判据在本机留档，
@@ -278,8 +293,8 @@ OCR 廉价层未做**（语义未定义，配置点名时启动日志如实报�
 （`~/Library/Logs/com.minecontext.desktop/renderer.log`，同时进 stdout），
 启动检查就靠它判断"渲染层真的起来了"；
 **托盘录制状态由 app shell 同步**（订阅采集 SSE + 启动时拉 `/api/capture/status`）；
-**没有自动更新**（Tauri updater 需要签名与公证，当前一律显式失败，界面上不再有
-更新按钮）；**多窗口状态同步是 no-op**（单窗口产品，登记为 DEFERRED）；
+**检查更新可用、静默安装不可用**（GitHub Releases 比对 + 打开发布页/dmg；
+Tauri updater 静默安装需要签名与公证，仍明确失败）；**多窗口状态同步是 no-op**（单窗口产品，登记为 DEFERRED）；
 **`backend:status-changed` 不推送**（渲染层每 3 秒轮询 `/api/backend/status`）。
 
 文档面：根 `README.md` / `README_zh.md` 已按当前形态重写 —— 不再有上游项目的
@@ -413,8 +428,8 @@ sqlite3 "<数据目录>/data/minecontext.db" \
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | 屏幕 / 窗口采集 + 活动推断 | 可用 | 需要屏幕录制权限；权限缺失时接口如实报告原因 |
-| 锁屏暂停采集 | 可用（默认开） | `capture.pause_on_lock`（UI：`pauseOnLock`）；锁屏硬暂停优先于空闲降频；不改 `enabled`，解锁按原状态继续；探测失败按未锁定（宁可多采） |
-| 空闲降频 | 可用 | 未锁屏且空闲超过 `idle_threshold_secs` 时改用更长间隔；与锁屏暂停组合见上 |
+| 锁屏暂停采集 | 可用（默认开） | `capture.pause_on_lock`（UI：`pauseOnLock`）；锁屏硬暂停优先于空闲降频；不改 `enabled`，解锁按原状态继续；探测失败按未锁定（宁可多采）；组合见 [`decisions/capture-idle-and-lock.md`](decisions/capture-idle-and-lock.md) |
+| 空闲降频 | 可用 | 空闲 ≥ `capture.idle_threshold_secs`（默认 300s）后改用 `capture.idle_interval_secs`（默认 60s）；锁屏时硬暂停优先于降频 |
 | 磁盘将满停采 | 可用 | 低于 512 MiB 跳过本轮并写节流失败；**真机灌满未验** |
 | 采集状态自述 | 可用 | `GET /api/capture/status` 含 `canRecord` / `status` / `reason`，界面直接显示原因 |
 | 任意时段总结 | 可用 | 四条入口：预设、时间轴拖选、深链 `#/summaries?from=&to=`、对话指令 |
@@ -427,6 +442,7 @@ sqlite3 "<数据目录>/data/minecontext.db" \
 | 开机自启 / 系统通知（Tauri） | 可用 | 设置页 Startup 分组；**是否真的弹出/真的自启需真机确认**（§7） |
 | Tauri 外壳 | **唯一外壳** | 托盘（显示窗口 / 开始-暂停录制 / 屏幕监控 / 退出）、单实例、通知、自启、关窗收进托盘、未签名 dmg 均已实现；渲染层在打包版里的观感待真机确认（§7） |
 | 托盘快捷动作 / 托盘录制状态 | 可用 | 菜单事件由外壳发、业务由渲染层做（不复制采集开关）；录制状态由 app shell 同步（§6） |
-| 自动更新 | 未实现 | 需要签名与公证；`window.api.checkForUpdate()` 显式失败，界面已移除永远不出现的更新按钮（§6） |
+| 检查更新 | 可用 | 设置页对照 GitHub Releases；有新版本时打开发布页 / dmg（§6） |
+| 静默自动安装 | 未实现 | 需要签名与公证；`quitAndInstall` / `cancelDownload` 显式失败（§6） |
 | 渲染层日志落盘 | 可用 | 走外壳 `renderer_log` 命令写 `~/Library/Logs/com.minecontext.desktop/renderer.log`（同时进 stdout）；外壳不在时只写控制台，日志器本身不依赖外壳（§6） |
 | 多窗口状态同步 | no-op | 单窗口产品；`store-sync:*` 四个渠道登记为 DEFERRED，并写明原因（§6） |

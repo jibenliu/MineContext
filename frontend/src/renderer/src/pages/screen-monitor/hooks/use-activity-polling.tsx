@@ -4,6 +4,7 @@ import { useMemoizedFn } from 'ahooks'
 import dayjs from 'dayjs'
 import { useEffect, useRef, useState } from 'react'
 
+import { categoryFromMetadata } from '../components/group-activity-timeline'
 import { Activity } from '../screen-monitor'
 
 const logger = getLogger('useActivityPolling')
@@ -26,7 +27,8 @@ export const useActivityPolling = (
       const todayActivities = await getActivitiesByDate(date)
       const todayActivitiesParsed: Activity[] = todayActivities.map((item: any) => ({
         ...item,
-        resources: withParsedResources(item).resources
+        resources: withParsedResources(item).resources,
+        category: item.category ?? categoryFromMetadata(item.metadata)
       }))
       const uniqueActivities = Array.from(new Map(todayActivitiesParsed.map((item) => [item.id, item])).values())
       setActivities(uniqueActivities)
@@ -59,7 +61,8 @@ export const useActivityPolling = (
         const newActivities = await getNewActivities(lastCheckedTimeRef.current)
         const newActivitiesParsed: Activity[] = newActivities.map((item: any) => ({
           ...item,
-          resources: withParsedResources(item).resources
+          resources: withParsedResources(item).resources,
+          category: item.category ?? categoryFromMetadata(item.metadata)
         }))
         if (newActivitiesParsed && newActivitiesParsed.length > 0) {
           // Filter activities for the current date

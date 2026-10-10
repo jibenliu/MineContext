@@ -73,7 +73,8 @@ export function createTauriShellBridge(target: unknown): ShellBridge | undefined
   if (typeof invoke !== 'function') return undefined
 
   const capabilities = globals.mcRuntime?.shell ?? {}
-  const updater = reject('更新', '当前外壳未接线（需要签名与公证）')
+  // 静默下载 / 安装仍需签名与公证；检查更新走 GitHub Releases，不经 updater 插件。
+  const installUpdater = reject('更新安装', '当前外壳未接线（需要签名与公证）')
 
   return {
     notify: capabilities.notification
@@ -87,11 +88,11 @@ export function createTauriShellBridge(target: unknown): ShellBridge | undefined
       : reject('系统通知', '当前外壳未声明 notification 能力'),
 
     checkForUpdate: async () => {
-      await updater()
-      return { updateInfo: null }
+      const raw = (await invoke('check_for_update')) as { updateInfo?: unknown }
+      return { updateInfo: raw?.updateInfo ?? null }
     },
-    quitAndInstall: updater,
-    cancelDownload: updater,
+    quitAndInstall: installUpdater,
+    cancelDownload: installUpdater,
 
     // Tauri 外壳不提供窗口显示/激活事件：返回解绑函数，保持接口形状一致。
     onWindowShow: () => () => {},

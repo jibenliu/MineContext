@@ -10,3 +10,35 @@ export function shouldShowRecordingNotStarted(isMonitoring: boolean, enabled: bo
 export function isWindowListPermissionBlocked(windowsReason: string | null | undefined): boolean {
   return windowsReason === 'screen_recording_permission'
 }
+
+/** 设置页状态条：录制环 / capture.enabled 的可读态。 */
+export type CaptureRecordingState = 'running' | 'enabled_idle' | 'stopped'
+
+export function captureRecordingState(isMonitoring: boolean, enabled: boolean | undefined): CaptureRecordingState {
+  if (isMonitoring) return 'running'
+  if (enabled === true) return 'enabled_idle'
+  return 'stopped'
+}
+
+/** 后端 `windows_reason` → 空列表原因（TCC vs 当前无打开窗口）。 */
+export type WindowListHintKind = 'permission' | 'empty' | 'ok' | 'unknown'
+
+export function windowListHintKind(windowsReason: string | null | undefined): WindowListHintKind {
+  if (windowsReason === 'screen_recording_permission') return 'permission'
+  if (windowsReason === 'empty') return 'empty'
+  if (windowsReason === 'ok') return 'ok'
+  return 'unknown'
+}
+
+/** 进程 TCC 明确为 false 时才展示「未授权」（未知时不误报）。 */
+export function shouldShowTccDenied(tccGranted: boolean | undefined): boolean {
+  return tccGranted === false
+}
+
+/** 改完屏幕录制开关后必须托盘完全退出再重开；仅关窗不够。 */
+export function shouldShowQuitRelaunchHint(
+  tccGranted: boolean | undefined,
+  windowsReason: string | null | undefined
+): boolean {
+  return tccGranted === false || windowsReason === 'screen_recording_permission'
+}

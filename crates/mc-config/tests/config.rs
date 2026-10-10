@@ -45,6 +45,8 @@ fn loads_defaults_when_no_file() {
 
     assert!(loaded.config.capture.enabled);
     assert_eq!(loaded.config.capture.interval_secs, 15);
+    assert_eq!(loaded.config.capture.idle_threshold_secs, 300);
+    assert_eq!(loaded.config.capture.idle_interval_secs, 60);
     assert!(
         loaded.config.capture.pause_on_lock,
         "锁屏暂停采集默认开启（安全默认；可在配置里关掉）"
