@@ -118,7 +118,7 @@ fn write_pack_zip_is_shareable_and_sanitized() {
     let daemon = format!("secret={API_KEY}");
     let renderer = "ok";
 
-    diagnostic_pack::write_pack_zip(&zip_path, sample_sources(&daemon, &renderer)).unwrap();
+    diagnostic_pack::write_pack_zip(&zip_path, sample_sources(&daemon, renderer)).unwrap();
     assert!(zip_path.is_file());
 
     let file = std::fs::File::open(&zip_path).unwrap();
@@ -162,6 +162,8 @@ fn missing_logs_still_produce_info_and_diagnostics() {
 
 #[test]
 fn default_tail_budget_is_bounded() {
-    assert!(DEFAULT_LOG_TAIL_BYTES <= 512 * 1024);
-    assert!(DEFAULT_LOG_TAIL_BYTES >= 64 * 1024);
+    const {
+        assert!(DEFAULT_LOG_TAIL_BYTES <= 512 * 1024);
+        assert!(DEFAULT_LOG_TAIL_BYTES >= 64 * 1024);
+    };
 }
