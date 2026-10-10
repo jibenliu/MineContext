@@ -381,6 +381,10 @@ const zh: Messages = {
   'screenMonitor.empty.noData': '暂无数据',
   'screenMonitor.empty.permissionHint': '开启屏幕录制权限，每 {minutes} 分钟用 AI 生成总结',
   'screenMonitor.empty.enablePermission': '开启权限',
+  'screenMonitor.empty.unsupportedHint':
+    '屏幕与窗口采集目前仅在 macOS 上可用。Windows / Linux 可运行本机二进制、导入笔记与检索总结，但不会采集屏幕内容。',
+  'screenMonitor.unsupportedBanner':
+    '当前平台尚未实现屏幕采集（仅 macOS 支持）。可继续使用导入与检索；开始录制已禁用。',
   'screenMonitor.activity.split': '拆分',
   'screenMonitor.activity.splitTitle': '把这条活动在某时刻切成两段',
   'screenMonitor.activity.merge': '并入上一条',
@@ -794,6 +798,10 @@ const en: Messages = {
   'screenMonitor.empty.noData': 'No data available',
   'screenMonitor.empty.permissionHint': 'Enable screen recording permission, summary with AI every {minutes} minutes',
   'screenMonitor.empty.enablePermission': 'Enable Permission',
+  'screenMonitor.empty.unsupportedHint':
+    'Screen and window capture are available on macOS only. On Windows/Linux the binaries, note import, search, and summaries still work, but no screen content is captured.',
+  'screenMonitor.unsupportedBanner':
+    'Screen capture is not implemented on this platform (macOS only). Import and search still work; Start Recording is disabled.',
   'screenMonitor.activity.split': 'Split',
   'screenMonitor.activity.splitTitle': 'Split this activity into two at a specific time',
   'screenMonitor.activity.merge': 'Merge into previous',
