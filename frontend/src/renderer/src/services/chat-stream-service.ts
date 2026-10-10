@@ -54,6 +54,7 @@ export interface ChatStreamRequest {
   user_id?: string
   conversation_id?: number
   page_name?: string
+  vault_id?: number | null
 }
 
 export type EventType =

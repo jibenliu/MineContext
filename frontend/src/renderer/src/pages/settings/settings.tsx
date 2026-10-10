@@ -29,6 +29,7 @@ import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
 import ModelRadio from './components/model-radio/model-radio'
 import { NotificationSwitch } from './components/notification-switch'
 import { UpdateCheckSection } from './components/update-check-section'
+import { VaultBackupSection } from './components/vault-backup-section'
 import {
   BaseUrl,
   embeddingModels,
@@ -848,6 +849,7 @@ const Settings: FC<SettingsProps> = (props) => {
           {/* 语言切换入口：设置页里的位置固定在启动项下面，不随页面结构漂移 */}
           <LanguageSwitch />
           <BackfillSection />
+          <VaultBackupSection />
         </div>
       </div>
     </div>

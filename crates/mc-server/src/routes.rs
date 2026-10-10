@@ -480,6 +480,7 @@ pub mod rss;
 pub mod settings;
 pub mod stages;
 pub mod threads;
+pub mod vault_backup;
 pub mod vaults;
 
 // ---------------------------------------------------------------- 检索

@@ -69,7 +69,7 @@ async fn call(
 fn conversation(ctx: &Ctx) -> i64 {
     ctx.state
         .db
-        .create_conversation(Some("第一次对话"), "home", Timestamp::from_millis(T0))
+        .create_conversation(Some("第一次对话"), "home", None, Timestamp::from_millis(T0))
         .unwrap()
 }
 
@@ -405,6 +405,7 @@ async fn conversations_list_paginates_and_filters_in_sql() {
             .create_conversation(
                 Some(&format!("会话 {index}")),
                 "home",
+                None,
                 Timestamp::from_millis(T0 + index),
             )
             .unwrap();
