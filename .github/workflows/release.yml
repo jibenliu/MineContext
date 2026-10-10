@@ -23,8 +23,26 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  version-gate:
+    name: Version matches tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 版本闸门（四处一致，tag 推送时还须等于 tag）
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            ./scripts/create-release-tag.sh --assert-only "${GITHUB_REF_NAME}"
+          else
+            # workflow_dispatch 无 tag：只拦四处漂移，不强制等于某个版本
+            ./scripts/create-release-tag.sh --assert-only
+          fi
+
   binaries:
     name: Binaries (${{ matrix.os }})
+    needs: [version-gate]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -55,6 +73,7 @@ jobs:
 
   dmg-tauri:
     name: Build unsigned dmg (Tauri shell)
+    needs: [version-gate]
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4

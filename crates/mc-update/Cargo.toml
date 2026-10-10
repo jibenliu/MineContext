@@ -1,0 +1,14 @@
+[package]
+name = "mc-update"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "GitHub Releases 轻量更新检查（纯解析与版本比较，无网络）"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -26,6 +26,10 @@ log = "0.4.34"
 arboard = "3"
 # 诊断包：与后端共用脱敏/组装，避免外壳另写一套规则。
 mc-common = { path = "../crates/mc-common" }
+# GitHub Releases 轻量更新检查（同步 HTTP，不引入 tokio）
+ureq = { version = "2", default-features = false, features = ["tls"] }
+# 纯解析与版本比较（与 workspace 同源，外壳侧只负责拉网）
+mc-update = { path = "../crates/mc-update" }
 
 [profile.release]
 opt-level = "s"

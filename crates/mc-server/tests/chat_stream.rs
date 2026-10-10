@@ -368,7 +368,7 @@ async fn interrupt_stops_the_stream_and_marks_the_message() {
 #[tokio::test]
 async fn chat_answer_carries_citations() {
     // 直接调引擎，验证「有出处」这条不依赖模型（因此不需要 ServerState）
-    let engine = mc_server::chat::ExtractOnlyEngine;
+    let engine = mc_server::chat::ExtractOnlyEngine::default();
     let answer = engine
         .answer(&mc_server::chat::ChatInput {
             query: "APEX-389".to_string(),
@@ -386,6 +386,36 @@ async fn chat_answer_carries_citations() {
     assert!(
         answer.text.contains("APEX-389"),
         "兜底回答要把找到的内容如实列出来：{}",
+        answer.text
+    );
+    assert!(answer.model.is_none());
+}
+
+/// 模型暂时不可用时的文案必须诚实：不能再说「没有配置模型」。
+#[tokio::test]
+async fn provider_unavailable_listing_does_not_claim_unconfigured() {
+    let engine = mc_server::chat::ExtractOnlyEngine::provider_unavailable();
+    let answer = engine
+        .answer(&mc_server::chat::ChatInput {
+            query: "APEX-389".to_string(),
+            citations: vec![mc_server::chat::Citation {
+                document_id: "act-1".to_string(),
+                title: "排查 APEX-389".to_string(),
+                kind: "activity".to_string(),
+            }],
+            history: Vec::new(),
+        })
+        .await
+        .expect("本地列表不该失败");
+
+    assert!(
+        answer.text.contains("暂时不可用") || answer.text.contains("本地"),
+        "要说清是模型不可用后的本地列表：{}",
+        answer.text
+    );
+    assert!(
+        !answer.text.contains("没有配置模型"),
+        "配了模型但连不上时不能谎称未配置：{}",
         answer.text
     );
     assert!(answer.model.is_none());

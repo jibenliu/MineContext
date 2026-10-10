@@ -10,6 +10,7 @@ function renderModal(
     isMonitoring: boolean
     captureEnabled?: boolean
     windowsReason?: string | null
+    screenRecordingTcc?: boolean
   }
 ) {
   const Wrapper = () => {
@@ -60,5 +61,35 @@ describe('SettingsModal recording / window alerts', () => {
     })
     expect(screen.getByTestId('window-permission-alert')).toBeInTheDocument()
     expect(screen.queryByText('只能选择当前已打开的应用程序')).not.toBeInTheDocument()
+  })
+
+  it('展示 TCC / 录制状态 / 窗口列表原因，并在 TCC 未授权时给出退出重开提示与 CTA', () => {
+    renderModal({
+      isMonitoring: false,
+      captureEnabled: false,
+      screenRecordingTcc: false,
+      windowsReason: 'screen_recording_permission',
+      onRequestPermission: vi.fn()
+    })
+    expect(screen.getByTestId('capture-status-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('capture-tcc-status')).toHaveTextContent(/未授权|Denied|not granted/i)
+    expect(screen.getByTestId('capture-recording-status')).toHaveTextContent(/已停止|Stopped|not started/i)
+    expect(screen.getByTestId('capture-window-list-status')).toHaveTextContent(/权限|permission/i)
+    expect(screen.getByTestId('quit-relaunch-hint')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /打开系统设置|Open System Settings/i }).length).toBeGreaterThanOrEqual(
+      1
+    )
+  })
+
+  it('windows_reason=empty 时说明无打开窗口，而不是权限', () => {
+    renderModal({
+      isMonitoring: true,
+      captureEnabled: true,
+      screenRecordingTcc: true,
+      windowsReason: 'empty'
+    })
+    expect(screen.getByTestId('capture-window-list-status')).toHaveTextContent(/没有打开|no open/i)
+    expect(screen.queryByTestId('window-permission-alert')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('quit-relaunch-hint')).not.toBeInTheDocument()
   })
 })

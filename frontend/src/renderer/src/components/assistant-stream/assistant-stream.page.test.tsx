@@ -64,6 +64,20 @@ describe('助手流式气泡（5.41）', () => {
     await waitFor(() => expect(screen.getByTestId('assistant-state')).toHaveTextContent('生成失败'))
     expect(screen.getByTestId('assistant-text')).toHaveTextContent('模型不可用')
   })
+
+  it('本地降级完成时显示「仅本地」而不是生成失败', async () => {
+    streamChunks([
+      'data: {"type":"stream_complete","mode":"local","content":"模型暂时不可用，先列出本地相关记录：\\n1. 写导入脚本（activity）\\n","citations":[{"document_id":"act-1","title":"写导入脚本","kind":"activity"}]}\n\n',
+      'data: {"type":"completed"}\n\n'
+    ])
+
+    render(<AssistantStream />)
+    fireEvent.click(screen.getByText('问一句'))
+
+    await waitFor(() => expect(screen.getByTestId('assistant-mode-local')).toHaveTextContent('仅本地'))
+    expect(screen.getByTestId('assistant-text')).toHaveTextContent('本地相关记录')
+    expect(screen.getByTestId('assistant-state')).toHaveTextContent(/^$/)
+  })
 })
 
 describe('助手对话历史（5.41 完整会话的第一步）', () => {

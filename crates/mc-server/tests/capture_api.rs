@@ -156,6 +156,29 @@ fn permissions_endpoint_reports_readiness() {
 }
 
 #[test]
+fn status_endpoint_reports_tcc_and_window_reason() {
+    let ctx = ctx();
+    let router = router(Arc::clone(&ctx.state));
+
+    let data = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(get_data(router, "/api/capture/status"));
+
+    assert!(
+        data["screen_recording_tcc"].is_boolean(),
+        "status 必须带 screen_recording_tcc，设置页据此展示 TCC：{data}"
+    );
+    assert!(
+        data["enabled"].is_boolean(),
+        "status 必须带 enabled：{data}"
+    );
+    assert!(
+        data.get("windows_reason").is_some(),
+        "status 必须带 windows_reason（可为 null）：{data}"
+    );
+}
+
+#[test]
 fn targets_endpoint_shape_matches_legacy_capture_source() {
     let ctx = ctx();
     let router = router(Arc::clone(&ctx.state));

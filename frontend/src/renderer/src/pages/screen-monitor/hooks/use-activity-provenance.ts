@@ -22,6 +22,8 @@ export interface ActivityOriginRow {
   id: string
   legacy_id: number
   origin: ActivityOrigin
+  /** 投影分类（开发 / 需求 / …）；分组时间线用它，没有就不分组到未分类 */
+  category?: string | null
   /** 0–1；模型推断与规则命中才有意义 */
   confidence?: number
   is_user_modified?: boolean
@@ -81,6 +83,8 @@ export interface ActivityProvenance {
   /** 兼容层的数字 id → 来源行（v1 的字符串 id 也在里面） */
   rows: Map<string, ActivityOriginRow>
   badgeFor(legacyId: string | number): ProvenanceBadge | null
+  /** 扩展面分类；拿不到时返回 null，调用方再退回 metadata / 未分类 */
+  categoryFor(legacyId: string | number): string | null
   rename(legacyId: string | number, title: string): Promise<void>
   /** 把 `absorbedLegacyId` 并进 `primaryLegacyId`（两条都要能在扩展面里对上号） */
   merge(primaryLegacyId: string | number, absorbedLegacyId: string | number): Promise<void>
@@ -115,6 +119,15 @@ export function useActivityProvenance(): ActivityProvenance {
     (legacyId: string | number): ProvenanceBadge | null => {
       const row = rows.get(String(legacyId))
       return row ? badgeOf(row) : null
+    },
+    [rows]
+  )
+
+  const categoryFor = useCallback(
+    (legacyId: string | number): string | null => {
+      const row = rows.get(String(legacyId))
+      const category = row?.category?.trim()
+      return category ? category : null
     },
     [rows]
   )
@@ -155,5 +168,5 @@ export function useActivityProvenance(): ActivityProvenance {
     [refresh, rows]
   )
 
-  return { rows, badgeFor, rename, merge, split }
+  return { rows, badgeFor, categoryFor, rename, merge, split }
 }

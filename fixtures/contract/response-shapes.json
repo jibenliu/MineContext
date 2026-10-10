@@ -45,6 +45,7 @@
       "endpoint": "GET /api/v1/search?q=…",
       "sample": {
         "query": "重构",
+        "mode": "keyword",
         "results": [
           {
             "id": "act-1",
