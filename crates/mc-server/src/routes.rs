@@ -581,14 +581,14 @@ pub struct ModelSettingsBody {
 }
 
 impl ModelSettingsBody {
-    fn from_config(config: &mc_config::Config) -> Self {
+    fn from_config(config: &mc_config::Config, active_platform: &str) -> Self {
         Self {
-            model_platform: String::new(),
+            model_platform: active_platform.to_string(),
             model_id: config.ai.vision.model.clone(),
             base_url: config.ai.vision.base_url.clone(),
             // 明文密钥**不进 get**：前端用 hasApiKey + apiKeyMasked 回显
             api_key: String::new(),
-            embedding_model_platform: String::new(),
+            embedding_model_platform: active_platform.to_string(),
             embedding_model_id: config.ai.embedding.model.clone(),
             embedding_base_url: config.ai.embedding.base_url.clone(),
             embedding_api_key: String::new(),
@@ -634,15 +634,40 @@ pub struct ModelSettingsRequest {
 /// `apiKey` 字段始终为空（兼容旧表单形状）；是否已配置看 `hasApiKey`，
 /// 回显用 `apiKeyMasked`（首尾可见、中间打码）。明文只走专用复制接口。
 /// 自建若配了独立向量密钥，另给 `hasEmbeddingApiKey` / `embeddingApiKeyMasked`。
+///
+/// `providers`：各平台已存凭据的脱敏视图。切换活跃平台并保存时不会抹掉其它平台的密钥，
+/// 前端靠这里回填非活跃平台的脱敏串。
 pub async fn model_settings_get(State(state): State<Arc<ServerState>>) -> Response {
     let config = state.config.current();
-    let body = ModelSettingsBody::from_config(&config.config);
-    // hasApiKey 以「能读到明文」为准：仅有 api_key_ref 但 sidecar/钥匙串都空时，
-    // 复制接口也会 404，UI 不应假装「已配置可复制」。
-    let stored = read_stored_model_api_key(&state, ModelKeyField::Vision)
+    let sidecar = match read_model_key_sidecar(&state, Some(&config.config)) {
+        Ok(keys) => keys,
+        Err(error) => return envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
+    };
+    let active = normalize_provider_id(&sidecar.active_provider).unwrap_or_else(|| {
+        infer_provider_from_base_url(&config.config.ai.vision.base_url).to_string()
+    });
+    let mut body = ModelSettingsBody::from_config(&config.config, &active);
+
+    // 若 sidecar 里有活跃平台的端点字段，优先用它回填（与密钥分档一致）
+    if let Some(slot) = sidecar.providers.get(&active) {
+        if !slot.model_id.is_empty() {
+            body.model_id = slot.model_id.clone();
+        }
+        if !slot.base_url.is_empty() {
+            body.base_url = slot.base_url.clone();
+        }
+        if !slot.embedding_model_id.is_empty() {
+            body.embedding_model_id = slot.embedding_model_id.clone();
+        }
+        if !slot.embedding_base_url.is_empty() {
+            body.embedding_base_url = slot.embedding_base_url.clone();
+        }
+    }
+
+    let stored = read_stored_model_api_key(&state, ModelKeyField::Vision, None)
         .ok()
         .flatten();
-    let stored_embedding = read_stored_model_api_key(&state, ModelKeyField::Embedding)
+    let stored_embedding = read_stored_model_api_key(&state, ModelKeyField::Embedding, None)
         .ok()
         .flatten();
     let has_api_key = stored.is_some();
@@ -656,6 +681,8 @@ pub async fn model_settings_get(State(state): State<Arc<ServerState>>) -> Respon
         .map(|key| mask_api_key(key))
         .unwrap_or_default();
 
+    let providers = provider_masks_json(&sidecar);
+
     Json(json!({
         "code": 0,
         "status": 200,
@@ -666,6 +693,7 @@ pub async fn model_settings_get(State(state): State<Arc<ServerState>>) -> Respon
             "apiKeyMasked": masked,
             "hasEmbeddingApiKey": has_embedding_api_key,
             "embeddingApiKeyMasked": embedding_masked,
+            "providers": providers,
         },
         "error_code": Value::Null,
         "remediation": Value::Null,
@@ -678,6 +706,9 @@ pub struct ModelApiKeyQuery {
     /// `embedding` = 向量密钥；缺省或其它值 = 视觉密钥。
     #[serde(default)]
     pub field: String,
+    /// 可选：读某个平台的已存密钥（非活跃平台也行）；缺省 = 当前活跃。
+    #[serde(default)]
+    pub provider: String,
 }
 
 /// `GET /api/model_settings/api_key` —— 设置页「复制」用：返回已存明文。
@@ -685,6 +716,7 @@ pub struct ModelApiKeyQuery {
 /// 仅本机 + token（与其它控制面相同）。**不要**把这条并进 get：
 /// get 的契约是「永不回传明文」，复制是用户显式动作。
 /// `?field=embedding` 取向量槽；缺省取视觉槽（无独立向量密钥时回退到视觉）。
+/// `?provider=openai` 取该平台分档（切换后未激活的密钥仍可读）。
 pub async fn model_settings_api_key(
     State(state): State<Arc<ServerState>>,
     axum::extract::Query(query): axum::extract::Query<ModelApiKeyQuery>,
@@ -694,7 +726,8 @@ pub async fn model_settings_api_key(
     } else {
         ModelKeyField::Vision
     };
-    match read_stored_model_api_key(&state, field) {
+    let provider = normalize_provider_id(&query.provider);
+    match read_stored_model_api_key(&state, field, provider.as_deref()) {
         Ok(Some(api_key)) => envelope::ok(json!({ "apiKey": api_key })),
         Ok(None) => envelope::error_response(
             StatusCode::NOT_FOUND,
@@ -718,7 +751,7 @@ fn mask_api_key(key: &str) -> String {
 /// 诊断 / 录制统计用：能否读到已存明文（不回传内容）。
 pub(crate) fn read_stored_model_api_key_for_diagnostics(state: &ServerState) -> bool {
     matches!(
-        read_stored_model_api_key(state, ModelKeyField::Vision),
+        read_stored_model_api_key(state, ModelKeyField::Vision, None),
         Ok(Some(_))
     )
 }
@@ -731,36 +764,157 @@ enum ModelKeyField {
 
 const VISION_KEY_REF: &str = "keychain:mc:model";
 const EMBEDDING_KEY_REF: &str = "keychain:mc:model-embedding";
+const PROVIDER_DOUBAO: &str = "doubao";
+const PROVIDER_OPENAI: &str = "openai";
+const PROVIDER_CUSTOM: &str = "custom";
+
+#[derive(Debug, Default, Clone)]
+struct ProviderKeySlot {
+    api_key: Option<String>,
+    embedding_api_key: Option<String>,
+    model_id: String,
+    base_url: String,
+    embedding_model_id: String,
+    embedding_base_url: String,
+}
+
+impl ProviderKeySlot {
+    fn has_any_key(&self) -> bool {
+        self.api_key.is_some() || self.embedding_api_key.is_some()
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 struct ModelKeySidecar {
+    /// 当前活跃平台（`doubao` / `openai` / `custom`）。
+    active_provider: String,
+    /// 活跃平台密钥镜像（兼容旧 sidecar 顶层字段；运行时 / 诊断读这里）。
     api_key: Option<String>,
     embedding_api_key: Option<String>,
+    /// 各平台凭据与端点；切换活跃平台时互不覆盖。
+    providers: std::collections::BTreeMap<String, ProviderKeySlot>,
 }
 
-/// 已存密钥：优先读 0600 sidecar，再尝试钥匙串引用。
+fn normalize_provider_id(raw: &str) -> Option<String> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        PROVIDER_DOUBAO => Some(PROVIDER_DOUBAO.to_string()),
+        PROVIDER_OPENAI => Some(PROVIDER_OPENAI.to_string()),
+        PROVIDER_CUSTOM => Some(PROVIDER_CUSTOM.to_string()),
+        _ => None,
+    }
+}
+
+fn infer_provider_from_base_url(base_url: &str) -> &'static str {
+    let lower = base_url.to_ascii_lowercase();
+    if lower.contains("volces.com") {
+        PROVIDER_DOUBAO
+    } else if lower.contains("openai.com") {
+        PROVIDER_OPENAI
+    } else if !base_url.trim().is_empty() {
+        PROVIDER_CUSTOM
+    } else {
+        PROVIDER_DOUBAO
+    }
+}
+
+fn provider_masks_json(sidecar: &ModelKeySidecar) -> Value {
+    let mut out = serde_json::Map::new();
+    for (id, slot) in &sidecar.providers {
+        let vision = slot.api_key.as_deref();
+        let embed = slot
+            .embedding_api_key
+            .as_deref()
+            .or(if id == PROVIDER_CUSTOM { None } else { vision });
+        // 自建：独立向量槽才算 hasEmbedding；标准平台共用视觉钥匙时也标 hasEmbedding=false
+        let has_embed = if id == PROVIDER_CUSTOM {
+            slot.embedding_api_key.is_some()
+        } else {
+            false
+        };
+        let embed_mask = if has_embed {
+            slot.embedding_api_key
+                .as_ref()
+                .map(|k| mask_api_key(k))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+        out.insert(
+            id.clone(),
+            json!({
+                "modelId": slot.model_id,
+                "baseUrl": slot.base_url,
+                "embeddingModelId": slot.embedding_model_id,
+                "embeddingBaseUrl": slot.embedding_base_url,
+                "hasApiKey": vision.is_some(),
+                "apiKeyMasked": vision.map(mask_api_key).unwrap_or_default(),
+                "hasEmbeddingApiKey": has_embed,
+                "embeddingApiKeyMasked": embed_mask,
+                // 标准平台复制时若无独立 embedding，前端可回退视觉脱敏
+                "sharedEmbeddingWithVision": id != PROVIDER_CUSTOM && embed.is_some() && vision.is_some(),
+            }),
+        );
+    }
+    Value::Object(out)
+}
+
+/// 已存密钥：优先读 sidecar（可指定平台分档），再尝试钥匙串引用。
 /// 向量槽若无独立明文，回退到视觉槽（标准平台共用一把钥匙）。
 fn read_stored_model_api_key(
     state: &ServerState,
     field: ModelKeyField,
+    provider: Option<&str>,
 ) -> Result<Option<String>, AppError> {
-    let sidecar = read_model_key_sidecar(state)?;
-    match field {
-        ModelKeyField::Vision => {
-            if let Some(key) = sidecar.api_key {
-                return Ok(Some(key));
+    let config = state.config.current();
+    let sidecar = read_model_key_sidecar(state, Some(&config.config))?;
+    let active = normalize_provider_id(&sidecar.active_provider).unwrap_or_else(|| {
+        infer_provider_from_base_url(&config.config.ai.vision.base_url).to_string()
+    });
+    let target = provider
+        .and_then(normalize_provider_id)
+        .unwrap_or(active.clone());
+
+    if let Some(slot) = sidecar.providers.get(&target) {
+        match field {
+            ModelKeyField::Vision => {
+                if let Some(key) = &slot.api_key {
+                    return Ok(Some(key.clone()));
+                }
             }
-        }
-        ModelKeyField::Embedding => {
-            if let Some(key) = sidecar.embedding_api_key {
-                return Ok(Some(key));
-            }
-            if let Some(key) = sidecar.api_key {
-                return Ok(Some(key));
+            ModelKeyField::Embedding => {
+                if let Some(key) = &slot.embedding_api_key {
+                    return Ok(Some(key.clone()));
+                }
+                if let Some(key) = &slot.api_key {
+                    return Ok(Some(key.clone()));
+                }
             }
         }
     }
-    let config = state.config.current();
+
+    // 兼容：旧 sidecar 只有顶层、尚未迁入 providers，或查的是活跃平台
+    if target == active || provider.is_none() {
+        match field {
+            ModelKeyField::Vision => {
+                if let Some(key) = &sidecar.api_key {
+                    return Ok(Some(key.clone()));
+                }
+            }
+            ModelKeyField::Embedding => {
+                if let Some(key) = &sidecar.embedding_api_key {
+                    return Ok(Some(key.clone()));
+                }
+                if let Some(key) = &sidecar.api_key {
+                    return Ok(Some(key.clone()));
+                }
+            }
+        }
+    }
+
+    if provider.is_some() && target != active {
+        return Ok(None);
+    }
+
     let key_ref = match field {
         ModelKeyField::Vision => config.config.ai.vision.api_key_ref.as_deref().or(config
             .config
@@ -779,7 +933,10 @@ fn read_stored_model_api_key(
     mc_providers::credentials::resolve_secret(&secrets, key_ref)
 }
 
-fn read_model_key_sidecar(state: &ServerState) -> Result<ModelKeySidecar, AppError> {
+fn read_model_key_sidecar(
+    state: &ServerState,
+    config: Option<&mc_config::Config>,
+) -> Result<ModelKeySidecar, AppError> {
     let path = state.data_dir.join("model-keys.json");
     if !path.exists() {
         return Ok(ModelKeySidecar::default());
@@ -796,17 +953,68 @@ fn read_model_key_sidecar(state: &ServerState) -> Result<ModelKeySidecar, AppErr
             format!("密钥文件格式无效 {}: {error}", path.display()),
         )
     })?;
-    let pick = |name: &str| {
-        value
-            .get(name)
+    let pick = |obj: &Value, name: &str| {
+        obj.get(name)
             .and_then(|v| v.as_str())
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string)
     };
+
+    let mut providers = std::collections::BTreeMap::new();
+    if let Some(map) = value.get("providers").and_then(|v| v.as_object()) {
+        for (id, slot_val) in map {
+            let Some(norm) = normalize_provider_id(id) else {
+                continue;
+            };
+            providers.insert(
+                norm,
+                ProviderKeySlot {
+                    api_key: pick(slot_val, "api_key"),
+                    embedding_api_key: pick(slot_val, "embedding_api_key"),
+                    model_id: pick(slot_val, "model_id").unwrap_or_default(),
+                    base_url: pick(slot_val, "base_url").unwrap_or_default(),
+                    embedding_model_id: pick(slot_val, "embedding_model_id").unwrap_or_default(),
+                    embedding_base_url: pick(slot_val, "embedding_base_url").unwrap_or_default(),
+                },
+            );
+        }
+    }
+
+    let top_api = pick(&value, "api_key");
+    let top_embed = pick(&value, "embedding_api_key");
+    let active_raw = pick(&value, "active_provider").unwrap_or_default();
+    let mut active = normalize_provider_id(&active_raw).unwrap_or_default();
+    if active.is_empty() {
+        active = config
+            .map(|c| infer_provider_from_base_url(&c.ai.vision.base_url).to_string())
+            .unwrap_or_else(|| PROVIDER_DOUBAO.to_string());
+    }
+
+    // 旧 sidecar：只有顶层密钥、没有 providers → 迁入当前活跃平台分档
+    if providers.is_empty() && (top_api.is_some() || top_embed.is_some()) {
+        let mut slot = ProviderKeySlot {
+            api_key: top_api.clone(),
+            embedding_api_key: top_embed.clone(),
+            ..ProviderKeySlot::default()
+        };
+        if let Some(c) = config {
+            slot.model_id = c.ai.vision.model.clone();
+            slot.base_url = c.ai.vision.base_url.clone();
+            slot.embedding_model_id = c.ai.embedding.model.clone();
+            slot.embedding_base_url = c.ai.embedding.base_url.clone();
+            if active != PROVIDER_CUSTOM {
+                slot.embedding_api_key = None;
+            }
+        }
+        providers.insert(active.clone(), slot);
+    }
+
     Ok(ModelKeySidecar {
-        api_key: pick("api_key"),
-        embedding_api_key: pick("embedding_api_key"),
+        active_provider: active,
+        api_key: top_api,
+        embedding_api_key: top_embed,
+        providers,
     })
 }
 
@@ -824,14 +1032,11 @@ pub async fn model_settings_validate(
     }))
 }
 
-/// `POST /api/model_settings/update` —— 写进用户配置层并热重载。
+/// `POST /api/model_settings/update` —— 写配置层并热重载。
 ///
-/// 密钥处理是这里唯一需要小心的部分：**明文永远不进配置文件**，
-/// 而是写进 0600 的 sidecar（`model-keys.json`）等用户导入 Keychain，
-/// 配置里只留 `api_key_ref`。前端把密钥留在输入框里就行，不需要读回。
-///
-/// 自建可同时带视觉 / 向量两把密钥：sidecar 分槽保存，配置里用不同
-/// `api_key_ref`；标准平台（豆包 / OpenAI）仍共用视觉槽。
+/// 明文只进 0600 sidecar（`model-keys.json`），配置留 `api_key_ref`。
+/// 自建视觉/向量分槽；标准平台共用视觉槽。各平台按 `modelPlatform`
+/// 分档：保存 B 不抹掉 A；顶层密钥镜像当前活跃平台。
 pub async fn model_settings_update(
     State(state): State<Arc<ServerState>>,
     Json(request): Json<ModelSettingsRequest>,
@@ -846,65 +1051,90 @@ pub async fn model_settings_update(
 
     let vision_in = body.api_key.trim();
     let embed_in = body.embedding_api_key.trim();
-    let is_custom = body.model_platform.trim().eq_ignore_ascii_case("custom");
+    let platform = normalize_provider_id(&body.model_platform)
+        .unwrap_or_else(|| infer_provider_from_base_url(&body.base_url).to_string());
+    let is_custom = platform == PROVIDER_CUSTOM;
 
-    let existing_sidecar = match read_model_key_sidecar(&state) {
+    let current = state.config.current();
+    let mut sidecar = match read_model_key_sidecar(&state, Some(&current.config)) {
         Ok(keys) => keys,
         Err(error) => return envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
     };
 
-    let mut next_sidecar = existing_sidecar.clone();
+    let mut slot = sidecar
+        .providers
+        .get(&platform)
+        .cloned()
+        .unwrap_or_default();
+
     if !vision_in.is_empty() {
-        next_sidecar.api_key = Some(vision_in.to_string());
+        slot.api_key = Some(vision_in.to_string());
     }
-    if !embed_in.is_empty() {
-        next_sidecar.embedding_api_key = Some(embed_in.to_string());
-    } else if !is_custom {
-        // 标准平台只有一把钥匙：清掉独立向量槽，避免自建残留干扰
-        next_sidecar.embedding_api_key = None;
-        if next_sidecar.api_key.is_none() && !vision_in.is_empty() {
-            next_sidecar.api_key = Some(vision_in.to_string());
+    if is_custom {
+        if !embed_in.is_empty() {
+            slot.embedding_api_key = Some(embed_in.to_string());
+        }
+        // 兼容旧客户端：只填 embedding、没填 vision
+        if slot.api_key.is_none() && !embed_in.is_empty() {
+            slot.api_key = Some(embed_in.to_string());
+        }
+    } else {
+        // 标准平台只有一把钥匙：清掉独立向量槽，避免自建残留进活跃镜像
+        slot.embedding_api_key = None;
+        if slot.api_key.is_none() && !embed_in.is_empty() {
+            slot.api_key = Some(embed_in.to_string());
         }
     }
 
-    // 兼容旧客户端：只填了 embedding、没填 vision，且 sidecar 也没有视觉槽
-    if next_sidecar.api_key.is_none() && !embed_in.is_empty() {
-        next_sidecar.api_key = Some(embed_in.to_string());
-        if !is_custom {
-            next_sidecar.embedding_api_key = None;
-        }
-    }
+    slot.model_id = body.model_id.trim().to_string();
+    slot.base_url = body.base_url.trim().to_string();
+    slot.embedding_model_id = body.embedding_model_id.trim().to_string();
+    slot.embedding_base_url = if body.embedding_base_url.trim().is_empty() {
+        body.base_url.trim().to_string()
+    } else {
+        body.embedding_base_url.trim().to_string()
+    };
 
-    let current = state.config.current();
     let had_any_ref = current.config.ai.vision.api_key_ref.is_some()
         || current.config.ai.embedding.api_key_ref.is_some();
-    let has_any_key = next_sidecar.api_key.is_some() || next_sidecar.embedding_api_key.is_some();
+    let same_as_previous_active =
+        normalize_provider_id(&sidecar.active_provider).as_deref() == Some(platform.as_str());
 
-    if !has_any_key && !had_any_ref {
-        return envelope::error_response(
-            StatusCode::BAD_REQUEST,
-            &AppError::new(
-                ErrorCode::ConfigInvalid,
-                "请填写 API Key：它会写入 0600 的 model-keys.json 供导入钥匙串，配置文件里只保存引用",
-            ),
-        );
+    if !slot.has_any_key() {
+        let allow_keychain_only =
+            vision_in.is_empty() && embed_in.is_empty() && had_any_ref && same_as_previous_active;
+        if !allow_keychain_only {
+            return envelope::error_response(
+                StatusCode::BAD_REQUEST,
+                &AppError::new(
+                    ErrorCode::ConfigInvalid,
+                    "请填写 API Key：它会写入 0600 的 model-keys.json 供导入钥匙串，配置文件里只保存引用",
+                ),
+            );
+        }
     }
 
-    let (vision_ref, embedding_ref) = resolve_model_key_refs(&next_sidecar, &current.config);
+    sidecar.providers.insert(platform.clone(), slot.clone());
+    sidecar.active_provider = platform.clone();
+    // 顶层镜像活跃平台（旧读者 / 诊断 / 钥匙串导入仍看顶层）
+    sidecar.api_key = slot.api_key.clone();
+    sidecar.embedding_api_key = if is_custom {
+        slot.embedding_api_key.clone()
+    } else {
+        None
+    };
+
+    let (vision_ref, embedding_ref) = resolve_model_key_refs(&sidecar, &current.config);
     let mut patch = json!({
         "ai": {
             "vision": {
-                "base_url": body.base_url,
-                "model": body.model_id,
+                "base_url": slot.base_url,
+                "model": slot.model_id,
                 "api_key_ref": vision_ref,
             },
             "embedding": {
-                "base_url": if body.embedding_base_url.trim().is_empty() {
-                    body.base_url.clone()
-                } else {
-                    body.embedding_base_url.clone()
-                },
-                "model": body.embedding_model_id,
+                "base_url": slot.embedding_base_url,
+                "model": slot.embedding_model_id,
                 "api_key_ref": embedding_ref,
             },
         }
@@ -925,18 +1155,17 @@ pub async fn model_settings_update(
         {
             patch["ai"]["embedding"]["api_key_ref"] = json!(existing);
         }
+        // 切到另一平台且该平台槽里已有密钥：按槽重算引用
+        if !same_as_previous_active && slot.has_any_key() {
+            let (v, e) = resolve_model_key_refs(&sidecar, &current.config);
+            patch["ai"]["vision"]["api_key_ref"] = json!(v);
+            patch["ai"]["embedding"]["api_key_ref"] = json!(e);
+        }
     }
 
-    let wrote_sidecar = !vision_in.is_empty() || !embed_in.is_empty() || !is_custom;
-    let sidecar_note = if wrote_sidecar && has_any_key {
-        match write_model_key_sidecar(&state, &next_sidecar) {
-            Ok(path) => Some(path),
-            Err(error) => {
-                return envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error)
-            }
-        }
-    } else {
-        None
+    let sidecar_note = match write_model_key_sidecar(&state, &sidecar) {
+        Ok(path) => Some(path),
+        Err(error) => return envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
     };
 
     match crate::config_api::apply_patch(&state, patch) {
@@ -984,16 +1213,35 @@ fn resolve_model_key_refs(
 }
 
 /// 把明文密钥写进 0600 的 sidecar（绝不进 config.toml）。
-/// 视觉 / 向量分槽；旧文件只有 `api_key` 时仍可读。
+/// 顶层镜像活跃平台；`providers` 保留各平台分档（切换不互删）。
 fn write_model_key_sidecar(
     state: &Arc<ServerState>,
     keys: &ModelKeySidecar,
 ) -> Result<String, AppError> {
     let path = state.data_dir.join("model-keys.json");
+    let mut providers = serde_json::Map::new();
+    for (id, slot) in &keys.providers {
+        let mut entry = json!({
+            "model_id": slot.model_id,
+            "base_url": slot.base_url,
+            "embedding_model_id": slot.embedding_model_id,
+            "embedding_base_url": slot.embedding_base_url,
+        });
+        if let Some(key) = &slot.api_key {
+            entry["api_key"] = json!(key);
+        }
+        if let Some(key) = &slot.embedding_api_key {
+            entry["embedding_api_key"] = json!(key);
+        }
+        providers.insert(id.clone(), entry);
+    }
+
     let mut payload = json!({
-        "note": "由设置页写入：请把密钥导入系统钥匙串，然后删除本文件",
+        "note": "由设置页写入：请把密钥导入系统钥匙串，然后删除本文件；providers 为各平台分档，切换活跃平台不会互相覆盖",
         "account": VISION_KEY_REF,
         "embedding_account": EMBEDDING_KEY_REF,
+        "active_provider": keys.active_provider,
+        "providers": providers,
     });
     if let Some(key) = &keys.api_key {
         payload["api_key"] = json!(key);

@@ -14,12 +14,18 @@ const ModelRadio = ({ value, onChange }: ModelRadioProps) => {
     <div className="w-fit flex items-center gap-[16px]">
       {ModelInfoList?.map((item) => {
         return (
-          <div key={item.value} className="w-10  cursor-pointer">
+          // 整块可点：图标与平台名都切换活跃平台（一点即切，再点保存落盘）
+          <div
+            key={item.value}
+            className="w-10 cursor-pointer"
+            role="radio"
+            aria-checked={item.value === value}
+            data-testid={`model-platform-${item.value}`}
+            onClick={() => {
+              onChange?.(item.value)
+            }}>
             <div
-              className={`w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden ${item.value === value ? 'border-[var(--mc-brand)]' : 'border-[var(--color-border-2)]'} ${item.value === value ? 'border-2' : 'border-1'}`}
-              onClick={() => {
-                onChange?.(item.value)
-              }}>
+              className={`w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden ${item.value === value ? 'border-[var(--mc-brand)]' : 'border-[var(--color-border-2)]'} ${item.value === value ? 'border-2' : 'border-1'}`}>
               <div>
                 <div className="w-full h-full flex items-center justify-center">{item.icon}</div>
               </div>

@@ -37,13 +37,13 @@ macOS 桌面版默认是 `~/Library/Application Support/MineContext`：
   blobs/thumbnails/…       缩略图
   uploads/                 「上传文件」功能保存的文件
   config.toml              你的设置（用户配置层，权限受系统默认保护）
-  model-keys.json          密钥落点说明（0600）：导入系统钥匙串之前，明文可能暂存在这里（自建可同时有 `api_key` 与 `embedding_api_key` 两槽）
+  model-keys.json          密钥落点说明（0600）：导入系统钥匙串之前，明文可能暂存在这里；顶层镜像当前活跃平台，`providers` 按 doubao/openai/custom 分档（切换活跃平台不会互相覆盖；自建分档可同时有视觉与向量两槽）
   runtime.json             端口与本次启动的 token（0600，退出时删除）
   logs/  frontend-logs/    后端与渲染层的日志
   .shell.lock              外壳单实例锁
 ```
 
-密钥本体在**系统钥匙串**（配置里只写 `api_key_ref`，视觉默认 `keychain:mc:model`，自建独立向量密钥为 `keychain:mc:model-embedding`），不在数据目录里。
+密钥本体在**系统钥匙串**（配置里只写 `api_key_ref`，视觉默认 `keychain:mc:model`，自建独立向量密钥为 `keychain:mc:model-embedding`），不在数据目录里。设置页三个平台只活跃一套端点，但各平台凭据分档保存在 sidecar，切走再切回仍能看到原先的脱敏回显。
 
 数据库与图片都在本机；没有云端账号，没有服务端同步。
 

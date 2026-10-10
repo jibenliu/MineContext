@@ -16,6 +16,8 @@ import {
   getStoredApiKey,
   isPlainApiKeyCandidate,
   ModelConfigProps,
+  ModelInfoResponseData,
+  ProviderSettingsMask,
   updateModelSettingsAPI
 } from '../../services/settings'
 import { writeClipboard } from '../../utils/write-clipboard'
@@ -451,6 +453,23 @@ const Settings: FC<SettingsProps> = (props) => {
   const [hasStoredEmbeddingKey, setHasStoredEmbeddingKey] = useState(false)
   const [embeddingMaskedValue, setEmbeddingMaskedValue] = useState('')
   const embeddingMaskedRef = useRef('')
+  /** 各平台脱敏与 hasKey；切换 Radio 时据此更新当前框，避免误用活跃平台的状态。 */
+  const providersRef = useRef<Record<string, ProviderSettingsMask>>({})
+
+  const applyProviderKeyState = useMemoizedFn((platform: string, providers: Record<string, ProviderSettingsMask>) => {
+    const slot = providers[platform]
+    const hasKey = Boolean(slot?.hasApiKey)
+    const masked = String(slot?.apiKeyMasked || '')
+    const hasEmb = Boolean(slot?.hasEmbeddingApiKey)
+    const embMasked = String(slot?.embeddingApiKeyMasked || '')
+    setHasStoredKey(hasKey)
+    setMaskedValue(masked)
+    maskedRef.current = masked
+    setHasStoredEmbeddingKey(hasEmb)
+    setEmbeddingMaskedValue(embMasked)
+    embeddingMaskedRef.current = embMasked
+  })
+
   const firstRun = useFirstRunChecklist({ apiKeyConfiguredOverride: hasStoredKey })
 
   const { run: updateModelSettings, loading: updateLoading } = useRequest(updateModelSettingsAPI, {
@@ -471,8 +490,23 @@ const Settings: FC<SettingsProps> = (props) => {
   const storedFieldForFormField = (field: string): 'vision' | 'embedding' =>
     field.includes('embeddingApiKey') ? 'embedding' : 'vision'
 
-  const maskForFormField = (field: string): string =>
-    storedFieldForFormField(field) === 'embedding' ? embeddingMaskedRef.current : maskedRef.current
+  const providerForFormField = (field: string): string => {
+    for (const p of [ModelTypeList.Doubao, ModelTypeList.OpenAI, ModelTypeList.Custom]) {
+      if (field.startsWith(`${p}-`)) {
+        return p
+      }
+    }
+    return String(form.getFieldValue('modelPlatform') || '')
+  }
+
+  const maskForFormField = (field: string): string => {
+    const provider = providerForFormField(field)
+    const slot = providersRef.current[provider]
+    if (storedFieldForFormField(field) === 'embedding') {
+      return String(slot?.embeddingApiKeyMasked || embeddingMaskedRef.current || '')
+    }
+    return String(slot?.apiKeyMasked || maskedRef.current || '')
+  }
 
   const copyStoredApiKey = useMemoizedFn(async (field?: keyof SettingsFormProps) => {
     try {
@@ -482,11 +516,12 @@ const Settings: FC<SettingsProps> = (props) => {
       const target = field ?? (`${platform}-apiKey` as keyof SettingsFormProps)
       const fromForm = String(form.getFieldValue(target) ?? '')
       const mask = maskForFormField(String(target))
+      const provider = providerForFormField(String(target))
       let key = ''
       if (isPlainApiKeyCandidate(fromForm, mask)) {
         key = fromForm.trim()
       } else {
-        key = await getStoredApiKey(storedFieldForFormField(String(target)))
+        key = await getStoredApiKey(storedFieldForFormField(String(target)), provider)
       }
       if (!key) {
         Message.error(t('settings.apiKeyCopyFailed'))
@@ -508,7 +543,7 @@ const Settings: FC<SettingsProps> = (props) => {
       return
     }
     try {
-      const key = await getStoredApiKey(storedFieldForFormField(String(field)))
+      const key = await getStoredApiKey(storedFieldForFormField(String(field)), providerForFormField(String(field)))
       if (!key) {
         return
       }
@@ -532,9 +567,11 @@ const Settings: FC<SettingsProps> = (props) => {
       }
       const apiKeyField = `${values.modelPlatform}-apiKey` as keyof SettingsFormProps
       const rawKey = String(values[apiKeyField] ?? '').trim()
-      // 脱敏串或空串 = 未改密钥，交给后端沿用已有引用
-      const effectiveKey = !rawKey || rawKey === maskedRef.current ? '' : rawKey
-      if (!effectiveKey && !hasStoredKey) {
+      const platformMask = String(providersRef.current[values.modelPlatform]?.apiKeyMasked || maskedRef.current)
+      const platformHasKey = Boolean(providersRef.current[values.modelPlatform]?.hasApiKey ?? hasStoredKey)
+      // 脱敏串或空串 = 未改密钥，交给后端沿用该平台已存分档
+      const effectiveKey = !rawKey || rawKey === platformMask ? '' : rawKey
+      if (!effectiveKey && !platformHasKey) {
         logger.warn('[settings] API Key 为空且无已存密钥，拒绝提交')
         Message.error(t('settings.required'))
         return
@@ -554,8 +591,10 @@ const Settings: FC<SettingsProps> = (props) => {
       if (isCustom) {
         const embField = `${ModelTypeList.Custom}-embeddingApiKey` as keyof SettingsFormProps
         const embRaw = String(values[embField] ?? '').trim()
+        const customSlot = providersRef.current[ModelTypeList.Custom]
+        const embMask = String(customSlot?.embeddingApiKeyMasked || embeddingMaskedRef.current)
         // 脱敏串（视觉或向量）都表示「未改」；向量槽与视觉槽独立落盘
-        const embUnchanged = !embRaw || embRaw === embeddingMaskedRef.current || embRaw === maskedRef.current
+        const embUnchanged = !embRaw || embRaw === embMask || embRaw === platformMask
         data[`${ModelTypeList.Custom}-embeddingApiKey`] = embUnchanged ? '' : embRaw
       }
       const formatData = Object.fromEntries(
@@ -597,51 +636,83 @@ const Settings: FC<SettingsProps> = (props) => {
     }
   })
 
-  // 后端不带平台名（见 `inferModelPlatform`），所以平台选择由配置反推：
-  // 表单渲染与回填都以它为准，避免出现「平台字段是空串」这种没有对应表单的状态。
+  // 后端现在会回 `modelPlatform`（活跃平台）；旧响应仍可能是空串，那时按 base_url 反推。
   const backendPlatform = useMemo(
     () => inferModelPlatform(get(modelInfo, 'config') as ModelConfigProps | undefined),
     [modelInfo]
   )
 
   useEffect(() => {
-    const config = get(modelInfo, 'config')
-    const hasKey = Boolean(get(modelInfo, 'hasApiKey'))
-    const masked = String(get(modelInfo, 'apiKeyMasked') || '')
-    const hasEmbKey = Boolean(get(modelInfo, 'hasEmbeddingApiKey'))
-    const embMasked = String(get(modelInfo, 'embeddingApiKeyMasked') || '')
-    setHasStoredKey(hasKey)
-    setMaskedValue(masked)
-    maskedRef.current = masked
-    setHasStoredEmbeddingKey(hasEmbKey)
-    setEmbeddingMaskedValue(embMasked)
-    embeddingMaskedRef.current = embMasked
+    const info = modelInfo as ModelInfoResponseData | undefined
+    const config = get(info, 'config')
+    const providers = { ...(get(info, 'providers') || {}) } as Record<string, ProviderSettingsMask>
+    // 活跃平台顶层字段并入 providers，兼容尚未写 providers 的旧响应
+    const active = backendPlatform
+    if (!providers[active] && (get(info, 'hasApiKey') || get(info, 'apiKeyMasked'))) {
+      providers[active] = {
+        modelId: get(config, 'modelId'),
+        baseUrl: get(config, 'baseUrl'),
+        embeddingModelId: get(config, 'embeddingModelId'),
+        embeddingBaseUrl: get(config, 'embeddingBaseUrl'),
+        hasApiKey: Boolean(get(info, 'hasApiKey')),
+        apiKeyMasked: String(get(info, 'apiKeyMasked') || ''),
+        hasEmbeddingApiKey: Boolean(get(info, 'hasEmbeddingApiKey')),
+        embeddingApiKeyMasked: String(get(info, 'embeddingApiKeyMasked') || '')
+      }
+    }
+    providersRef.current = providers
+    applyProviderKeyState(active, providers)
+
     // 引导态也要回填：SSE 丢帧时用户仍停在 init 页，若跳过回填则「开始使用」
     // 会用默认豆包字段覆盖已有 OpenAI/自建配置。无配置的新用户 config 为空，走 initialValues。
     if (!getInfoLoading && !isEmpty(config)) {
       const settingsValue = new Map<keyof SettingsFormProps, string>()
-      const prefix = backendPlatform
-      settingsValue.set(`modelPlatform`, prefix)
+      settingsValue.set(`modelPlatform`, active)
+
+      // 先回填各平台分档（含非活跃），再覆盖活跃平台的 config 字段
+      for (const [platform, slot] of Object.entries(providers)) {
+        if (!isKnownModelPlatform(platform)) continue
+        if (slot.modelId) {
+          settingsValue.set(`${platform}-modelId` as keyof SettingsFormProps, slot.modelId)
+        }
+        if (slot.baseUrl && platform === ModelTypeList.Custom) {
+          settingsValue.set(`${platform}-baseUrl` as keyof SettingsFormProps, slot.baseUrl)
+        }
+        if (slot.embeddingModelId && platform === ModelTypeList.Custom) {
+          settingsValue.set(`${platform}-embeddingModelId` as keyof SettingsFormProps, slot.embeddingModelId)
+        }
+        if (slot.embeddingBaseUrl && platform === ModelTypeList.Custom) {
+          settingsValue.set(`${platform}-embeddingBaseUrl` as keyof SettingsFormProps, slot.embeddingBaseUrl)
+        }
+        if (slot.hasApiKey && slot.apiKeyMasked) {
+          settingsValue.set(`${platform}-apiKey` as keyof SettingsFormProps, slot.apiKeyMasked)
+        }
+        if (platform === ModelTypeList.Custom) {
+          const embFill =
+            slot.hasEmbeddingApiKey && slot.embeddingApiKeyMasked
+              ? slot.embeddingApiKeyMasked
+              : slot.hasApiKey && slot.apiKeyMasked
+                ? slot.apiKeyMasked
+                : ''
+          if (embFill) {
+            settingsValue.set(`${platform}-embeddingApiKey` as keyof SettingsFormProps, embFill)
+          }
+        }
+      }
+
       Object.keys(config).reduce((acc, key) => {
-        if (!acc.has(`${prefix}-${key}` as keyof SettingsFormProps) && !!config[key]) {
-          acc.set(`${prefix}-${key}` as keyof SettingsFormProps, config[key])
+        if (key === 'modelPlatform' || key === 'apiKey' || key === 'embeddingApiKey') {
+          return acc
+        }
+        if (!acc.has(`${active}-${key}` as keyof SettingsFormProps) && !!config[key]) {
+          acc.set(`${active}-${key}` as keyof SettingsFormProps, config[key])
         }
         return acc
       }, settingsValue)
-      // get 的 apiKey 恒为空；用脱敏串回填，用户能看见「已有密钥」
-      if (hasKey && masked) {
-        settingsValue.set(`${prefix}-apiKey` as keyof SettingsFormProps, masked)
-      }
-      if (prefix === ModelTypeList.Custom) {
-        // 独立向量脱敏优先；没有则回退视觉脱敏（共用一把钥匙时）
-        const embFill = hasEmbKey && embMasked ? embMasked : hasKey && masked ? masked : ''
-        if (embFill) {
-          settingsValue.set(`${prefix}-embeddingApiKey` as keyof SettingsFormProps, embFill)
-        }
-      }
+
       form.setFieldsValue(Object.fromEntries(settingsValue))
     }
-  }, [modelInfo, getInfoLoading, form, backendPlatform])
+  }, [modelInfo, getInfoLoading, form, backendPlatform, applyProviderKeyState])
 
   // 不用整页 Spin 遮罩：getModelInfo 挂起时 Arco mask 会吞掉「开始使用」点击，
   // 且 onClick 进不来 → renderer.log 无任何新行，表现为死按钮。
@@ -683,6 +754,12 @@ const Settings: FC<SettingsProps> = (props) => {
               modelPlatform: ModelTypeList.Doubao,
               [`${ModelTypeList.Doubao}-modelId`]: 'doubao-seed-1-6-flash-250828',
               [`${ModelTypeList.OpenAI}-modelId`]: 'gpt-5-nano'
+            }}
+            onValuesChange={(changed) => {
+              // 一点切换平台：立刻换当前平台的「已配置 / 脱敏」状态（表单字段已按平台分前缀）
+              if (changed.modelPlatform && isKnownModelPlatform(changed.modelPlatform)) {
+                applyProviderKeyState(changed.modelPlatform, providersRef.current)
+              }
             }}>
             <FormItem label={t('settings.modelPlatform')} field={'modelPlatform'} requiredSymbol={false}>
               <ModelRadio />

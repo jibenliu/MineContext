@@ -460,3 +460,196 @@ async fn get_and_copy_expose_separate_masks_for_embedding_key() {
         "复制向量密钥应返回 embedding 槽，而不是视觉槽"
     );
 }
+
+const OPENAI_SECRET: &str = "sk-openai-PROVIDERKEYAAAA1111";
+const DOUBAO_SECRET: &str = "sk-doubao-PROVIDERKEYBBBB2222";
+
+fn openai_update_body(api_key: &str) -> serde_json::Value {
+    serde_json::json!({
+        "config": {
+            "modelPlatform": "openai",
+            "modelId": "gpt-5-nano",
+            "baseUrl": "https://api.openai.com/v1",
+            "apiKey": api_key,
+            "embeddingModelPlatform": "openai",
+            "embeddingModelId": "text-embedding-3-large",
+            "embeddingBaseUrl": "https://api.openai.com/v1",
+            "embeddingApiKey": ""
+        }
+    })
+}
+
+fn doubao_update_body(api_key: &str) -> serde_json::Value {
+    serde_json::json!({
+        "config": {
+            "modelPlatform": "doubao",
+            "modelId": "doubao-seed-1-6-flash-250828",
+            "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+            "apiKey": api_key,
+            "embeddingModelPlatform": "doubao",
+            "embeddingModelId": "doubao-embedding-vision-250615",
+            "embeddingBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+            "embeddingApiKey": ""
+        }
+    })
+}
+
+/// 三个平台只活跃一个，但各平台密钥必须分槽保存：
+/// 存 A → 切 B 并保存 → 再切回 A，A 的脱敏串仍在（不能被 B 覆盖掉）。
+#[tokio::test]
+async fn switching_active_provider_keeps_previous_provider_keys() {
+    let ctx = ctx();
+
+    let (status, json) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(openai_update_body(OPENAI_SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+
+    let (status, json) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(doubao_update_body(DOUBAO_SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+
+    let sidecar = std::fs::read_to_string(ctx.dir.path().join("model-keys.json")).unwrap();
+    assert!(
+        sidecar.contains(OPENAI_SECRET),
+        "切到豆包并保存后，OpenAI 密钥仍应留在 sidecar：{sidecar}"
+    );
+    assert!(
+        sidecar.contains(DOUBAO_SECRET),
+        "当前活跃豆包密钥也应在 sidecar：{sidecar}"
+    );
+
+    let (status, get_after_b) = call(&ctx.state, "GET", "/api/model_settings/get", None).await;
+    assert_eq!(status, StatusCode::OK, "{get_after_b}");
+    assert_eq!(get_after_b["data"]["config"]["modelPlatform"], "doubao");
+    let openai_mask = get_after_b["data"]["providers"]["openai"]["apiKeyMasked"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(
+        openai_mask.contains('•'),
+        "get 应带回非活跃 OpenAI 的脱敏串：{get_after_b}"
+    );
+    assert_eq!(
+        get_after_b["data"]["providers"]["openai"]["hasApiKey"],
+        true
+    );
+    assert!(!get_after_b.to_string().contains(OPENAI_SECRET));
+    assert!(!get_after_b.to_string().contains(DOUBAO_SECRET));
+
+    // 空 apiKey = 沿用已存；切回 OpenAI 并激活
+    let (status, json) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(openai_update_body("")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+
+    let (status, get_a) = call(&ctx.state, "GET", "/api/model_settings/get", None).await;
+    assert_eq!(status, StatusCode::OK, "{get_a}");
+    assert_eq!(get_a["data"]["config"]["modelPlatform"], "openai");
+    assert_eq!(get_a["data"]["hasApiKey"], true);
+    let active_mask = get_a["data"]["apiKeyMasked"].as_str().unwrap_or_default();
+    assert!(
+        active_mask.contains('•'),
+        "切回 OpenAI 后活跃脱敏串应在：{get_a}"
+    );
+    assert_eq!(
+        active_mask, openai_mask,
+        "切回后活跃脱敏应与先前 providers.openai 一致：{active_mask} vs {openai_mask}"
+    );
+
+    let (status, copy) = call(&ctx.state, "GET", "/api/model_settings/api_key", None).await;
+    assert_eq!(status, StatusCode::OK, "{copy}");
+    assert_eq!(
+        copy["data"]["apiKey"], OPENAI_SECRET,
+        "切回 OpenAI 后复制应得到原先的 OpenAI 明文"
+    );
+
+    let (status, copy_doubao) = call(
+        &ctx.state,
+        "GET",
+        "/api/model_settings/api_key?provider=doubao",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{copy_doubao}");
+    assert_eq!(
+        copy_doubao["data"]["apiKey"], DOUBAO_SECRET,
+        "非活跃豆包密钥仍可按 provider 读取"
+    );
+}
+
+/// 自建双密钥分槽与「按平台分档」同时成立：换到 OpenAI 再回来，两把自建密钥都还在。
+#[tokio::test]
+async fn custom_dual_keys_survive_switching_to_another_provider() {
+    let ctx = ctx();
+
+    let (status, _) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(custom_update_body(VISION_SECRET, EMBED_SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(openai_update_body(OPENAI_SECRET)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, get) = call(&ctx.state, "GET", "/api/model_settings/get", None).await;
+    assert_eq!(status, StatusCode::OK, "{get}");
+    assert_eq!(get["data"]["providers"]["custom"]["hasApiKey"], true);
+    assert_eq!(
+        get["data"]["providers"]["custom"]["hasEmbeddingApiKey"],
+        true
+    );
+    let vision_mask = get["data"]["providers"]["custom"]["apiKeyMasked"]
+        .as_str()
+        .unwrap_or_default();
+    let embed_mask = get["data"]["providers"]["custom"]["embeddingApiKeyMasked"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(vision_mask.contains('•'), "{get}");
+    assert!(embed_mask.contains('•'), "{get}");
+    assert_ne!(vision_mask, embed_mask, "自建两把脱敏串仍应不同：{get}");
+
+    let (status, _) = call(
+        &ctx.state,
+        "POST",
+        "/api/model_settings/update",
+        Some(custom_update_body("", "")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, copy_vision) = call(&ctx.state, "GET", "/api/model_settings/api_key", None).await;
+    assert_eq!(status, StatusCode::OK, "{copy_vision}");
+    assert_eq!(copy_vision["data"]["apiKey"], VISION_SECRET);
+
+    let (status, copy_embed) = call(
+        &ctx.state,
+        "GET",
+        "/api/model_settings/api_key?field=embedding",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{copy_embed}");
+    assert_eq!(copy_embed["data"]["apiKey"], EMBED_SECRET);
+}

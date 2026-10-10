@@ -16,6 +16,19 @@ export interface ModelConfigProps {
   embeddingModelPlatform?: string // Optional separate embedding platform
 }
 
+/** 单个平台已存凭据的脱敏视图（明文不进 get） */
+export interface ProviderSettingsMask {
+  modelId?: string
+  baseUrl?: string
+  embeddingModelId?: string
+  embeddingBaseUrl?: string
+  hasApiKey?: boolean
+  apiKeyMasked?: string
+  hasEmbeddingApiKey?: boolean
+  embeddingApiKeyMasked?: string
+  sharedEmbeddingWithVision?: boolean
+}
+
 // API response data structure
 export interface ModelInfoResponseData {
   config: ModelConfigProps
@@ -27,6 +40,11 @@ export interface ModelInfoResponseData {
   hasEmbeddingApiKey?: boolean
   /** 向量密钥脱敏回显；与视觉相同时可与 apiKeyMasked 相同 */
   embeddingApiKeyMasked?: string
+  /**
+   * 各平台分档脱敏视图。切换并保存 B 不会抹掉 A；
+   * 设置页用它回填非活跃平台的密钥框。
+   */
+  providers?: Record<string, ProviderSettingsMask>
 }
 
 // Complete API response structure
@@ -46,10 +64,17 @@ export const getModelInfo = async (): Promise<ModelInfoResponseData | undefined>
 export type StoredApiKeyField = 'vision' | 'embedding'
 
 /** 设置页「复制」：显式取已存明文（本机 + token）。找不到时返回空串，其它错误原样抛出。 */
-export const getStoredApiKey = async (field: StoredApiKeyField = 'vision'): Promise<string> => {
+export const getStoredApiKey = async (field: StoredApiKeyField = 'vision', provider?: string): Promise<string> => {
   try {
+    const params: Record<string, string> = {}
+    if (field === 'embedding') {
+      params.field = 'embedding'
+    }
+    if (provider && provider.trim()) {
+      params.provider = provider.trim()
+    }
     const res = await axiosInstance.get<{ apiKey?: string }>('/api/model_settings/api_key', {
-      params: field === 'embedding' ? { field: 'embedding' } : undefined
+      params: Object.keys(params).length ? params : undefined
     })
     const code = get(res, 'data.code')
     const key = String(get(res, 'data.data.apiKey') || '').trim()
