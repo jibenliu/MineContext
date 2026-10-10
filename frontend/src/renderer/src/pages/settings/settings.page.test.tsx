@@ -38,6 +38,16 @@ vi.mock('@arco-design/web-react', async () => {
   }
 })
 
+// 补推断区有 Arco DatePicker；全量页面套件里定时器偶发在卸载后触发，导致
+// `window is not defined` 未捕获错误。本文件只钉模型平台表单，不测补推断。
+vi.mock('./components/backfill-section', () => ({
+  BackfillSection: () => null
+}))
+
+vi.mock('../../components/indexing-pause-banner', () => ({
+  IndexingPauseBanner: () => null
+}))
+
 const doubaoConfig: ModelInfoResponseData = {
   config: {
     modelPlatform: '',
