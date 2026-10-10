@@ -19,10 +19,16 @@ use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindow
 mod update_check;
 
 /// `runtime.json` 里渲染层需要的最小字段。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RuntimeInfo {
     pub port: u16,
     pub token: String,
+}
+
+// 只用到 `kill(pid, 0)` 的存在性检查，避免为一个调用引入完整 libc 依赖绑定。
+extern "C" {
+    #[link_name = "kill"]
+    fn libc_kill(pid: i32, sig: i32) -> i32;
 }
 
 struct ShellState {
@@ -121,36 +127,158 @@ fn daemon_has_exited(daemon: &mut Option<Child>) -> bool {
     }
 }
 
-/// 缓存 / 磁盘补读；若仍空且子进程已死，按间隔重启 daemon（不阻塞长等）。
+/// 磁盘 `runtime.json` 里外壳自愈需要的字段（含 pid，用于接管 / 判死）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DiskRuntime {
+    port: u16,
+    token: String,
+    pid: Option<u32>,
+}
+
+impl DiskRuntime {
+    fn to_runtime(&self) -> RuntimeInfo {
+        RuntimeInfo {
+            port: self.port,
+            token: self.token.clone(),
+        }
+    }
+}
+
+/// `get_runtime` 自愈决策：检测死进程 / 端口冲突，决定接管、重启或等待。
 ///
-/// setup 超时开窗后，旧逻辑只读盘：daemon 若已崩，渲染层会空等到硬错误。
-/// 这里让每次 `get_runtime` 都有机会把守护进程拉起来，由前端短轮询收敛。
-fn ensure_runtime(state: &mut ShellState) -> Option<RuntimeInfo> {
-    let data_dir = state.data_dir.clone();
-    if let Some(info) = runtime_from_cache_or_disk(&mut state.runtime, &data_dir) {
-        return Some(info);
+/// 与 #42 的 handoff/spawn 收敛：子进程还在时绝不重启；pid+端口仍活则接管；
+/// 过期或端口被无关进程占用则清掉 runtime 再拉起，并靠冷却避免重启风暴。
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum HealAction {
+    Use(RuntimeInfo),
+    Adopt(RuntimeInfo),
+    Restart,
+    WaitCooldown,
+    WaitRuntime,
+}
+
+#[derive(Debug, Clone)]
+struct HealFacts {
+    cached: Option<RuntimeInfo>,
+    disk: Option<DiskRuntime>,
+    child_running: bool,
+    disk_pid_alive: bool,
+    port_reachable: bool,
+    cooldown_elapsed: bool,
+}
+
+fn decide_daemon_heal(facts: &HealFacts) -> HealAction {
+    if facts.child_running {
+        if let Some(info) = facts.cached.clone().or_else(|| {
+            facts.disk.as_ref().map(DiskRuntime::to_runtime)
+        }) {
+            return HealAction::Use(info);
+        }
+        return HealAction::WaitRuntime;
     }
 
-    let exited = daemon_has_exited(&mut state.daemon);
-    if exited {
-        state.daemon = None;
-        let cooldown = Duration::from_secs(2);
-        let allowed = state
-            .last_daemon_start
-            .map(|at| at.elapsed() >= cooldown)
-            .unwrap_or(true);
-        if allowed {
-            let resource = state.resource_dir.clone();
-            if let Some(child) = start_daemon(&data_dir, resource.as_deref()) {
-                state.daemon = Some(child);
-                state.last_daemon_start = Some(Instant::now());
-            } else {
-                state.last_daemon_start = Some(Instant::now());
-            }
+    // 子进程已死/丢失：若磁盘 runtime 的 pid 与端口仍可用，接管（勿再 spawn）。
+    if let Some(disk) = facts.disk.as_ref() {
+        if facts.disk_pid_alive && facts.port_reachable {
+            return HealAction::Adopt(disk.to_runtime());
         }
     }
 
-    runtime_from_cache_or_disk(&mut state.runtime, &data_dir)
+    // 过期缓存/死端口/端口被无关进程占用 → 重启；冷却中则空等，避免循环拉起。
+    if !facts.cooldown_elapsed {
+        return HealAction::WaitCooldown;
+    }
+    HealAction::Restart
+}
+
+fn read_disk_runtime(data_dir: &std::path::Path) -> Option<DiskRuntime> {
+    let text = std::fs::read_to_string(data_dir.join("runtime.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    Some(DiskRuntime {
+        port: value.get("port")?.as_u64()? as u16,
+        token: value.get("token")?.as_str()?.to_string(),
+        pid: value
+            .get("pid")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
+    })
+}
+
+fn process_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    (unsafe { libc_kill(pid as i32, 0) }) == 0
+}
+
+fn port_reachable(port: u16) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok()
+}
+
+const DAEMON_RESTART_COOLDOWN: Duration = Duration::from_secs(2);
+
+/// 缓存 / 磁盘补读；子进程已死时按策略接管或重启（不阻塞长等）。
+///
+/// setup 超时开窗后，旧逻辑只读盘：daemon 若已崩，渲染层会空等到硬错误。
+/// 这里让每次 `get_runtime` 都有机会把守护进程拉起来或接管仍活着的实例，
+/// 由前端短轮询收敛。**不得**在缓存命中时跳过死进程检测。
+fn ensure_runtime(state: &mut ShellState) -> Option<RuntimeInfo> {
+    let data_dir = state.data_dir.clone();
+    let child_running = !daemon_has_exited(&mut state.daemon);
+    if !child_running {
+        state.daemon = None;
+    }
+
+    let disk = read_disk_runtime(&data_dir);
+    let disk_pid_alive = disk
+        .as_ref()
+        .and_then(|d| d.pid)
+        .map(process_alive)
+        .unwrap_or(false);
+    let port_ok = disk
+        .as_ref()
+        .map(|d| port_reachable(d.port))
+        .unwrap_or(false);
+    let cooldown_elapsed = state
+        .last_daemon_start
+        .map(|at| at.elapsed() >= DAEMON_RESTART_COOLDOWN)
+        .unwrap_or(true);
+
+    let facts = HealFacts {
+        cached: state.runtime.clone(),
+        disk: disk.clone(),
+        child_running,
+        disk_pid_alive,
+        port_reachable: port_ok,
+        cooldown_elapsed,
+    };
+
+    match decide_daemon_heal(&facts) {
+        HealAction::Use(info) | HealAction::Adopt(info) => {
+            state.runtime = Some(info.clone());
+            Some(info)
+        }
+        HealAction::WaitRuntime | HealAction::WaitCooldown => {
+            // 子进程已死时不得继续缓存过期 port/token，否则冷却结束后仍可能误用。
+            if !child_running {
+                state.runtime = None;
+            }
+            None
+        }
+        HealAction::Restart => {
+            state.runtime = None;
+            let _ = std::fs::remove_file(data_dir.join("runtime.json"));
+            let resource = state.resource_dir.clone();
+            if let Some(child) = start_daemon(&data_dir, resource.as_deref()) {
+                state.daemon = Some(child);
+            }
+            state.last_daemon_start = Some(Instant::now());
+            // 刚 spawn：本次不阻塞长等，交给前端短轮询下一次 get_runtime。
+            None
+        }
+    }
 }
 
 fn wait_for_runtime(data_dir: &std::path::Path, timeout: Duration) -> Option<RuntimeInfo> {
@@ -289,12 +417,6 @@ fn acquire_single_instance(data_dir: &std::path::Path) -> bool {
     true
 }
 
-// 只用到 `kill(pid, 0)` 的存在性检查，避免为一个调用引入完整 libc 依赖绑定。
-extern "C" {
-    #[link_name = "kill"]
-    fn libc_kill(pid: i32, sig: i32) -> i32;
-}
-
 /// 关掉 daemon 并清掉 `runtime.json`（优雅退出与信号退出共用）。
 fn shutdown(state: &mut ShellState) {
     if let Some(mut child) = state.daemon.take() {
@@ -395,12 +517,15 @@ fn mcruntime_script(runtime: &Option<RuntimeInfo>) -> String {
     get: async () => {{
       try {{
         const live = await invoke('get_runtime')
+        // null = 外壳自愈中/尚未就绪；不得回落种子（种子可能是已死端口）。
         if (live && live.port && live.token) return live
+        return null
       }} catch (error) {{
+        // 仅 invoke 失败（如 ACL）才回落种子，与 #42 首屏 handoff 收敛。
         console.warn('[mcRuntime] get_runtime invoke failed, falling back to seed', error)
+        if (seeded && seeded.port && seeded.token) return seeded
+        return null
       }}
-      if (seeded && seeded.port && seeded.token) return seeded
-      return null
     }},
     shell: {{ notification: true }}
   }}
@@ -587,11 +712,15 @@ mod tests {
 
     /// 钉住 get_runtime 同款路径：经 MutexGuard 取 runtime 时不得 E0502。
     #[test]
-    fn take_runtime_through_mutex_reads_disk_when_cache_empty() {
+    fn take_runtime_through_mutex_adopts_live_disk_when_cache_empty() {
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().unwrap().port();
+        let pid = std::process::id();
         let dir = tempfile_dir();
         fs::write(
             dir.join("runtime.json"),
-            r#"{"port":43119,"token":"mutex-path"}"#,
+            format!(r#"{{"port":{port},"token":"mutex-path","pid":{pid}}}"#),
         )
         .unwrap();
         let state = Mutex::new(ShellState {
@@ -601,10 +730,11 @@ mod tests {
             resource_dir: None,
             last_daemon_start: None,
         });
-        let got = take_runtime(&state).expect("disk via mutex");
-        assert_eq!(got.port, 43119);
+        let got = take_runtime(&state).expect("adopt via mutex");
+        assert_eq!(got.port, port);
         assert_eq!(got.token, "mutex-path");
         assert!(state.lock().unwrap().runtime.is_some());
+        drop(listener);
     }
 
     #[test]
@@ -617,12 +747,140 @@ mod tests {
         assert!(daemon_has_exited(&mut child));
     }
 
+    fn sample_runtime(port: u16) -> RuntimeInfo {
+        RuntimeInfo {
+            port,
+            token: format!("tok-{port}"),
+        }
+    }
+
+    fn sample_disk(port: u16, pid: Option<u32>) -> DiskRuntime {
+        DiskRuntime {
+            port,
+            token: format!("tok-{port}"),
+            pid,
+        }
+    }
+
     #[test]
-    fn ensure_runtime_returns_disk_runtime_without_needing_child() {
+    fn heal_uses_cache_while_child_still_running() {
+        let action = decide_daemon_heal(&HealFacts {
+            cached: Some(sample_runtime(4001)),
+            disk: None,
+            child_running: true,
+            disk_pid_alive: false,
+            port_reachable: false,
+            cooldown_elapsed: true,
+        });
+        assert_eq!(action, HealAction::Use(sample_runtime(4001)));
+    }
+
+    #[test]
+    fn heal_never_restarts_while_child_running_without_runtime() {
+        let action = decide_daemon_heal(&HealFacts {
+            cached: None,
+            disk: None,
+            child_running: true,
+            disk_pid_alive: false,
+            port_reachable: false,
+            cooldown_elapsed: true,
+        });
+        assert_eq!(action, HealAction::WaitRuntime);
+    }
+
+    #[test]
+    fn heal_adopts_live_disk_runtime_when_child_handle_lost() {
+        let action = decide_daemon_heal(&HealFacts {
+            cached: None,
+            disk: Some(sample_disk(4002, Some(4242))),
+            child_running: false,
+            disk_pid_alive: true,
+            port_reachable: true,
+            cooldown_elapsed: true,
+        });
+        assert_eq!(action, HealAction::Adopt(sample_runtime(4002)));
+    }
+
+    #[test]
+    fn heal_restarts_when_daemon_dead_and_port_unreachable() {
+        let action = decide_daemon_heal(&HealFacts {
+            cached: Some(sample_runtime(4003)),
+            disk: Some(sample_disk(4003, Some(9))),
+            child_running: false,
+            disk_pid_alive: false,
+            port_reachable: false,
+            cooldown_elapsed: true,
+        });
+        assert_eq!(action, HealAction::Restart);
+    }
+
+    #[test]
+    fn heal_restarts_on_port_conflict_when_pid_dead_but_port_busy() {
+        // 旧 pid 已死，端口却被无关进程占用：不得 Adopt，应清掉过期 runtime 再拉起。
+        let action = decide_daemon_heal(&HealFacts {
+            cached: Some(sample_runtime(4004)),
+            disk: Some(sample_disk(4004, Some(9))),
+            child_running: false,
+            disk_pid_alive: false,
+            port_reachable: true,
+            cooldown_elapsed: true,
+        });
+        assert_eq!(action, HealAction::Restart);
+    }
+
+    #[test]
+    fn heal_cooldown_blocks_restart_loop() {
+        let action = decide_daemon_heal(&HealFacts {
+            cached: None,
+            disk: None,
+            child_running: false,
+            disk_pid_alive: false,
+            port_reachable: false,
+            cooldown_elapsed: false,
+        });
+        assert_eq!(action, HealAction::WaitCooldown);
+    }
+
+    #[test]
+    fn ensure_runtime_clears_stale_cache_when_child_exited() {
         let dir = tempfile_dir();
         fs::write(
             dir.join("runtime.json"),
-            r#"{"port":43122,"token":"ensure-disk"}"#,
+            r#"{"port":43133,"token":"stale","pid":429496729}"#,
+        )
+        .unwrap();
+        let mut finished = Some(Command::new("true").spawn().expect("spawn true"));
+        let _ = finished.as_mut().unwrap().wait();
+        let mut state = ShellState {
+            runtime: Some(RuntimeInfo {
+                port: 43133,
+                token: "stale".into(),
+            }),
+            daemon: finished,
+            data_dir: dir.clone(),
+            resource_dir: Some(PathBuf::from("/no-such-minecontext-resources")),
+            last_daemon_start: None,
+        };
+        // 子进程已退出 + 死 pid + 端口不可达 → Restart；无 binary 时仍须清过期缓存。
+        let got = ensure_runtime(&mut state);
+        assert!(got.is_none(), "自愈中不得继续返回过期 runtime");
+        assert!(state.runtime.is_none(), "过期缓存必须清掉");
+        assert!(
+            !dir.join("runtime.json").exists(),
+            "过期 runtime.json 应被移除以便新 daemon 重写"
+        );
+    }
+
+    #[test]
+    fn ensure_runtime_adopts_disk_runtime_when_pid_and_port_live() {
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().unwrap().port();
+        let pid = std::process::id();
+        let dir = tempfile_dir();
+        fs::write(
+            dir.join("runtime.json"),
+            format!(r#"{{"port":{port},"token":"ensure-disk","pid":{pid}}}"#),
         )
         .unwrap();
         let mut state = ShellState {
@@ -630,12 +888,14 @@ mod tests {
             daemon: None,
             data_dir: dir,
             resource_dir: None,
-            // 冷却中：即使空子进程也不会去 spawn
+            // 冷却中：若误判成 Restart 会去 spawn；接管路径不得 spawn。
             last_daemon_start: Some(Instant::now()),
         };
-        let got = ensure_runtime(&mut state).expect("disk");
-        assert_eq!(got.port, 43122);
-        assert!(state.daemon.is_none());
+        let got = ensure_runtime(&mut state).expect("adopt");
+        assert_eq!(got.port, port);
+        assert_eq!(got.token, "ensure-disk");
+        assert!(state.daemon.is_none(), "接管不得再 spawn");
+        drop(listener);
     }
 
     #[test]
@@ -662,6 +922,11 @@ mod tests {
         assert!(script.contains("seed-token"), "token must be in init script");
         assert!(script.contains("get_runtime"), "live invoke still preferred");
         assert!(script.contains("falling back to seed"));
+        // live 返回 null（自愈中）不得回落种子，否则会把已死端口再交给前端。
+        assert!(
+            script.contains("return null"),
+            "null live must not fall back to seed"
+        );
     }
 
     #[test]

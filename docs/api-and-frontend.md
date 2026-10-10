@@ -46,8 +46,8 @@
 | `/api/db/*` | 兼容面：活动、笔记树、待办、提示、热力图（**字段名不能改**） |
 | `/api/v1/activities`、`/overrides` | 带来源与置信度的活动；用户改名/改分类（先落事件再重算） |
 | `/api/v1/summaries*` | 总结列表、重生成；任意时段：`adhoc/preview`、`adhoc/jobs`、`jobs/{id}`、`jobs/{id}/cancel` |
-| `/api/v1/threads`、`/api/v1/search` | 实体线索；关键词 + 向量融合检索（被拦截内容搜不到由服务端保证） |
-| `/api/agent/chat/*` | 对话流（SSE 分帧）+ 会话/消息写入路径 |
+| `/api/v1/threads`、`/api/v1/search` | 实体线索；搜索为本地关键词（响应带 `mode: "keyword"`，UI 显示「仅本地」；被拦截内容搜不到由服务端保证）。聊天路径可再叠向量。 |
+| `/api/agent/chat/*` | 对话流（SSE 分帧）+ 会话/消息写入路径。模型断网/超时等可重试失败时降级为本地引用列表，`stream_complete.mode` 为 `"local"`，不假装在线生成。 |
 | `/api/monitoring/recording-stats` | 录制统计（含最近错误与最近截图上限 5 条） |
 | `/api/v1/stream` | 控制面事件流（SSE） |
 | `/api/v1/jobs/backfill`、`/api/v1/jobs/{id}` | 作业队列：入队补偿推断、查状态（同范围幂等；未配置模型时如实跳过） |
@@ -78,6 +78,10 @@
 负载约定按渠道不同（`adapters/server-push-api.ts` 是唯一解释处）：
 `push:get-init-check-data` 的消费方自己 `JSON.parse`（所以原样透传字符串），
 其余渠道解成值再交给消费方。
+
+首次引导另有轻量清单（`adapters/first-run-checklist.ts`）：屏幕录制权限 → API Key →
+开始录制 → 确认首张截图（或清除卡住的等待态）。完成或跳过写入
+`settings.firstRunOnboardingComplete`（redux-persist），与模型引导页可同时出现。
 
 ## 2. 前端
 

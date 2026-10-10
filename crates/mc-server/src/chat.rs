@@ -90,19 +90,57 @@ pub trait ChatEngine: Send + Sync {
     }
 }
 
-/// 没有配置模型时的引擎：**不假装能回答**，而是把检索到的内容如实摘出来。
+/// 本地列表引擎的原因：决定用户看到的开场白，避免把「断网」说成「没配模型」。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LocalListingReason {
+    /// 未配置模型 / 未同意出网 / 密钥组装失败
+    #[default]
+    Unconfigured,
+    /// 配了模型，但本次调用因网络/服务端失败而不可用
+    ProviderUnavailable,
+}
+
+/// 本地列表引擎：**不假装在线生成**，只把检索到的内容如实摘出来。
 ///
-/// 这比「模型不可用时什么都不给」好得多：用户至少能看到「系统找到了这些」，
-/// 也符合「答案永远有出处」这条要求。
-pub struct ExtractOnlyEngine;
+/// 比「模型不可用时什么都不给」更诚实：用户至少能看到「系统找到了这些」，
+/// 也符合「答案永远有出处」。
+#[derive(Debug, Default)]
+pub struct ExtractOnlyEngine {
+    reason: LocalListingReason,
+}
+
+impl ExtractOnlyEngine {
+    pub fn provider_unavailable() -> Self {
+        Self {
+            reason: LocalListingReason::ProviderUnavailable,
+        }
+    }
+
+    fn lead_in(&self, empty: bool) -> &'static str {
+        match (self.reason, empty) {
+            (LocalListingReason::Unconfigured, true) => {
+                "没有配置模型，而且在你的记录里没有找到相关内容。"
+            }
+            (LocalListingReason::Unconfigured, false) => {
+                "没有配置模型，先把你记录里的相关内容列出来：\n"
+            }
+            (LocalListingReason::ProviderUnavailable, true) => {
+                "模型暂时不可用，而且在你的记录里没有找到相关内容。"
+            }
+            (LocalListingReason::ProviderUnavailable, false) => {
+                "模型暂时不可用，先列出本地相关记录：\n"
+            }
+        }
+    }
+}
 
 #[async_trait]
 impl ChatEngine for ExtractOnlyEngine {
     async fn answer(&self, input: &ChatInput) -> Result<ChatAnswer, AppError> {
         let text = if input.citations.is_empty() {
-            "没有配置模型，而且在你的记录里没有找到相关内容。".to_string()
+            self.lead_in(true).to_string()
         } else {
-            let mut text = String::from("没有配置模型，先把你记录里的相关内容列出来：\n");
+            let mut text = String::from(self.lead_in(false));
             for (index, citation) in input.citations.iter().enumerate() {
                 text.push_str(&format!(
                     "{}. {}（{}）\n",
@@ -321,7 +359,7 @@ pub fn engine_for(state: &crate::state::ServerState) -> Box<dyn ChatEngine> {
 
     // 未同意出网 / 没配模型：用本地引擎把检索结果如实列出来，不发任何请求
     if !chat_model_configured(&config.config) {
-        return Box::new(ExtractOnlyEngine);
+        return Box::new(ExtractOnlyEngine::default());
     }
 
     // 复用 chat 端点的配置构造 provider（总结与对话用的是同一个端点）
@@ -346,7 +384,7 @@ pub fn engine_for(state: &crate::state::ServerState) -> Box<dyn ChatEngine> {
             let redactor =
                 match mc_common::redact::Redactor::new(&config.config.privacy.redact_patterns) {
                     Ok(redactor) => redactor,
-                    Err(_) => return Box::new(ExtractOnlyEngine),
+                    Err(_) => return Box::new(ExtractOnlyEngine::default()),
                 };
 
             return Box::new(ProviderChatEngine::with_redactor(
@@ -358,5 +396,13 @@ pub fn engine_for(state: &crate::state::ServerState) -> Box<dyn ChatEngine> {
     }
 
     // 密钥解析或 provider 组装失败：仍然是「有出处但没模型」的本地引擎
-    Box::new(ExtractOnlyEngine)
+    Box::new(ExtractOnlyEngine::default())
+}
+
+/// 对话侧「可诚实降级为本地列表」的 provider 失败：断网 / 超时 / 5xx / 限流。
+///
+/// 鉴权失败、模型不存在等**不**降级——那些需要用户改配置，假装本地成功会误导。
+pub fn provider_failure_allows_local_fallback(error: &AppError) -> bool {
+    use mc_common::error::Component;
+    error.code().component() == Component::Provider && error.code().retryable()
 }
