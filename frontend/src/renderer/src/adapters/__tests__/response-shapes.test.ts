@@ -11,7 +11,12 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { shouldShowOnboarding } from '../onboarding.ts'
-import { unwrapConversations, unwrapSearchResults, unwrapSummaries } from '../unpack.ts'
+import {
+  unwrapConversations,
+  unwrapSearchResponse,
+  unwrapSearchResults,
+  unwrapSummaries
+} from '../unpack.ts'
 
 const FIXTURE = fileURLToPath(new URL('../../../../../../fixtures/contract/response-shapes.json', import.meta.url))
 
@@ -67,6 +72,12 @@ test('检索结果：解包成数组，元素带 UI 用到的字段', () => {
   // 旧的 `{ results }` 与裸数组都要能吃
   assert.deepEqual(unwrapSearchResults([{ id: 'a' }]), [{ id: 'a' }])
   assert.deepEqual(unwrapSearchResults({ results: 'nope' }), [])
+})
+
+test('检索响应：保留 mode 供「仅本地」角标', () => {
+  const payload = unwrapSearchResponse(sample('v1:search'))
+  assert.equal(payload.mode, 'keyword')
+  assert.equal(payload.results.length, 1)
 })
 
 test('启动握手：样例驱动的引导页判据（未配置 → 引导页）', () => {

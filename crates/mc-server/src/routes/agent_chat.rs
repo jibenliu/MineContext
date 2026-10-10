@@ -23,6 +23,7 @@ use mc_storage::chat::{STATUS_CANCELLED, STATUS_COMPLETED, STATUS_FAILED, STATUS
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::chat::{ChatAnswer, ChatEngine};
 use crate::envelope;
 use crate::state::ServerState;
 
@@ -356,19 +357,33 @@ async fn run_stream(
         .await;
 
     match result {
-        Err(error) => {
-            if let Some(id) = assistant_message_id {
-                let _ =
-                    state
-                        .db
-                        .mark_message_finished(id, STATUS_FAILED, Some(error.detail()), now);
+        Err(error)
+            if crate::chat::provider_failure_allows_local_fallback(&error)
+                && !interrupted.load(Ordering::SeqCst) =>
+        {
+            // 断网/超时等：诊断里留下 provider 失败，回答改成本地列表（不假装模型写了）。
+            let _ = crate::activities::record_failure(&state, &error, now);
+            match crate::chat::ExtractOnlyEngine::provider_unavailable()
+                .answer(&input)
+                .await
+            {
+                Ok(answer) => {
+                    finish_stream_success(
+                        &state,
+                        &tx,
+                        assistant_message_id,
+                        answer,
+                        /*replace_partial=*/ chunks.load(Ordering::SeqCst) > 0,
+                        now,
+                    );
+                }
+                Err(local_error) => {
+                    finish_stream_failure(&state, &tx, assistant_message_id, &local_error, now);
+                }
             }
-            let _ = tx.send(json!({
-                "type": "error",
-                "content": error.user_message(),
-                "error_code": error.code().as_str(),
-            }));
-            let _ = tx.send(json!({ "type": "done" }));
+        }
+        Err(error) => {
+            finish_stream_failure(&state, &tx, assistant_message_id, &error, now);
         }
         Ok(answer) => {
             let text = content.into_inner().unwrap_or_default();
@@ -397,30 +412,14 @@ async fn run_stream(
                 if !text.is_empty() {
                     let _ = state.db.append_message_content(id, &text, written, now);
                 }
-                let _ = state.db.update_message_metadata(
-                        id,
-                        &json!({ "model": answer.model, "citations": answer.citations.len(), "sources": answer.citations.iter().map(|citation| json!({
-                            "document_id": citation.document_id,
-                            "title": citation.title,
-                            "kind": citation.kind,
-                        })).collect::<Vec<_>>() }),
-                        now,
-                    );
+                write_answer_metadata(&state, id, &answer, now);
                 let _ = state
                     .db
                     .mark_message_finished(id, STATUS_COMPLETED, None, now);
                 state.chat_streams.clear(id);
             }
 
-            let _ = tx.send(json!({
-                "type": "stream_complete",
-                "content": answer.text,
-                "citations": answer.citations.iter().map(|citation| json!({
-                    "document_id": citation.document_id,
-                    "title": citation.title,
-                    "kind": citation.kind,
-                })).collect::<Vec<_>>(),
-            }));
+            emit_stream_complete(&tx, &answer);
             let _ = tx.send(json!({
                 "type": "completed",
                 "stage": "completed",
@@ -430,6 +429,117 @@ async fn run_stream(
             let _ = tx.send(json!({ "type": "done" }));
         }
     }
+}
+
+fn answer_mode(answer: &ChatAnswer) -> &'static str {
+    if answer.model.is_none() {
+        "local"
+    } else {
+        "model"
+    }
+}
+
+fn write_answer_metadata(
+    state: &ServerState,
+    id: i64,
+    answer: &ChatAnswer,
+    now: mc_common::time::Timestamp,
+) {
+    let _ = state.db.update_message_metadata(
+        id,
+        &json!({
+            "model": answer.model,
+            "mode": answer_mode(answer),
+            "citations": answer.citations.len(),
+            "sources": answer.citations.iter().map(|citation| json!({
+                "document_id": citation.document_id,
+                "title": citation.title,
+                "kind": citation.kind,
+            })).collect::<Vec<_>>(),
+        }),
+        now,
+    );
+}
+
+fn emit_stream_complete(
+    tx: &tokio::sync::mpsc::UnboundedSender<serde_json::Value>,
+    answer: &ChatAnswer,
+) {
+    let _ = tx.send(json!({
+        "type": "stream_complete",
+        "content": answer.text,
+        "mode": answer_mode(answer),
+        "model": answer.model,
+        "citations": answer.citations.iter().map(|citation| json!({
+            "document_id": citation.document_id,
+            "title": citation.title,
+            "kind": citation.kind,
+        })).collect::<Vec<_>>(),
+    }));
+}
+
+fn finish_stream_failure(
+    state: &ServerState,
+    tx: &tokio::sync::mpsc::UnboundedSender<serde_json::Value>,
+    assistant_message_id: Option<i64>,
+    error: &AppError,
+    now: mc_common::time::Timestamp,
+) {
+    if let Some(id) = assistant_message_id {
+        let _ = state
+            .db
+            .mark_message_finished(id, STATUS_FAILED, Some(error.detail()), now);
+    }
+    let _ = tx.send(json!({
+        "type": "error",
+        "content": error.user_message(),
+        "error_code": error.code().as_str(),
+    }));
+    let _ = tx.send(json!({ "type": "done" }));
+}
+
+fn finish_stream_success(
+    state: &ServerState,
+    tx: &tokio::sync::mpsc::UnboundedSender<serde_json::Value>,
+    assistant_message_id: Option<i64>,
+    answer: ChatAnswer,
+    replace_partial: bool,
+    now: mc_common::time::Timestamp,
+) {
+    if let Some(id) = assistant_message_id {
+        if replace_partial {
+            // 模型半截正文不能留着：换成诚实的本地列表
+            let _ = state
+                .db
+                .replace_message_content(id, &answer.text, STATUS_COMPLETED, None, now);
+        } else if !answer.text.is_empty() {
+            let _ = state
+                .db
+                .append_message_content(id, &answer.text, 1, now);
+            let _ = state
+                .db
+                .mark_message_finished(id, STATUS_COMPLETED, None, now);
+        } else {
+            let _ = state
+                .db
+                .mark_message_finished(id, STATUS_COMPLETED, None, now);
+        }
+        write_answer_metadata(state, id, &answer, now);
+        state.chat_streams.clear(id);
+    }
+
+    // 前端用 stream_complete.content 覆盖气泡；半截模型字会被本地列表替换。
+    if !replace_partial {
+        let _ = tx.send(json!({ "type": "stream_chunk", "content": answer.text }));
+    }
+    emit_stream_complete(tx, &answer);
+    let _ = tx.send(json!({
+        "type": "completed",
+        "stage": "completed",
+        "content": "",
+        "progress": 1.0,
+    }));
+    let _ = tx.send(json!({ "type": "done" }));
 }
 
 fn frame(payload: serde_json::Value) -> Event {
@@ -789,6 +899,7 @@ mod streaming_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
 
+    use mc_common::error::{AppError, ErrorCode};
     use mc_common::time::{Clock, SystemClock};
 
     use super::*;
@@ -906,6 +1017,129 @@ mod streaming_tests {
         );
         assert_eq!(payloads[1]["content"], "今天");
         assert_eq!(payloads[4]["content"], "今天写了脚本");
+    }
+
+    /// 配了模型但连不上时：用已检索到的引用做本地列表，标 `mode: local`，不硬失败。
+    struct FailingProviderEngine {
+        code: ErrorCode,
+    }
+
+    #[async_trait::async_trait]
+    impl ChatEngine for FailingProviderEngine {
+        async fn answer(&self, _input: &ChatInput) -> Result<ChatAnswer, AppError> {
+            Err(AppError::new(self.code, "simulated provider failure"))
+        }
+
+        async fn answer_stream(
+            &self,
+            input: &ChatInput,
+            _on_event: &mut (dyn for<'a> FnMut(ChatEvent<'a>) + Send),
+        ) -> Result<ChatAnswer, AppError> {
+            self.answer(input).await
+        }
+    }
+
+    #[tokio::test]
+    async fn provider_connection_failure_falls_back_to_local_listing() {
+        let (_dir, state, conversation, message) = state_with_message();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<serde_json::Value>();
+        let engine = Box::new(FailingProviderEngine {
+            code: ErrorCode::ProviderConnection,
+        });
+
+        run_stream(
+            Arc::clone(&state),
+            tx,
+            engine,
+            ChatInput {
+                query: "APEX-389".to_string(),
+                citations: vec![crate::chat::Citation {
+                    document_id: "act-1".to_string(),
+                    title: "排查 APEX-389".to_string(),
+                    kind: "activity".to_string(),
+                }],
+                history: Vec::new(),
+            },
+            Some(message),
+            None,
+            SystemClock.now(),
+        )
+        .await;
+
+        let payloads = drain(rx).await;
+        let complete = payloads
+            .iter()
+            .find(|value| value["type"] == "stream_complete")
+            .expect("应有 stream_complete");
+        assert_eq!(
+            complete["mode"], "local",
+            "断网降级必须标 local：{payloads:?}"
+        );
+        assert!(
+            complete["content"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("APEX-389"),
+            "必须把本地检索结果列出来：{complete}"
+        );
+        assert!(
+            payloads.iter().all(|value| value["type"] != "error"),
+            "可重试的 provider 失败不该硬 error：{payloads:?}"
+        );
+
+        let rows = state.db.read_messages(conversation).unwrap();
+        let message_row = rows
+            .into_iter()
+            .find(|row| row.id == message)
+            .expect("消息还在");
+        assert_eq!(message_row.status, STATUS_COMPLETED);
+        let metadata: serde_json::Value = serde_json::from_str(&message_row.metadata).unwrap();
+        assert_eq!(metadata["mode"], "local");
+        assert!(metadata["model"].is_null(), "{metadata}");
+    }
+
+    #[tokio::test]
+    async fn provider_auth_failure_does_not_fake_a_local_answer() {
+        let (_dir, state, conversation, message) = state_with_message();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<serde_json::Value>();
+        let engine = Box::new(FailingProviderEngine {
+            code: ErrorCode::ProviderAuthFailed,
+        });
+
+        run_stream(
+            Arc::clone(&state),
+            tx,
+            engine,
+            ChatInput {
+                query: "APEX-389".to_string(),
+                citations: vec![crate::chat::Citation {
+                    document_id: "act-1".to_string(),
+                    title: "排查 APEX-389".to_string(),
+                    kind: "activity".to_string(),
+                }],
+                history: Vec::new(),
+            },
+            Some(message),
+            None,
+            SystemClock.now(),
+        )
+        .await;
+
+        let payloads = drain(rx).await;
+        assert!(
+            payloads.iter().any(|value| value["type"] == "error"),
+            "鉴权失败必须硬失败：{payloads:?}"
+        );
+        assert!(
+            payloads.iter().all(|value| value["type"] != "stream_complete"),
+            "鉴权失败不能伪装成已完成的本地回答：{payloads:?}"
+        );
+        let rows = state.db.read_messages(conversation).unwrap();
+        let message_row = rows
+            .into_iter()
+            .find(|row| row.id == message)
+            .expect("消息还在");
+        assert_eq!(message_row.status, STATUS_FAILED);
     }
 
     #[tokio::test]

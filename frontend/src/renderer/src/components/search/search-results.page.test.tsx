@@ -88,6 +88,19 @@ describe('搜索页（rust 后端）', () => {
     await waitFor(() => expect(calledChannels(backend)).toContain('v1:search'))
   })
 
+  it('本地关键词检索显示「仅本地」', async () => {
+    installFakeBackend(
+      { 'v1:search': { query: '导入', mode: 'keyword', results: hits } },
+      { strict: false }
+    )
+
+    render(<SearchResults />)
+    fireEvent.change(screen.getByLabelText('搜索关键词'), { target: { value: '导入' } })
+    fireEvent.click(screen.getByText('搜索'))
+
+    expect(await screen.findByTestId('search-mode-local')).toHaveTextContent('仅本地')
+  })
+
   it('没有命中时给可读空态，而不是空白（5.40）', async () => {
     installFakeBackend({ 'v1:search': { query: '不存在', results: [] } }, { strict: false })
 
