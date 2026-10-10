@@ -1,7 +1,8 @@
-//! 文件上传：把本地文档 / 图片抽成笔记树文档，复用既有 vault → 检索 / 向量索引通路。
+//! 文件上传：把本地文档 / 图片 / 代码 / 音视频 / 会议记录抽成笔记树文档，
+//! 复用既有 vault → 检索 / 向量索引通路。
 //!
-//! P1 覆盖结构化文档、非结构化文档与图片；音频 / 视频 / 代码留给 P4。
 //! 原始字节仍落在 `<data_dir>/uploads`，与文件页清单共用，不另开索引管线。
+//! 音频 / 视频不做转写（与图片不做 OCR 同形）：以文件名、格式与本地路径进入检索。
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -22,6 +23,10 @@ pub enum FileKind {
     Unstructured,
     Structured,
     Image,
+    Code,
+    Audio,
+    Video,
+    Meeting,
 }
 
 impl FileKind {
@@ -30,6 +35,10 @@ impl FileKind {
             Self::Unstructured => "unstructured",
             Self::Structured => "structured",
             Self::Image => "image",
+            Self::Code => "code",
+            Self::Audio => "audio",
+            Self::Video => "video",
+            Self::Meeting => "meeting",
         }
     }
 }
@@ -43,7 +52,7 @@ pub struct FileIngestResult {
     pub file_path: String,
 }
 
-/// 按扩展名分类；未知或不在 P1 范围的类型直接拒绝。
+/// 按扩展名分类；未知类型直接拒绝。
 pub fn classify_file(name: &str) -> Result<(FileKind, String), AppError> {
     let ext = Path::new(name)
         .extension()
@@ -57,17 +66,12 @@ pub fn classify_file(name: &str) -> Result<(FileKind, String), AppError> {
         "txt" | "md" | "markdown" | "faq" | "csv" | "html" | "htm" => FileKind::Unstructured,
         "pdf" | "docx" | "xlsx" | "pptx" => FileKind::Structured,
         "png" | "jpg" | "jpeg" | "gif" | "webp" => FileKind::Image,
-        "mp3" | "wav" | "m4a" | "aac" | "flac" | "ogg" => {
-            return Err(invalid("音频上传属于后续能力（P4），当前版本不支持"));
-        }
-        "mp4" | "mov" | "webm" | "mkv" | "avi" => {
-            return Err(invalid("视频上传属于后续能力（P4），当前版本不支持"));
-        }
+        "mp3" | "wav" | "m4a" | "aac" | "flac" | "ogg" => FileKind::Audio,
+        "mp4" | "mov" | "webm" | "mkv" | "avi" => FileKind::Video,
         "rs" | "py" | "js" | "ts" | "tsx" | "jsx" | "go" | "java" | "c" | "cpp" | "h" | "hpp"
         | "cs" | "rb" | "php" | "swift" | "kt" | "scala" | "sh" | "bash" | "zsh" | "json"
-        | "yaml" | "yml" | "toml" | "xml" | "sql" => {
-            return Err(invalid("代码文件上传属于后续能力（P4），当前版本不支持"));
-        }
+        | "yaml" | "yml" | "toml" | "xml" | "sql" => FileKind::Code,
+        "vtt" | "srt" | "ics" => FileKind::Meeting,
         "doc" | "ppt" | "xls" => {
             return Err(invalid(
                 "旧版 Office 二进制格式暂不支持，请另存为 docx / pptx / xlsx 后再上传",
@@ -75,7 +79,7 @@ pub fn classify_file(name: &str) -> Result<(FileKind, String), AppError> {
         }
         other => {
             return Err(invalid(&format!(
-                "不支持的文件类型 .{other}（P1 支持文档、表格、幻灯片与常见图片）"
+                "不支持的文件类型 .{other}（支持文档、表格、幻灯片、图片、代码、音视频与会议记录）"
             )));
         }
     };
@@ -161,6 +165,9 @@ fn extract_content(
         FileKind::Unstructured => extract_unstructured(ext, name, bytes),
         FileKind::Structured => extract_structured(ext, bytes),
         FileKind::Image => extract_image(name, bytes, path),
+        FileKind::Code => extract_code(name, bytes),
+        FileKind::Audio | FileKind::Video => extract_media(kind, name, bytes, path),
+        FileKind::Meeting => extract_meeting(ext, name, bytes),
     }
 }
 
@@ -208,6 +215,109 @@ fn extract_image(name: &str, bytes: &[u8], path: &Path) -> Result<Extracted, App
         path.to_string_lossy()
     );
     Ok(Extracted { title, text })
+}
+
+fn extract_code(name: &str, bytes: &[u8]) -> Result<Extracted, AppError> {
+    let raw = String::from_utf8_lossy(bytes);
+    let text = truncate_chars(raw.trim(), MAX_TEXT_CHARS);
+    if text.is_empty() {
+        return Err(invalid("代码文件没有可提取的正文"));
+    }
+    Ok(Extracted {
+        title: title_from_name(name),
+        text,
+    })
+}
+
+fn extract_media(
+    kind: FileKind,
+    name: &str,
+    bytes: &[u8],
+    path: &Path,
+) -> Result<Extracted, AppError> {
+    let title = title_from_name(name);
+    let label = match kind {
+        FileKind::Audio => "音频",
+        FileKind::Video => "视频",
+        _ => "媒体",
+    };
+    // 不做语音转写：与图片不做 OCR 同形，以元数据与本地路径进入检索。
+    let text = format!(
+        "[{title}](file://{})\n\n{label}文件，大小 {} 字节。检索以文件名为准，不进行语音转写。",
+        path.to_string_lossy(),
+        bytes.len()
+    );
+    Ok(Extracted { title, text })
+}
+
+fn extract_meeting(ext: &str, name: &str, bytes: &[u8]) -> Result<Extracted, AppError> {
+    let raw = String::from_utf8_lossy(bytes);
+    let text = match ext {
+        "vtt" => extract_vtt(&raw),
+        "srt" => extract_srt(&raw),
+        "ics" => extract_ics(&raw),
+        other => {
+            return Err(invalid(&format!("未实现的会议记录类型 .{other}")));
+        }
+    };
+    let text = truncate_chars(&collapse_ws(&text), MAX_TEXT_CHARS);
+    if text.is_empty() {
+        return Err(invalid("会议记录没有可提取的正文"));
+    }
+    Ok(Extracted {
+        title: title_from_name(name),
+        text,
+    })
+}
+
+fn extract_vtt(raw: &str) -> String {
+    let mut parts = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.eq_ignore_ascii_case("WEBVTT")
+            || trimmed.contains("-->")
+            || trimmed.chars().all(|ch| ch.is_ascii_digit())
+        {
+            continue;
+        }
+        parts.push(trimmed.to_string());
+    }
+    parts.join("\n")
+}
+
+fn extract_srt(raw: &str) -> String {
+    let mut parts = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.contains("-->")
+            || trimmed.chars().all(|ch| ch.is_ascii_digit())
+        {
+            continue;
+        }
+        parts.push(trimmed.to_string());
+    }
+    parts.join("\n")
+}
+
+fn extract_ics(raw: &str) -> String {
+    let mut parts = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        for prefix in [
+            "SUMMARY:",
+            "DESCRIPTION:",
+            "LOCATION:",
+            "DTSTART:",
+            "DTEND:",
+        ] {
+            if let Some(rest) = trimmed.strip_prefix(prefix) {
+                parts.push(format!("{prefix}{rest}"));
+            }
+        }
+    }
+    parts.join("\n")
 }
 
 fn extract_pdf(bytes: &[u8]) -> Result<String, AppError> {
@@ -402,14 +512,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn classify_p1_kinds_and_reject_p4() {
+    fn classify_supported_kinds_and_reject_legacy_office() {
         assert_eq!(classify_file("a.md").unwrap().0, FileKind::Unstructured);
         assert_eq!(classify_file("a.PDF").unwrap().0, FileKind::Structured);
         assert_eq!(classify_file("pic.PNG").unwrap().0, FileKind::Image);
-        assert!(classify_file("song.mp3").is_err());
-        assert!(classify_file("clip.mp4").is_err());
-        assert!(classify_file("main.rs").is_err());
+        assert_eq!(classify_file("song.mp3").unwrap().0, FileKind::Audio);
+        assert_eq!(classify_file("clip.mp4").unwrap().0, FileKind::Video);
+        assert_eq!(classify_file("main.rs").unwrap().0, FileKind::Code);
+        assert_eq!(classify_file("standup.vtt").unwrap().0, FileKind::Meeting);
         assert!(classify_file("legacy.doc").is_err());
+    }
+
+    #[test]
+    fn extract_vtt_keeps_spoken_lines() {
+        let raw = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nShip the context source plan\n";
+        assert!(extract_vtt(raw).contains("Ship the context source plan"));
     }
 
     #[test]

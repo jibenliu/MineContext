@@ -92,7 +92,7 @@ const Files: React.FC = () => {
             drag
             autoUpload={false}
             disabled={saving}
-            accept=".pptx,.pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,.faq,.html,.htm,.png,.jpg,.jpeg,.gif,.webp"
+            accept=".pptx,.pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,.faq,.html,.htm,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.aac,.flac,.ogg,.mp4,.mov,.webm,.mkv,.avi,.rs,.py,.js,.ts,.tsx,.jsx,.go,.java,.c,.cpp,.h,.hpp,.cs,.rb,.php,.swift,.kt,.scala,.sh,.bash,.zsh,.json,.yaml,.yml,.toml,.xml,.sql,.vtt,.srt,.ics"
             showUploadList={false}
             onChange={(_, file) => {
               if (file.status === 'init') {

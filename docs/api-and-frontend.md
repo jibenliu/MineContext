@@ -52,7 +52,11 @@
 | `/api/v1/stream` | 控制面事件流（SSE） |
 | `/api/v1/jobs/backfill`、`/api/v1/jobs/{id}` | 作业队列：入队补偿推断、查状态（同范围幂等；未配置模型时如实跳过） |
 | `/api/v1/links` | 链接上传：`POST {url, parent_id?}` 抓取公开网页正文，写入笔记树（`document_type=vaults`），进入既有检索/向量索引；拒绝非 http(s)、回环/私网与 `privacy.blocked_domains` |
-| `/api/v1/files/import` | 文件上传：`POST {name, data, parent_id?}` 抽取结构化/非结构化文档正文或图片元数据，写入笔记树并保留 `uploads/` 原文件；音频/视频/代码（P4）与未知类型返回结构化错误 |
+| `/api/v1/files/import` | 文件上传：`POST {name, data, parent_id?}` 抽取文档/图片/代码/音视频元数据/会议字幕正文，写入笔记树并保留 `uploads/` 原文件；未知类型返回结构化错误 |
+| `/api/v1/files/import-folder` | 本地目录导入：`POST {path, parent_id?, recursive?}` 扫描支持的文件并写入笔记树（Obsidian / Memory Bank 等） |
+| `/api/v1/files/track`、`/api/v1/files/track/sync` | 文件跟踪：登记目录、列出、同步仅导入未见过的支持文件 |
+| `/api/v1/rss` | RSS/Atom：`POST {url, parent_id?, limit?}` 抓取公开订阅源条目写入笔记树 |
+| `/api/v1/research` | Deep Research（轻量）：`POST {topic, urls, parent_id?}` 抓取公开 URL 汇编一篇研究笔记 |
 
 ### 1.3 SSE
 
@@ -81,7 +85,8 @@
 
 - 搜索期间显示加载状态并阻止重复提交；失败后可再次搜索。起止时间包含所选边界，服务端先筛选时间再按数量截断，倒置范围返回 400。
 - 任意时段总结修改范围后必须重新预览。生成期间锁定范围，进度请求串行执行；页面卸载停止轮询，后台作业仍可继续。进度读取失败可重试原作业，避免重复提交；生成失败显示原因，取消完成显示已保留分块。
-- 文件页通过 `POST /api/v1/files/import`（渠道 `v1:import-file`）导入文档与图片：抽取正文写入笔记树并进入既有检索/向量索引，同时保留 `uploads/` 原文件。列表接口仍返回 `status: "Uploaded"`；本次导入成功的条目在界面显示「分析成功」。导入失败可重试；同名文件替换原文件。选择文件本身不会向页面根路径发送上传请求。音频 / 视频 / 代码不在本版本范围。
+- 文件页通过 `POST /api/v1/files/import`（渠道 `v1:import-file`）导入文档、图片、代码、音视频与会议字幕：抽取正文（或媒体元数据）写入笔记树并进入既有检索/向量索引，同时保留 `uploads/` 原文件。列表接口仍返回 `status: "Uploaded"`；本次导入成功的条目在界面显示「分析成功」。导入失败可重试；同名文件替换原文件。选择文件本身不会向页面根路径发送上传请求。
+- 笔记树另提供 RSS（`v1:import-rss`）、深度研究（`v1:import-research`）与本地目录导入/跟踪（`v1:import-folder` / `v1:track-folder` / `v1:sync-tracked-folders`）。能力边界见 [`context-sources.md`](./context-sources.md)。
 
 
 ### 2.1 结构

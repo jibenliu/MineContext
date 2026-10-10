@@ -61,7 +61,6 @@ Table of Contents
     - [Running the Server](#running-the-server)
 - [💎 The Philosophy Behind the Name](#-the-philosophy-behind-the-name)
 - [🎯 Target User](#-target-user)
-- [🔌 Context-Source](#-context-source)
 - [🆚 Comparison with Familiar Application](#-comparison-with-familiar-application)
   - [MineContext vs ChatGPT Pulse](#minecontext-vs-chatgpt-pulse)
   - [MineContext vs Dayflow](#minecontext-vs-dayflow)
@@ -381,51 +380,6 @@ If vast amounts of context are like scattered "blocks," then MineContext provide
 | Content Creators     | Writers, Bloggers                  | Craving endless inspiration, optimizing content creation workflows                                       |
 | Lifelong Learners    | Students, Researchers              | Building systematic knowledge systems, efficiently managing and connecting learning materials            |
 | Project Managers     | Product Managers, Project Managers | Integrating multi-source information and data, ensuring project alignment and decision-making efficiency |
-
-# 🔌 Context-Source
-
-We will prioritize the expansion of Context Sources according to the following plan, and we warmly welcome everyone to actively contribute code to our efforts.
-
-- P0: Digital life and public information loop (PC screen capture and link upload)
-- P1: Personal text context loop (file upload, file tracking)
-- P2: AI and common office context loop (MCP, meeting notes)
-- P3: High-quality information acquisition loop (DeepResearch and RSS)
-- P4: Personal deep context loop (WeChat, QQ chat data acquisition, mobile screenshots)
-- P5: Physical world context loop (smart wearable synchronization, smart glasses synchronization)
-
-| Context Capture Capability   | Context Source                            | Priority | Completion Status |
-| :--------------------------- | :---------------------------------------- | :------- | :---------------- |
-| Screen Screenshot            | User PC Information                       | P0       | ✅                |
-| Note Editing                 | Application Internal Creation Information | P0       | ✅                |
-| Link Upload                  | Internet Information                      | P0       | ✅                |
-| File Upload                  | Structured Documents                      | P1       | ✅                |
-| File Upload                  | Unstructured Documents                    | P1       | ✅                |
-| File Upload                  | Images                                    | P1       | ✅                |
-| File Upload                  | Audio                                     | P4       |                   |
-| File Upload                  | Video                                     | P4       |                   |
-| File Upload                  | Code                                      | P4       |                   |
-| Browser Extension            | AI Conversation Records                   | P2       |                   |
-| Browser Extension            | Refined Internet Information              | P5       |                   |
-| Meeting Records              | Meeting Information                       | P2       |                   |
-| RSS                          | Consultation Information                  | P3       |                   |
-| Deep Research                | High-Quality Research Analysis            | P3       |                   |
-| Application MCP/API          | Payment Records                           | P4       |                   |
-| Application MCP/API          | Research Papers                           | P3       |                   |
-| Application MCP/API          | News                                      | P4       |                   |
-| Application MCP/API          | Emails                                    | P4       |                   |
-| Application MCP/API          | Notion                                    | P2       |                   |
-| Application MCP/API          | Obsidian                                  | P2       |                   |
-| Application MCP/API          | Slack                                     | P4       |                   |
-| Application MCP/API          | Jira                                      | P4       |                   |
-| Application MCP/API          | Figma                                     | P2       |                   |
-| Application MCP/API          | Linear                                    | P4       |                   |
-| Application MCP/API          | Todoist                                   | P4       |                   |
-| Memory Bank Migration Import | User Memory                               | P4       |                   |
-| WeChat Data Capture          | WeChat Chat History                       | P4       |                   |
-| QQ Data Capture              | QQ Chat History                           | P4       |                   |
-| Mobile Screenshot Monitor    | User Mobile End Information               | P4       |                   |
-| Smart Glasses Data Sync      | Physical World Interaction Records        | P5       |                   |
-| Smart Bracelet Data Sync     | Physiological Data                        | P5       |                   |
 
 # 🆚 Comparison with Familiar Application
 

@@ -14,6 +14,7 @@
 | 怎么构建、怎么跑、验过什么、没验什么、出问题先看哪里、发布前还差什么 | [`operations.md`](operations.md) |
 | 架构与领域模型（分层、事件溯源、Activity/Stage/Summary、保留策略、并发与背压、取舍） | [`architecture.md`](architecture.md) |
 | 控制面接口、鉴权与信封；前端渠道映射、适配层与启动顺序 | [`api-and-frontend.md`](api-and-frontend.md) |
+| 已交付的上下文来源与仍需外部账号/硬件的方向 | [`context-sources.md`](context-sources.md) |
 | 外部条件项怎么验（真机、签名、长跑） | [`operations.md`](operations.md) §2.2 与 §5 |
 | 发布清单与豁免项 | [`operations.md`](operations.md) §5 |
 | 出错先查什么（36 个错误码逐条） | [`operations.md`](operations.md) §3 → [`troubleshooting.md`](troubleshooting.md) |
@@ -42,6 +43,7 @@ docs/
 ├── product-performance.md     产品与性能（合并 problem/simlar/suggestion）
 ├── architecture.md            架构（分层 / 事件溯源 / 领域模型 / 存储 / 并发）
 ├── api-and-frontend.md        控制面接口与前端（鉴权 / 信封 / 渠道映射 / 启动顺序）
+├── context-sources.md         已交付上下文来源与外部依赖边界
 ├── operations.md              运维与交付（构建/验证/排查/隐私/发布/缺口）
 ├── troubleshooting.md         36 个错误码逐条排查（门禁校验一致性）
 ├── privacy.md                 隐私说明（采集/拦截/脱敏/上传边界）

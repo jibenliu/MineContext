@@ -29,11 +29,21 @@ const queue = new PQueue({ concurrency: 2 })
 const { Text, Ellipsis } = Typography
 const logger = getLogger('VaultTree')
 
+type NodeImportHandlers = {
+  onImportLink?: (parentId: number) => void
+  onImportRss?: (parentId: number) => void
+  onImportResearch?: (parentId: number) => void
+  onImportFolder?: (parentId: number) => void
+}
+
 const Node = ({
   node,
   dragHandle,
-  onImportLink
-}: NodeRendererProps<VaultTreeNode> & { onImportLink?: (parentId: number) => void }) => {
+  onImportLink,
+  onImportRss,
+  onImportResearch,
+  onImportFolder
+}: NodeRendererProps<VaultTreeNode> & NodeImportHandlers) => {
   const { t } = useI18n()
   const isFolder = node.data.is_folder === 1
   const { deleteVault, createFolder, addVault, getVaultPath } = useVaults()
@@ -73,6 +83,21 @@ const Node = ({
           if (!node.isOpen) {
             node.toggle()
           }
+        } else if (key === 'import-rss') {
+          onImportRss?.(node.data.id)
+          if (!node.isOpen) {
+            node.toggle()
+          }
+        } else if (key === 'import-research') {
+          onImportResearch?.(node.data.id)
+          if (!node.isOpen) {
+            node.toggle()
+          }
+        } else if (key === 'import-folder') {
+          onImportFolder?.(node.data.id)
+          if (!node.isOpen) {
+            node.toggle()
+          }
         }
       }}>
       <Menu.Item key="rename" className="flex items-center">
@@ -96,6 +121,18 @@ const Node = ({
           <Menu.Item key="import-link" className="flex items-center">
             <img src={fileIcon} className="w-[16px]" style={{ marginRight: '6px' }} />
             {t('vault.tree.importLink')}
+          </Menu.Item>
+          <Menu.Item key="import-rss" className="flex items-center">
+            <img src={fileIcon} className="w-[16px]" style={{ marginRight: '6px' }} />
+            {t('vault.tree.importRss')}
+          </Menu.Item>
+          <Menu.Item key="import-research" className="flex items-center">
+            <img src={fileIcon} className="w-[16px]" style={{ marginRight: '6px' }} />
+            {t('vault.tree.importResearch')}
+          </Menu.Item>
+          <Menu.Item key="import-folder" className="flex items-center">
+            <img src={folderStrokedIcon} className="w-[16px]" style={{ marginRight: '6px' }} />
+            {t('vault.tree.importFolder')}
           </Menu.Item>
         </>
       )}
@@ -270,11 +307,38 @@ const Sidebar = ({ className }: { className?: string }) => {
   const [linkUrl, setLinkUrl] = useState('')
   const [linkImporting, setLinkImporting] = useState(false)
   const [linkParentId, setLinkParentId] = useState<number | null>(null)
+  const [rssModalVisible, setRssModalVisible] = useState(false)
+  const [rssUrl, setRssUrl] = useState('')
+  const [rssImporting, setRssImporting] = useState(false)
+  const [researchModalVisible, setResearchModalVisible] = useState(false)
+  const [researchTopic, setResearchTopic] = useState('')
+  const [researchUrls, setResearchUrls] = useState('')
+  const [researchImporting, setResearchImporting] = useState(false)
+  const [folderModalVisible, setFolderModalVisible] = useState(false)
+  const [folderPath, setFolderPath] = useState('')
+  const [folderImporting, setFolderImporting] = useState(false)
+  const [importParentId, setImportParentId] = useState<number | null>(null)
 
   const openLinkModal = useMemoizedFn((parentId?: number | null) => {
     setLinkParentId(parentId ?? null)
     setLinkUrl('')
     setLinkModalVisible(true)
+  })
+  const openRssModal = useMemoizedFn((parentId?: number | null) => {
+    setImportParentId(parentId ?? null)
+    setRssUrl('')
+    setRssModalVisible(true)
+  })
+  const openResearchModal = useMemoizedFn((parentId?: number | null) => {
+    setImportParentId(parentId ?? null)
+    setResearchTopic('')
+    setResearchUrls('')
+    setResearchModalVisible(true)
+  })
+  const openFolderModal = useMemoizedFn((parentId?: number | null) => {
+    setImportParentId(parentId ?? null)
+    setFolderPath('')
+    setFolderModalVisible(true)
   })
   useEffect(() => {
     if (!treeContainerRef.current) return
@@ -326,8 +390,19 @@ const Sidebar = ({ className }: { className?: string }) => {
       await addVault({ title: 'Untitled', content: '' })
     } else if (key === 'import-link') {
       openLinkModal(null)
+    } else if (key === 'import-rss') {
+      openRssModal(null)
+    } else if (key === 'import-research') {
+      openResearchModal(null)
+    } else if (key === 'import-folder') {
+      openFolderModal(null)
     }
   }
+
+  const importErrorDetail = (error: unknown) =>
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message || '')
+      : ''
 
   const handleImportLink = async () => {
     const url = linkUrl.trim()
@@ -350,18 +425,109 @@ const Sidebar = ({ className }: { className?: string }) => {
       Message.success(t('vault.tree.linkImported'))
     } catch (error) {
       logger.error('import link failed', error)
-      const detail =
-        error && typeof error === 'object' && 'message' in error
-          ? String((error as { message?: unknown }).message || '')
-          : ''
-      Message.error(detail || t('vault.tree.linkFailed'))
+      Message.error(importErrorDetail(error) || t('vault.tree.linkFailed'))
     } finally {
       setLinkImporting(false)
     }
   }
 
+  const handleImportRss = async () => {
+    const url = rssUrl.trim()
+    if (!url) {
+      Message.warning(t('vault.tree.rssRequired'))
+      return
+    }
+    if (!window.contextSourceApi?.importRss) {
+      Message.error(t('vault.tree.rssFailed'))
+      return
+    }
+    setRssImporting(true)
+    try {
+      const result = await window.contextSourceApi.importRss(url, importParentId)
+      setRssModalVisible(false)
+      setRssUrl('')
+      await initVaults()
+      const first = result.imported?.[0]
+      if (first) {
+        navigateToVault(first.id)
+      }
+      Message.success(t('vault.tree.rssImported'))
+    } catch (error) {
+      logger.error('import rss failed', error)
+      Message.error(importErrorDetail(error) || t('vault.tree.rssFailed'))
+    } finally {
+      setRssImporting(false)
+    }
+  }
+
+  const handleImportResearch = async () => {
+    const topic = researchTopic.trim()
+    const urls = researchUrls
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (!topic || urls.length === 0) {
+      Message.warning(t('vault.tree.researchRequired'))
+      return
+    }
+    if (!window.contextSourceApi?.importResearch) {
+      Message.error(t('vault.tree.researchFailed'))
+      return
+    }
+    setResearchImporting(true)
+    try {
+      const result = await window.contextSourceApi.importResearch(topic, urls, importParentId)
+      setResearchModalVisible(false)
+      setResearchTopic('')
+      setResearchUrls('')
+      await initVaults()
+      navigateToVault(result.id)
+      Message.success(t('vault.tree.researchImported'))
+    } catch (error) {
+      logger.error('import research failed', error)
+      Message.error(importErrorDetail(error) || t('vault.tree.researchFailed'))
+    } finally {
+      setResearchImporting(false)
+    }
+  }
+
+  const handleImportFolder = async () => {
+    const path = folderPath.trim()
+    if (!path) {
+      Message.warning(t('vault.tree.folderRequired'))
+      return
+    }
+    if (!window.contextSourceApi?.importFolder) {
+      Message.error(t('vault.tree.folderFailed'))
+      return
+    }
+    setFolderImporting(true)
+    try {
+      const result = await window.contextSourceApi.importFolder(path, importParentId, true)
+      // 登记跟踪，便于后续 sync 只导入新增文件
+      try {
+        await window.contextSourceApi.trackFolder(path)
+      } catch (trackError) {
+        logger.warn('track folder after import failed', trackError)
+      }
+      setFolderModalVisible(false)
+      setFolderPath('')
+      await initVaults()
+      const first = result.imported?.[0]
+      if (first) {
+        navigateToVault(first.id)
+      }
+      Message.success(t('vault.tree.folderImported'))
+    } catch (error) {
+      logger.error('import folder failed', error)
+      Message.error(importErrorDetail(error) || t('vault.tree.folderFailed'))
+    } finally {
+      setFolderImporting(false)
+    }
+  }
+
   const menu = (
-    <Menu onClickMenuItem={handleMenuClick} className="w-[180px] text-[12px]">
+    <Menu onClickMenuItem={handleMenuClick} className="w-[200px] text-[12px]">
       <Menu.Item key="new-folder" className="flex">
         <img src={folderStrokedIcon} style={{ width: '16px', marginRight: '6px' }} />
         {t('vault.tree.newFolder')}
@@ -373,6 +539,18 @@ const Sidebar = ({ className }: { className?: string }) => {
       <Menu.Item key="import-link" className="flex">
         <img src={fileIcon} style={{ width: '16px', marginRight: '6px' }} />
         {t('vault.tree.importLink')}
+      </Menu.Item>
+      <Menu.Item key="import-rss" className="flex">
+        <img src={fileIcon} style={{ width: '16px', marginRight: '6px' }} />
+        {t('vault.tree.importRss')}
+      </Menu.Item>
+      <Menu.Item key="import-research" className="flex">
+        <img src={fileIcon} style={{ width: '16px', marginRight: '6px' }} />
+        {t('vault.tree.importResearch')}
+      </Menu.Item>
+      <Menu.Item key="import-folder" className="flex">
+        <img src={folderStrokedIcon} style={{ width: '16px', marginRight: '6px' }} />
+        {t('vault.tree.importFolder')}
       </Menu.Item>
     </Menu>
   )
@@ -422,6 +600,83 @@ const Sidebar = ({ className }: { className?: string }) => {
           />
         </Modal>
 
+        <Modal
+          title={t('vault.tree.importRss')}
+          visible={rssModalVisible}
+          onOk={() => void handleImportRss()}
+          onCancel={() => {
+            if (!rssImporting) {
+              setRssModalVisible(false)
+              setRssUrl('')
+            }
+          }}
+          confirmLoading={rssImporting}
+          okText={t('vault.tree.importLinkConfirm')}
+          cancelText={t('common.cancel')}
+          unmountOnExit>
+          <Input
+            value={rssUrl}
+            onChange={setRssUrl}
+            placeholder={t('vault.tree.rssPlaceholder')}
+            allowClear
+            onPressEnter={() => void handleImportRss()}
+          />
+        </Modal>
+
+        <Modal
+          title={t('vault.tree.importResearch')}
+          visible={researchModalVisible}
+          onOk={() => void handleImportResearch()}
+          onCancel={() => {
+            if (!researchImporting) {
+              setResearchModalVisible(false)
+              setResearchTopic('')
+              setResearchUrls('')
+            }
+          }}
+          confirmLoading={researchImporting}
+          okText={t('vault.tree.importLinkConfirm')}
+          cancelText={t('common.cancel')}
+          unmountOnExit>
+          <Space direction="vertical" className="w-full" size={8}>
+            <Input
+              value={researchTopic}
+              onChange={setResearchTopic}
+              placeholder={t('vault.tree.researchTopicPlaceholder')}
+              allowClear
+            />
+            <Input.TextArea
+              value={researchUrls}
+              onChange={setResearchUrls}
+              placeholder={t('vault.tree.researchUrlsPlaceholder')}
+              autoSize={{ minRows: 3, maxRows: 8 }}
+            />
+          </Space>
+        </Modal>
+
+        <Modal
+          title={t('vault.tree.importFolder')}
+          visible={folderModalVisible}
+          onOk={() => void handleImportFolder()}
+          onCancel={() => {
+            if (!folderImporting) {
+              setFolderModalVisible(false)
+              setFolderPath('')
+            }
+          }}
+          confirmLoading={folderImporting}
+          okText={t('vault.tree.importLinkConfirm')}
+          cancelText={t('common.cancel')}
+          unmountOnExit>
+          <Input
+            value={folderPath}
+            onChange={setFolderPath}
+            placeholder={t('vault.tree.folderPlaceholder')}
+            allowClear
+            onPressEnter={() => void handleImportFolder()}
+          />
+        </Modal>
+
         {/* Modern tree structure */}
         {/* 文字色必须走语义变量：节点标题在暗色主题下同样要可读，写死颜色会变成黑底黑字 */}
         <div
@@ -441,7 +696,15 @@ const Sidebar = ({ className }: { className?: string }) => {
                 navigateToVault(node.data.id)
               }
             }}>
-            {(props) => <Node {...props} onImportLink={openLinkModal} />}
+            {(props) => (
+              <Node
+                {...props}
+                onImportLink={openLinkModal}
+                onImportRss={openRssModal}
+                onImportResearch={openResearchModal}
+                onImportFolder={openFolderModal}
+              />
+            )}
           </Tree>
         </div>
       </div>

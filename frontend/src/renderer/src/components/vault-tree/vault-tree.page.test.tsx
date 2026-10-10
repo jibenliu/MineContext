@@ -113,7 +113,7 @@ vi.mock('@renderer/hooks/use-navigation', () => ({
 }))
 
 describe('笔记树渲染（rust 后端）', () => {
-  it('创建菜单提供导入链接入口', async () => {
+  it('创建菜单提供导入链接、RSS、研究与本地目录入口', async () => {
     installFakeBackend(
       {
         'database:get-all-vaults': [],
@@ -126,6 +126,9 @@ describe('笔记树渲染（rust 后端）', () => {
     renderTree()
     fireEvent.click(await screen.findByAltText('add'))
     expect(await screen.findByText('导入链接')).toBeInTheDocument()
+    expect(await screen.findByText('导入 RSS')).toBeInTheDocument()
+    expect(await screen.findByText('深度研究')).toBeInTheDocument()
+    expect(await screen.findByText('导入本地目录')).toBeInTheDocument()
   })
 
   it('树里出现 Summary 文件夹与它下面的日报（4.53）', async () => {

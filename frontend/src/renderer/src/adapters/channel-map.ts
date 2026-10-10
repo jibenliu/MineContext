@@ -299,6 +299,39 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
     method: 'POST',
     path: '/api/v1/files/import',
     body: { name: args[0], data: args[1], parent_id: args[2] ?? null }
+  }),
+  // RSS / Atom：抓取公开订阅源条目，落成笔记树文档
+  'v1:import-rss': (args) => ({
+    method: 'POST',
+    path: '/api/v1/rss',
+    body: { url: args[0], parent_id: args[1] ?? null, limit: args[2] ?? null }
+  }),
+  // Deep Research：主题 + 公开 URL 汇编成一篇研究笔记
+  'v1:import-research': (args) => ({
+    method: 'POST',
+    path: '/api/v1/research',
+    body: { topic: args[0], urls: args[1] ?? [], parent_id: args[2] ?? null }
+  }),
+  // 本地目录导入（Obsidian / Memory Bank 等）
+  'v1:import-folder': (args) => ({
+    method: 'POST',
+    path: '/api/v1/files/import-folder',
+    body: { path: args[0], parent_id: args[1] ?? null, recursive: args[2] ?? true }
+  }),
+  // 文件跟踪：登记目录 / 列出 / 同步新增文件
+  'v1:track-folder': (args) => ({
+    method: 'POST',
+    path: '/api/v1/files/track',
+    body: { path: args[0] }
+  }),
+  'v1:list-tracked-folders': () => ({
+    method: 'GET',
+    path: '/api/v1/files/track'
+  }),
+  'v1:sync-tracked-folders': (args) => ({
+    method: 'POST',
+    path: '/api/v1/files/track/sync',
+    body: { path: args[0] ?? null, parent_id: args[1] ?? null }
   })
 }
 

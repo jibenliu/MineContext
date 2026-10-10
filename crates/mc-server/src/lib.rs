@@ -16,15 +16,18 @@ pub mod envelope;
 pub mod events;
 pub mod failures;
 pub mod file_ingest;
+pub mod folder_ingest;
 pub mod jobs;
 pub mod jobs_worker;
 pub mod latest_activity;
 pub mod link_ingest;
 pub mod middleware;
 pub mod monitoring;
+pub mod research_ingest;
 pub mod retention;
 pub mod retrieval;
 pub mod routes;
+pub mod rss_ingest;
 pub mod runtime;
 pub mod stages;
 pub mod state;
@@ -129,9 +132,14 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/files",
     "/api/files/copy",
     "/api/files/{name}/data",
-    // 文件上传进笔记树（P1；与链接上传同形，不属于旧兼容面）
+    // 文件上传进笔记树（与链接上传同形，不属于旧兼容面）
     "/api/v1/files/import",
+    "/api/v1/files/import-folder",
+    "/api/v1/files/track",
+    "/api/v1/files/track/sync",
     "/api/v1/links",
+    "/api/v1/rss",
+    "/api/v1/research",
     "/api/settings/{key}",
     // 首页「最新活动」推送开关
     "/api/v1/latest-activity/poll",
@@ -148,6 +156,9 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::vaults::router())
         .merge(routes::links::router())
         .merge(routes::file_import::router())
+        .merge(routes::folder_import::router())
+        .merge(routes::rss::router())
+        .merge(routes::research::router())
         .merge(routes::home::router())
         .merge(routes::files::router())
         .merge(routes::settings::router())

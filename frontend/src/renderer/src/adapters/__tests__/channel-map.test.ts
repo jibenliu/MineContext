@@ -194,3 +194,28 @@ test('新增面：文件上传映射到 /api/v1/files/import', () => {
   assert.ok(root)
   assert.deepEqual(root.body, { name: 'notes.md', data: bytes, parent_id: null })
 })
+
+test('新增面：RSS / 研究 / 目录跟踪映射', () => {
+  const rss = resolveChannel('v1:import-rss', ['https://example.com/feed.xml', 2, 5])
+  assert.ok(rss)
+  assert.equal(rss.path, '/api/v1/rss')
+  assert.deepEqual(rss.body, { url: 'https://example.com/feed.xml', parent_id: 2, limit: 5 })
+
+  const research = resolveChannel('v1:import-research', ['topic', ['https://a.example'], null])
+  assert.ok(research)
+  assert.equal(research.path, '/api/v1/research')
+  assert.deepEqual(research.body, {
+    topic: 'topic',
+    urls: ['https://a.example'],
+    parent_id: null
+  })
+
+  const folder = resolveChannel('v1:import-folder', ['/tmp/vault', 9, true])
+  assert.ok(folder)
+  assert.equal(folder.path, '/api/v1/files/import-folder')
+  assert.deepEqual(folder.body, { path: '/tmp/vault', parent_id: 9, recursive: true })
+
+  const track = resolveChannel('v1:track-folder', ['/tmp/vault'])
+  assert.ok(track)
+  assert.equal(track.path, '/api/v1/files/track')
+})
