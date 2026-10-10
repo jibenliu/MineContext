@@ -469,6 +469,8 @@ pub async fn get_config(State(state): State<Arc<ServerState>>) -> Response {
             mc_config::model::ApplyToDays::Weekday => "weekday",
         },
         "retention_days": capture.retention_days,
+        "idle_threshold_secs": capture.idle_threshold_secs,
+        "idle_interval_secs": capture.idle_interval_secs,
     }))
 }
 

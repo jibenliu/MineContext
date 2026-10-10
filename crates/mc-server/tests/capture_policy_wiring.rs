@@ -63,3 +63,49 @@ fn default_config_has_no_privacy_rules() {
         .blocked_domains
         .is_blocked(Some("https://bank.com/"), ""));
 }
+
+#[test]
+fn idle_backoff_fields_reach_the_capture_policy() {
+    let config = config_with_privacy(
+        r#"
+[capture]
+interval_secs = 10
+idle_threshold_secs = 120
+idle_interval_secs = 90
+"#,
+    );
+
+    let policy = policy_from(&config);
+
+    assert_eq!(policy.capture.interval_secs, 10);
+    assert_eq!(policy.capture.idle_threshold_secs, 120);
+    // 必须读配置，不能再按 interval×4 推算（否则这里会变成 40）
+    assert_eq!(policy.capture.idle_interval_secs, 90);
+}
+
+#[test]
+fn idle_interval_never_faster_than_active_interval() {
+    let config = config_with_privacy(
+        r#"
+[capture]
+interval_secs = 30
+idle_interval_secs = 5
+"#,
+    );
+
+    let policy = policy_from(&config);
+    assert_eq!(
+        policy.capture.idle_interval_secs, 30,
+        "空闲间隔不得快于正常间隔"
+    );
+}
+
+#[test]
+fn default_idle_backoff_matches_scheduler_defaults() {
+    let config = config_with_privacy("[capture]\nenabled = true\n");
+    let policy = policy_from(&config);
+
+    assert_eq!(policy.capture.interval_secs, 15);
+    assert_eq!(policy.capture.idle_threshold_secs, 300);
+    assert_eq!(policy.capture.idle_interval_secs, 60);
+}

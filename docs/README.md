@@ -48,5 +48,5 @@ docs/
 ├── troubleshooting.md         36 个错误码逐条排查（门禁校验一致性）
 ├── privacy.md                 隐私说明（采集/拦截/脱敏/上传边界）
 ├── comment-style.md           注释风格规则（门禁依据）
-└── decisions/                 决策记录（性能基线、向量规模）
+└── decisions/                 决策记录（性能基线、向量规模、空闲/锁屏采集节奏）
 ```
