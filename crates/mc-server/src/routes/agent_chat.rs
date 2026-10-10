@@ -538,7 +538,9 @@ pub async fn create_conversation(
             }
             match state.db.get_conversation(id) {
                 Ok(Some(row)) => envelope::ok(conversation_json(&row)),
-                _ => envelope::ok(json!({ "id": id, "page_name": page_name, "vault_id": vault_id })),
+                _ => {
+                    envelope::ok(json!({ "id": id, "page_name": page_name, "vault_id": vault_id }))
+                }
             }
         }
         Err(error) => envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
@@ -864,7 +866,10 @@ mod streaming_tests {
             dir.path().to_path_buf(),
         ));
         let now = SystemClock.now();
-        let conversation = state.db.create_conversation(None, "chat", None, now).unwrap();
+        let conversation = state
+            .db
+            .create_conversation(None, "chat", None, now)
+            .unwrap();
         let message = state
             .db
             .create_message(conversation, "assistant", "", "streaming", now)

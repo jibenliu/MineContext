@@ -40,7 +40,9 @@ fn conversations_can_be_scoped_to_a_vault_root() {
         .create_conversation(Some("生活会话"), "assistant", Some(personal), ms(4))
         .unwrap();
 
-    let work_only = db.list_conversations(Some("assistant"), Some(work)).unwrap();
+    let work_only = db
+        .list_conversations(Some("assistant"), Some(work))
+        .unwrap();
     assert_eq!(work_only.len(), 1);
     assert_eq!(work_only[0].id, work_chat);
     assert_eq!(work_only[0].vault_id, Some(work));

@@ -178,8 +178,7 @@ impl Database {
         vault_id: Option<i64>,
     ) -> Result<Vec<ConversationRow>, AppError> {
         self.with_read(|conn| {
-            let mut conditions =
-                vec!["COALESCE(status, 'active') != 'deleted'".to_string()];
+            let mut conditions = vec!["COALESCE(status, 'active') != 'deleted'".to_string()];
             let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
             if let Some(page) = page_name {
                 conditions.push(format!("page_name = ?{}", params.len() + 1));

@@ -87,7 +87,11 @@ fn note(title: &str, content: &str, parent_id: Option<i64>) -> VaultUpsert {
 #[test]
 fn retrieval_scoped_to_vault_excludes_other_vault_notes() {
     let ctx = ctx();
-    let work = ctx.state.db.insert_vault_row(&folder("Work"), at(1)).unwrap();
+    let work = ctx
+        .state
+        .db
+        .insert_vault_row(&folder("Work"), at(1))
+        .unwrap();
     let personal = ctx
         .state
         .db
@@ -151,7 +155,11 @@ fn retrieval_scoped_to_vault_excludes_other_vault_notes() {
 #[tokio::test]
 async fn conversations_list_filters_by_vault_id() {
     let ctx = ctx();
-    let work = ctx.state.db.insert_vault_row(&folder("Work"), at(1)).unwrap();
+    let work = ctx
+        .state
+        .db
+        .insert_vault_row(&folder("Work"), at(1))
+        .unwrap();
     let personal = ctx
         .state
         .db
@@ -193,7 +201,11 @@ async fn conversations_list_filters_by_vault_id() {
 #[tokio::test]
 async fn stream_with_vault_id_creates_scoped_conversation() {
     let ctx = ctx();
-    let work = ctx.state.db.insert_vault_row(&folder("Work"), at(1)).unwrap();
+    let work = ctx
+        .state
+        .db
+        .insert_vault_row(&folder("Work"), at(1))
+        .unwrap();
 
     let response = router(Arc::clone(&ctx.state))
         .oneshot(post(
