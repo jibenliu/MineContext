@@ -16,6 +16,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import DateNavigation from './components/date-navigation'
 import EmptyStatePlaceholder from './components/empty-state-placeholder'
+import { categoryFromMetadata } from './components/group-activity-timeline'
 import type { RecordingStats } from './components/recording-stats-card'
 import RecordingTimeline from './components/recording-timeline'
 // Extracted components
@@ -35,6 +36,9 @@ export interface Activity {
   }>
   title: string
   content: string
+  /** 投影分类；兼容面在 metadata 里，扩展面在 v1.category */
+  category?: string | null
+  metadata?: string
 }
 
 const ScreenMonitor: React.FC = () => {
@@ -118,7 +122,8 @@ const ScreenMonitor: React.FC = () => {
       const todayActivities = await getActivitiesByDate(date)
       const todayActivitiesParsed: Activity[] = todayActivities.map((item: any) => ({
         ...item,
-        resources: withParsedResources(item).resources
+        resources: withParsedResources(item).resources,
+        category: item.category ?? categoryFromMetadata(item.metadata)
       }))
       const uniqueActivities = Array.from(new Map(todayActivitiesParsed.map((item) => [item.id, item])).values())
       setActivities(uniqueActivities)
@@ -272,7 +277,8 @@ const ScreenMonitor: React.FC = () => {
         const newActivities = await getNewActivities(lastCheckedTimeRef.current)
         const newActivitiesParsed: Activity[] = newActivities.map((item: any) => ({
           ...item,
-          resources: withParsedResources(item).resources
+          resources: withParsedResources(item).resources,
+          category: item.category ?? categoryFromMetadata(item.metadata)
         }))
         if (newActivitiesParsed && newActivitiesParsed.length > 0) {
           // Filter activities for the current date
