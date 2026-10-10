@@ -13,6 +13,7 @@ use crate::capture::CaptureControls;
 use crate::events::EventBus;
 use crate::jobs::AdhocJobs;
 use crate::routes::agent_chat::ChatStreams;
+use mc_mcp::registry::McpRegistry;
 
 /// 向量索引因上游拒绝（401/429 等）而主动暂停时的可行动原因。
 ///
@@ -40,6 +41,8 @@ pub struct ServerState {
     pub jobs: AdhocJobs,
     /// 对话流的中断标志
     pub chat_streams: ChatStreams,
+    /// MCP 客户端注册表（插件会话；默认空，配置启用后装载）
+    pub mcp: Arc<McpRegistry>,
     /// 已组装好的 embedding Provider（按配置组装一次后缓存）。
     ///
     /// 缓存而不是每次查询都新建：`reqwest::Client` 带着连接池，
@@ -92,6 +95,7 @@ impl ServerState {
             events: EventBus::new(),
             jobs: AdhocJobs::new(),
             chat_streams: ChatStreams::new(),
+            mcp: Arc::new(McpRegistry::new()),
             embedding: std::sync::Mutex::new(None),
             latest_activity_task: std::sync::Mutex::new(None),
             retention: std::sync::Mutex::new(None),
@@ -137,6 +141,12 @@ impl ServerState {
 
     pub fn with_capture(mut self, capture: Arc<CaptureControls>) -> Self {
         self.capture = Some(capture);
+        self
+    }
+
+    /// 注入 MCP 注册表（业务测试用脚本化会话）。
+    pub fn with_mcp(mut self, registry: Arc<McpRegistry>) -> Self {
+        self.mcp = registry;
         self
     }
 

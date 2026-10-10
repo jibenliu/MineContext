@@ -19,6 +19,7 @@ const LAYERS: &[(&str, u64)] = &[
     ("mc-storage", 2),
     ("mc-providers", 2),
     ("mc-capture", 2),
+    ("mc-mcp", 2),
     ("mc-pipeline", 3),
     ("mc-summary", 3),
     ("mc-search", 3),

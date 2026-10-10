@@ -32,9 +32,9 @@ crate 分层（依赖只能向下，`check-source.sh` 里的依赖方向守卫�
 |---|---|---|
 | 0 | `mc-common` | 时间（UTC 毫秒 `Timestamp`）、错误分类（错误码 + 组件 + 可重试 + 补救）、日志出口与脱敏 |
 | 1 | `mc-config` / `mc-domain` | 配置加载与迁移；领域模型与纯状态机（活动规则、阶段、投影的函数部分） |
-| 2 | `mc-storage` / `mc-providers` / `mc-capture` | SQLite 与迁移、blob 与保留策略；模型 provider（只依赖 HTTP 抽象与 OpenAI 兼容的接口形状）；采集源抽象 |
+| 2 | `mc-storage` / `mc-providers` / `mc-capture` / `mc-mcp` | SQLite 与迁移、blob 与保留策略；模型 provider（只依赖 HTTP 抽象与 OpenAI 兼容的接口形状）；采集源抽象；MCP 客户端（stdio/HTTP、权限闸门） |
 | 3 | `mc-pipeline` / `mc-summary` / `mc-search` / `mc-memory` | 采集环与分级调度、预算闸门；总结生成（模型 + 确定性兜底）；检索（关键词 + 向量融合）；笔记树归档与实体 |
-| 4 | `mc-server` | 控制面：路由、信封、SSE、后台任务的接线 |
+| 4 | `mc-server` | 控制面：路由、信封、SSE、后台任务的接线；编排 MCP 与 Chat tool loop |
 | 5 | `mc-daemon` / `mc-cli` | 进程入口；运维命令（doctor / 配置校验 / 导入 / 重放） |
 | 工具 | `mc-testkit` / `apps/xtask` | 测试夹具与脚本化替身；契约夹具生成 |
 

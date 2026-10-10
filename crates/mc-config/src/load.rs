@@ -159,6 +159,57 @@ fn validate(config: &Config) -> Result<(), AppError> {
         )
         .with_context("path", "ai.embedding.batch_limit"));
     }
+
+    let mut seen_ids = std::collections::BTreeSet::new();
+    for (index, server) in config.mcp.servers.iter().enumerate() {
+        let path = format!("mcp.servers[{index}]");
+        if server.id.trim().is_empty() {
+            return Err(AppError::new(
+                ErrorCode::ConfigInvalid,
+                "mcp.servers[].id 不能为空",
+            )
+            .with_context("path", format!("{path}.id")));
+        }
+        if !seen_ids.insert(server.id.clone()) {
+            return Err(AppError::new(
+                ErrorCode::ConfigInvalid,
+                format!("mcp.servers[].id 重复：{}", server.id),
+            )
+            .with_context("path", format!("{path}.id")));
+        }
+        match server.transport {
+            crate::model::McpTransportKind::Stdio => {
+                if server
+                    .command
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|c| !c.is_empty())
+                    .is_none()
+                {
+                    return Err(AppError::new(
+                        ErrorCode::ConfigInvalid,
+                        format!("MCP server {} 使用 stdio 时必须配置 command", server.id),
+                    )
+                    .with_context("path", format!("{path}.command")));
+                }
+            }
+            crate::model::McpTransportKind::Http => {
+                if server
+                    .url
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|u| !u.is_empty())
+                    .is_none()
+                {
+                    return Err(AppError::new(
+                        ErrorCode::ConfigInvalid,
+                        format!("MCP server {} 使用 http 时必须配置 url", server.id),
+                    )
+                    .with_context("path", format!("{path}.url")));
+                }
+            }
+        }
+    }
     Ok(())
 }
 

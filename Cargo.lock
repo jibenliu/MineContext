@@ -1857,6 +1857,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc-mcp"
+version = "1.0.7"
+dependencies = [
+ "async-trait",
+ "mc-common",
+ "mc-config",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "mc-memory"
 version = "1.0.7"
 dependencies = [
@@ -1941,6 +1957,7 @@ dependencies = [
  "mc-common",
  "mc-config",
  "mc-domain",
+ "mc-mcp",
  "mc-memory",
  "mc-pipeline",
  "mc-providers",

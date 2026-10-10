@@ -33,7 +33,7 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 tempfile = "3"
 # http control plane
 axum = { version = "0.8", features = ["macros"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal", "fs", "process", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal", "fs", "process", "net", "io-util"] }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 futures-util = "0.3"

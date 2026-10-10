@@ -1,0 +1,23 @@
+[package]
+name = "mc-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# MCP Client：stdio / HTTP 传输、工具列表与受控调用。
+# 权限闸门与传输协议在此；配置落 mc-config，Chat 编排在 mc-server。
+
+[dependencies]
+mc-common = { path = "../mc-common" }
+mc-config = { path = "../mc-config" }
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync", "process", "io-util"] }
+reqwest.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

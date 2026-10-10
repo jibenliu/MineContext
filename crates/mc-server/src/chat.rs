@@ -354,51 +354,63 @@ pub fn chat_model_configured(config: &mc_config::Config) -> bool {
 ///
 /// **没有模型也要能回话**（哪怕是如实说「我找到了这些」）——
 /// 这是「答案永远有出处」的落点。
+///
+/// 若 MCP 已启用且存在已授权工具，会再包一层 [`crate::mcp::ToolLoopEngine`]，
+/// 在本地检索之外按权限闸门调用 MCP 工具。
 pub fn engine_for(state: &crate::state::ServerState) -> Box<dyn ChatEngine> {
     let secrets = mc_providers::credentials::KeychainCommand::default();
     let config = state.config.current();
     let locale = mc_summary::model::SummaryLocale::from_config(&config.config.general.locale);
 
-    // 未同意出网 / 没配模型：用本地引擎把检索结果如实列出来，不发任何请求
-    if !chat_model_configured(&config.config) {
-        return Box::new(ExtractOnlyEngine::default());
-    }
-
-    // 复用 chat 端点的配置构造 provider（总结与对话用的是同一个端点）
-    let endpoint = &config.config.ai.chat;
-    if let Ok(api_key) =
-        mc_providers::credentials::resolve_secret(&secrets, endpoint.api_key_ref.as_deref())
-    {
-        if let Ok(provider) = mc_providers::openai::OpenAiCompatibleProvider::new(
-            mc_providers::openai::EndpointConfig {
-                base_url: endpoint.base_url.clone(),
-                model: endpoint.model.clone(),
-                api_key,
-                timeout: std::time::Duration::from_secs(endpoint.timeout_secs),
-                max_image_edge: None,
-                max_concurrency: endpoint.max_concurrency,
-            },
-            std::sync::Arc::new(mc_providers::transport::ReqwestTransport::default()),
-            mc_providers::Role::Chat,
-        ) {
-            // 脱敏规则非法时**不组装 provider**：静默放行等于用户以为自己脱敏了、
-            // 实际把原文发了出去。
-            let redactor =
-                match mc_common::redact::Redactor::new(&config.config.privacy.redact_patterns) {
-                    Ok(redactor) => redactor,
-                    Err(_) => return Box::new(ExtractOnlyEngine::default()),
-                };
-
-            return Box::new(ProviderChatEngine::with_redactor(
-                std::sync::Arc::new(provider) as std::sync::Arc<dyn mc_providers::ChatProvider>,
-                locale,
-                redactor,
-            ));
+    let base: Box<dyn ChatEngine> = {
+        // 未同意出网 / 没配模型：用本地引擎把检索结果如实列出来，不发任何请求
+        if !chat_model_configured(&config.config) {
+            Box::new(ExtractOnlyEngine::default())
+        } else {
+            // 复用 chat 端点的配置构造 provider（总结与对话用的是同一个端点）
+            let endpoint = &config.config.ai.chat;
+            let assembled = (|| -> Option<Box<dyn ChatEngine>> {
+                let api_key = mc_providers::credentials::resolve_secret(
+                    &secrets,
+                    endpoint.api_key_ref.as_deref(),
+                )
+                .ok()?;
+                let provider = mc_providers::openai::OpenAiCompatibleProvider::new(
+                    mc_providers::openai::EndpointConfig {
+                        base_url: endpoint.base_url.clone(),
+                        model: endpoint.model.clone(),
+                        api_key,
+                        timeout: std::time::Duration::from_secs(endpoint.timeout_secs),
+                        max_image_edge: None,
+                        max_concurrency: endpoint.max_concurrency,
+                    },
+                    std::sync::Arc::new(mc_providers::transport::ReqwestTransport::default()),
+                    mc_providers::Role::Chat,
+                )
+                .ok()?;
+                // 脱敏规则非法时**不组装 provider**：静默放行等于用户以为自己脱敏了、
+                // 实际把原文发了出去。
+                let redactor =
+                    mc_common::redact::Redactor::new(&config.config.privacy.redact_patterns).ok()?;
+                Some(Box::new(ProviderChatEngine::with_redactor(
+                    std::sync::Arc::new(provider) as std::sync::Arc<dyn mc_providers::ChatProvider>,
+                    locale,
+                    redactor,
+                )))
+            })();
+            assembled.unwrap_or_else(|| Box::new(ExtractOnlyEngine::default()))
         }
-    }
+    };
 
-    // 密钥解析或 provider 组装失败：仍然是「有出处但没模型」的本地引擎
-    Box::new(ExtractOnlyEngine::default())
+    if config.config.mcp.enabled {
+        Box::new(crate::mcp::ToolLoopEngine::new(
+            base,
+            std::sync::Arc::clone(&state.mcp),
+            config.config.clone(),
+        ))
+    } else {
+        base
+    }
 }
 
 /// 对话侧「可诚实降级为本地列表」的 provider 失败：断网 / 超时 / 5xx / 限流。
