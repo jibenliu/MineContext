@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { formatApproxBytes, RetentionSection, type RetentionApi } from './retention-section'
+import { formatApproxBytes, type RetentionApi, RetentionSection } from './retention-section'
 
 vi.mock('@arco-design/web-react', async () => {
   const actual = await vi.importActual<typeof import('@arco-design/web-react')>('@arco-design/web-react')
@@ -63,7 +63,7 @@ describe('设置页截图占用', () => {
   })
 
   it('formatApproxBytes 给出可读近似值', () => {
-    expect(formatApproxBytes(0, 'zh')).toBe('0 B')
-    expect(formatApproxBytes(1536 * 1024 * 1024, 'en')).toMatch(/1\.5\s*GB/)
+    expect(formatApproxBytes(0)).toBe('0 B')
+    expect(formatApproxBytes(1536 * 1024 * 1024)).toMatch(/1\.5\s*GB/)
   })
 })

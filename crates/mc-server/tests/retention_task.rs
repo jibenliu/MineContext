@@ -230,7 +230,10 @@ async fn capacity_cap_comes_from_storage_config() {
     let (_c, new_path) = add_screenshot(&ctx, 2, now_ms() - DAY_MS);
 
     let before = ctx.blobs.stats().unwrap().total_bytes;
-    assert!(before > limit, "fixture 必须先超过上限：before={before} limit={limit}");
+    assert!(
+        before > limit,
+        "fixture 必须先超过上限：before={before} limit={limit}"
+    );
 
     let outcome = retention::run_once(&ctx.state).unwrap().unwrap();
     assert!(outcome.deleted_files >= 1, "{outcome:?}");

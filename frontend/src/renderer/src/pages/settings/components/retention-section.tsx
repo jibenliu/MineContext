@@ -29,7 +29,7 @@ function createRetentionApi(): RetentionApi {
   return api
 }
 
-export function formatApproxBytes(bytes: number, _locale = 'en'): string {
+export function formatApproxBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '—'
   const units = ['B', 'KB', 'MB', 'GB', 'TB'] as const
   let value = bytes
@@ -63,7 +63,7 @@ function normalizeConfig(raw: unknown): CaptureRetentionConfig | undefined {
 }
 
 export function RetentionSection({ api }: { api?: RetentionApi }) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [client] = useState(() => api ?? createRetentionApi())
   const [retentionDays, setRetentionDays] = useState(7)
   const [maxTotalGb, setMaxTotalGb] = useState(10)
@@ -119,7 +119,7 @@ export function RetentionSection({ api }: { api?: RetentionApi }) {
     diskUsage == null
       ? t('settings.retention.usageUnknown')
       : t('settings.retention.usage', {
-          size: formatApproxBytes(diskUsage.totalBytes, locale),
+          size: formatApproxBytes(diskUsage.totalBytes),
           count: String(diskUsage.blobCount)
         })
 

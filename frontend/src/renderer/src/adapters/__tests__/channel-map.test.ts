@@ -176,9 +176,7 @@ test('新增面：截图占用配置读与写', () => {
   assert.equal(get.method, 'GET')
   assert.equal(get.path, '/api/capture/config')
 
-  const patch = resolveChannel('v1:capture-config-patch', [
-    { retentionDays: 14, maxTotalGb: 5 }
-  ])
+  const patch = resolveChannel('v1:capture-config-patch', [{ retentionDays: 14, maxTotalGb: 5 }])
   assert.ok(patch)
   assert.equal(patch.method, 'PATCH')
   assert.equal(patch.path, '/api/capture/config')
