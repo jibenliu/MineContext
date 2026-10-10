@@ -16,6 +16,7 @@ import AIDemo from './pages/ai-demo/ai-demo'
 import { AssistantPage } from './pages/assistant/assistant-page'
 import Files from './pages/files/files'
 import HomePage from './pages/home/home-page'
+import { InsightsPage } from './pages/insights/insights-page'
 import ScreenMonitor from './pages/screen-monitor/screen-monitor'
 import { SearchPage } from './pages/search/search-page'
 import Settings from './pages/settings/settings'
@@ -67,6 +68,7 @@ const AppContent: FC = () => {
         <Route path="/files" element={<Files />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/assistant" element={<AssistantPage />} />
+        <Route path="/insights" element={<InsightsPage />} />
         <Route path="/summaries" element={<SummariesPage />} />
         <Route path="/ai-demo" element={<AIDemo />} />
       </Routes>

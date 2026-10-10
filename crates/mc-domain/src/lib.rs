@@ -5,9 +5,13 @@
 //! 全都是纯函数，因此可以用场景文件驱动，不需要网络、屏幕或模型。
 
 pub mod activity;
+pub mod handoff_pack;
+pub mod learning_coach;
 pub mod model;
 pub mod observation;
 pub mod projector;
+pub mod risk_scan;
 pub mod rules;
+pub mod sales_memory;
 pub mod stage;
 pub mod task_assoc;
