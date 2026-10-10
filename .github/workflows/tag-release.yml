@@ -3,7 +3,7 @@ name: Tag release
 # 打新的 `v*` 发版标签并推送；不打包。
 # 推送后由 `release.yml`（on: push tags: v*）自动打包：
 #   - 各环境 mc-daemon / mc-cli（macos / linux / windows）
-#   - 未签名 macOS dmg
+#   - macOS dmg（secrets 齐全则公证，否则 adhoc）
 #   - draft GitHub Release
 #
 # 手动触发：Actions → Tag release → Run workflow

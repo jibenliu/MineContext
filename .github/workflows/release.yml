@@ -1,14 +1,15 @@
 name: Release (binaries + macOS dmg)
 
-# 推送 `v*` 标签后自动打包各环境二进制，并打一份未签名 macOS dmg。
+# 推送 `v*` 标签后自动打包各环境二进制，并打一份 macOS dmg。
 # 打标签：Actions → Tag release，或 `./scripts/create-release-tag.sh`。
 #
 # 产物：
 #   1) mc-daemon / mc-cli —— macos-14 / ubuntu-22.04 / windows-latest
-#   2) 未签名 Tauri `.dmg` —— macos-14
-#   3) draft GitHub Release（附全部 artifact；未签名，需维护者确认后再发布）
+#   2) Tauri `.dmg` —— macos-14（Apple secrets 齐全则 Developer ID + 公证；否则 adhoc 并 WARN）
+#   3) draft GitHub Release（附全部 artifact；需维护者确认后再发布）
 #
 # 手动：workflow_dispatch 可在任意 ref 上重跑打包（不强制 tag）。
+# 公证 secrets 清单见 docs/operations.md §5。
 
 on:
   push:
@@ -54,7 +55,7 @@ jobs:
           retention-days: 30
 
   dmg-tauri:
-    name: Build unsigned dmg (Tauri shell)
+    name: Build macOS dmg (notarize when secrets set)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -89,13 +90,24 @@ jobs:
       - name: Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
-      - name: 打包（未签名）
+      # secrets 未配置时为空字符串；打包脚本 WARN 后走 adhoc，不失败。
+      - name: 打包（secrets 齐全则公证，否则 adhoc）
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: ./scripts/package-macos-tauri.sh
 
       - name: 上传 dmg
         uses: actions/upload-artifact@v4
         with:
-          name: MineContext-macos-unsigned-tauri
+          name: MineContext-macos-tauri
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 30
@@ -171,9 +183,10 @@ jobs:
           # dmg 可能因 Tauri 壳失败而缺失；平台 zip 仍应上传
           fail_on_unmatched_files: false
           body: |
-            ## macOS 安装说明（未公证）
+            ## macOS 安装说明
 
-            `.dmg` 仅做 **adhoc 签名**，没有 Apple 公证。若打开提示「已损坏」或无法验证开发者：
+            若仓库已配置 Apple 签名与公证 secrets（见 `docs/operations.md` §5），`.dmg` 为 Developer ID 签名并公证。
+            否则仍为 **adhoc 签名、未公证**。未公证时若打开提示「已损坏」或无法验证开发者：
 
             ```bash
             xattr -cr ~/Downloads/MineContext_*.dmg

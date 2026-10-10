@@ -12,8 +12,8 @@
   workspace，因此不会拖慢后端门禁）。渲染层是纯 `vite` 构建的静态产物
   （`frontend/out/renderer`，`base: ./` 相对路径，否则 Tauri 自定义协议下资源 404）。
   Electron 主进程 / preload / electron-vite / electron-builder 已从仓库移除，不再有第二条
-  外壳，也不再有「切默认」这件事。产物是未签名 `.dmg`；窗口与托盘观感、系统通知是否
-  真的弹出仍属人工确认项（§7）。
+  外壳，也不再有「切默认」这件事。产物默认 adhoc `.dmg`（配置 §5.0 凭据后可公证）；
+  窗口与托盘观感、系统通知是否真的弹出仍属人工确认项（§7）。
 - **后端只有一个：Rust 守护进程 `mc-daemon`**。没有 Python 后端、没有第二个后端
   路径、没有构建期开关；应用起来就拉起 daemon，渲染层从它写的 `runtime.json`
   拿端口与 token。
@@ -47,8 +47,8 @@ cd src-tauri && cargo tauri dev
 ```
 
 **安装包**：`src-tauri/target/release/bundle/dmg/MineContext_<版本>_aarch64.dmg`
-（哈希每次打包都变，以脚本输出为准）。**adhoc 签名、未公证**（无 Developer ID），
-从网上下载后若提示「已损坏」，先清隔离属性：
+（哈希每次打包都变，以脚本输出为准）。默认 **adhoc 签名、未公证**；配置 §5.0 凭据后
+为 Developer ID + 公证。未公证包从网上下载后若提示「已损坏」，先清隔离属性：
 
 ```bash
 xattr -cr ~/Downloads/MineContext_*.dmg
@@ -74,7 +74,7 @@ xattr -dr com.apple.quarantine "/Applications/MineContext.app"
   `./scripts/package-macos-tauri.sh --with-smoke`。默认打包只确认构建完成，不代表启动验收通过。
   已有产物可单独运行 `./scripts/tests/launch-check-tauri.sh <dmg路径>`，无需重新编译。
   启动失败时会打印并保留临时诊断目录中的 `shell.log` 与 `logs/daemon.log`；
-- **未签名、未公证**；窗口显示、托盘图标与菜单、关窗是否真的隐藏属人工确认项（§7）。
+- 默认 adhoc、未公证（§5.0）；窗口显示、托盘图标与菜单、关窗是否真的隐藏属人工确认项（§7）。
 
 **外壳与渲染层的边界**：渲染层与适配层完全共用同一份产物；外壳只负责窗口、托盘、
 daemon 生命周期与打包。Tauri 侧已实现：读 `runtime.json` 的桥（初始化脚本注入
@@ -231,16 +231,57 @@ token）与文件系统路径 —— 由 `scripts/check-source.sh` 里的日志�
 
 1. 在 `macos-14` / `ubuntu-22.04` / `windows-latest` 构建 `mc-daemon` + `mc-cli`
    （脚本：`./scripts/package-release-binaries.sh`，产物进 `dist/release/<os>-<arch>/`）；
-2. 在 `macos-14` 打 Tauri `.dmg`（`./scripts/package-macos-tauri.sh`；adhoc 签名、**未公证**）；
+2. 在 `macos-14` 打 Tauri `.dmg`（`./scripts/package-macos-tauri.sh`）：
+   **Apple secrets 齐全则 Developer ID 签名并公证**，否则 adhoc 签名、未公证（日志里有
+   `WARN: 跳过公证`，构建不失败）；
 3. 汇总为 **draft GitHub Release**（zip + dmg；dmg 文件名带 tag 版本，如 `MineContext_1.0.0_aarch64.dmg`）。
 
 **打 tag 前**先把 Cargo.toml / src-tauri / frontend / tauri.conf 四处版本改成与即将打的 `vX.Y.Z` 一致
 （`create-release-tag.sh` 会校验；勿绕过脚本直接推一个与仓库版本不符的 tag）。
 
-macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
+macOS 若提示「已损坏」（仅未公证包）：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
 `xattr -dr com.apple.quarantine /Applications/MineContext.app`。
 
 也可对 `release.yml` 手动 `workflow_dispatch` 只打包、不打标签。
+
+### 5.0 签名与公证（维护者：环境变量 / GitHub secrets）
+
+契约与 [Tauri 2 macOS signing](https://v2.tauri.app/distribute/sign/macos/) 一致；
+检测逻辑在 `scripts/lib/macos-notarize-env.sh`。**不要**把真实凭据写进仓库。
+
+**签名（CI 必填三项）**
+
+| 变量 | 含义 |
+|---|---|
+| `APPLE_CERTIFICATE` | Developer ID Application 的 `.p12` 经 `openssl base64 -A -in cert.p12` 后的内容 |
+| `APPLE_CERTIFICATE_PASSWORD` | 导出该 `.p12` 时设置的密码 |
+| `APPLE_SIGNING_IDENTITY` | 钥匙串身份名，如 `Developer ID Application: Your Name (TEAMID)`（不可为 `-`） |
+
+本机已把证书装进钥匙串时，可只设 `APPLE_SIGNING_IDENTITY`（再加下面的公证认证）。
+
+**公证认证（二选一）**
+
+Apple ID：
+
+| 变量 | 含义 |
+|---|---|
+| `APPLE_ID` | Apple 账户邮箱 |
+| `APPLE_PASSWORD` | [App-specific password](https://appleid.apple.com/account/manage)（勿用登录密码） |
+| `APPLE_TEAM_ID` | 团队 ID（开发者账户 Membership） |
+
+App Store Connect API key：
+
+| 变量 | 含义 |
+|---|---|
+| `APPLE_API_ISSUER` | Users and Access → Integrations 页顶部的 Issuer ID |
+| `APPLE_API_KEY` | Key ID |
+| `APPLE_API_KEY_PATH` | 本机 `AuthKey_<KEYID>.p8` 路径；或 |
+| `APPLE_API_KEY_P8` | 同上 `.p8` 文件全文（CI secret；打包脚本会落到临时路径并设置 `APPLE_API_KEY_PATH`） |
+
+在 GitHub：**Settings → Secrets and variables → Actions** 添加与上表同名的 repository secrets。
+`release.yml` 的 dmg 任务会注入这些变量；缺任一必需项时打包脚本打印 WARN 并继续 adhoc 路径。
+
+本地：`export` 上述变量后执行 `./scripts/package-macos-tauri.sh`（齐全则公证，否则 WARN + adhoc）。
 
 ## 5.1 发布前还差什么
 
@@ -248,8 +289,8 @@ macOS 若提示「已损坏」：`xattr -cr ~/Downloads/MineContext_*.dmg` 或
 `verify-external.sh`（外部条件项）。**人在回路的三件事**：
 
 1. 真机人工确认：`./scripts/tests/manual-smoke.sh --launch`（8 项观感与交互清单）；
-2. 签名与公证：本仓库没有 Developer ID 与公证账号 → 产物未签名，属豁免项；
-   要对外分发需要先决定签名身份，或只发未签名包并附上面的 `xattr` 说明；
+2. 签名与公证：配置 §5.0 的 secrets 后由 Release / `package-macos-tauri.sh` 自动走公证；
+   未配置时产物仍为 adhoc，属豁免项，分发需附上面的 `xattr` 说明；
 3. 长跑与准确率：8 / 24 / 72 小时 soak 与黄金数据集评测 —— 脚本与判据在本机留档，
    逐项状态属开发过程记录，不进交付仓库。
 
@@ -328,7 +369,7 @@ daemon 感知 —— 只有设置页保存（`POST /api/model_settings/update` �
 | Tauri 外壳观感（**部分已验**） | **已自动验过**：窗口正常显示、**配好模型时跳过引导页进入主界面**（侧边栏 Home / Screen Monitor / Search / Assistant / Summaries / Settings 都在，截图 + 落盘日志双重证据）、daemon 连通（渲染层 0 条 401）、事件流真的接上（`ready` + `push:init-check-data` 两帧）、`pkill -TERM` 后文件清理**且进程真的退出**。**仍待人确认**：托盘菜单四项逐个点击、托盘提示随录制状态变化、关窗后收进托盘且继续采集、**各页面的真实交互**（搜索命中 / 助手逐块出字 / 设置读写 —— 这三项需要真实模型或你现有的数据） | `./scripts/tests/manual-smoke.sh --launch` 会挂 dmg、拉起应用并逐项记录；托盘与通知必须人点人看 |
 | 系统通知真的弹出 | 触发一条系统通知（例如窗口失焦时产生事件），macOS 通知中心出现该通知 | 设置页开关打开后操作触发；脚本只能断言「桥已接线」，弹窗与否必须人看 |
 | 开机自启真的生效 | 勾选后重启（或注销再登录），应用自动启动；取消勾选后不再启动 | 设置页 Startup 分组切换，再用 `launchctl list | grep -i minecontext` 核对 LaunchAgent |
-| 签名与公证 | `codesign -dv --verbose=4` 显示 Developer ID；`spctl -a -vv` 通过；Gatekeeper 无双击拦截 | 需 Apple Developer ID 证书与公证凭据；当前 dmg **未签名**（只剩这一条产物） |
+| 签名与公证 | `codesign -dv --verbose=4` 显示 Developer ID；`spctl -a -vv` 通过；Gatekeeper 无双击拦截 | 配置 §5.0 secrets 后由打包脚本走公证；未配置时 dmg 仍为 adhoc |
 | 长跑（8 / 24 / 72 小时） | 期间无 panic；`runtime.json` 端口不漂移；活动数量与人工观察量级相符；磁盘占用增长在预期内 | 真机挂着跑，期间抽查 `/api/diagnostics` |
 | 金标准准确率 | 用带标注的数据集算活动标题/分类的准确率，达到约定阈值 | 需标注数据集；当前无 |
 | 磁盘将满的真实降级 | 真机把可用空间压到 512 MiB 以下：采集应跳过并写节流失败，恢复后自动继续 | 代码路径已有单测与接线，**未在真机灌满磁盘验证** |
