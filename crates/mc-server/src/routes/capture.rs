@@ -428,6 +428,9 @@ pub async fn selection(State(state): State<Arc<ServerState>>, Json(body): Json<V
 /// 兼容 UI 的 `ScreenSettings` 形状：`recordInterval`（秒）、
 /// `enableRecordingHours`、`recordingHours`（`["HH:mm:ss","HH:mm:ss"]`）、
 /// `applyToDays`（`weekday` / `everyday`）、`pauseOnLock`。没给的字段不动。
+/// `PATCH /api/capture/config` —— 保存采集设置（间隔、录制时段、占用策略）。
+/// `applyToDays`（`weekday` / `everyday`）、`retentionDays`、`maxTotalGb`。
+/// 没给的字段不动。
 pub async fn patch_config(
     State(state): State<Arc<ServerState>>,
     Json(body): Json<Value>,
@@ -444,6 +447,10 @@ pub async fn patch_config(
             "enable_recording_hours": loaded.config.capture.enable_recording_hours,
             "pause_on_lock": loaded.config.capture.pause_on_lock,
             "pauseOnLock": loaded.config.capture.pause_on_lock,
+            "retention_days": loaded.config.capture.retention_days,
+            "retentionDays": loaded.config.capture.retention_days,
+            "max_total_gb": loaded.config.storage.max_total_gb,
+            "maxTotalGb": loaded.config.storage.max_total_gb,
         })),
         Err(error) => envelope::compat_failure(&error),
     }
@@ -453,9 +460,23 @@ pub async fn patch_config(
 ///
 /// 与 `PATCH` 成对：前端要能在没有本地缓存时把表单填成「现在的值」，
 /// 而不是靠猜默认值。字段名跟兼容 UI 的 `ScreenSettings` 一致。
+///
+/// `disk_usage` 是截图 blob（screenshots + thumbnails）的近似占用，不含 vault / uploads。
 pub async fn get_config(State(state): State<Arc<ServerState>>) -> Response {
     let config = state.config.current();
     let capture = &config.config.capture;
+    let storage = &config.config.storage;
+
+    let disk_usage = match state.capture.as_ref() {
+        Some(controls) => match controls.blobs.stats() {
+            Ok(stats) => json!({
+                "total_bytes": stats.total_bytes,
+                "blob_count": stats.blob_count,
+            }),
+            Err(_) => Value::Null,
+        },
+        None => Value::Null,
+    };
 
     envelope::ok(json!({
         "enabled": capture.enabled,
@@ -478,6 +499,11 @@ pub async fn get_config(State(state): State<Arc<ServerState>>) -> Response {
         "pauseOnLock": capture.pause_on_lock,
         "pause_on_lock": capture.pause_on_lock,
         "retention_days": capture.retention_days,
+        "retentionDays": capture.retention_days,
+        "max_total_gb": storage.max_total_gb,
+        "maxTotalGb": storage.max_total_gb,
+        "max_screenshot_count": storage.max_screenshot_count,
+        "disk_usage": disk_usage,
         "idle_threshold_secs": capture.idle_threshold_secs,
         "idle_interval_secs": capture.idle_interval_secs,
     }))

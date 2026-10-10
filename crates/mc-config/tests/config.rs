@@ -52,6 +52,8 @@ fn loads_defaults_when_no_file() {
         "锁屏暂停采集默认开启（安全默认；可在配置里关掉）"
     );
     assert_eq!(loaded.config.capture.retention_days, 7);
+    assert_eq!(loaded.config.storage.max_total_gb, 10.0);
+    assert_eq!(loaded.config.storage.max_screenshot_count, 200_000);
     assert_eq!(loaded.config.activity.debounce_secs, 45);
     assert_eq!(loaded.config.stage.min_duration_secs, 900);
     assert_eq!(loaded.config.ai.budget.max_vlm_calls_per_hour, 240);
