@@ -23,6 +23,10 @@ curl -s -H "x-mc-token: $(python3 -c "import json;print(json.load(open('<data_di
 - 窗口列表与屏幕路径权限信号不同：窗口枚举只信 TCC Preflight；屏幕路径可有经验证。窗口为空时要区分「缺权限」与「当前没有打开的应用窗口」。
 - 未授权时部分环境下同步截图曾会挂起；当前实现有超时与失败上报，但仍须正确授权才能采到内容。
 
+**屏幕 / 窗口采集**：仅 macOS 有实现。Windows / Linux 上 `doctor` 与
+`/api/capture/status` 的 `capture_supported=false`，界面会禁用「开始录制」并说明原因；
+笔记导入、检索与总结仍可用。平台矩阵见 [`context-sources.md`](context-sources.md)。
+
 ---
 
 ## 错误码对照表

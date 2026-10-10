@@ -22,6 +22,8 @@ interface ScreenMonitorAPI {
         enabled?: boolean
         running?: boolean
         message?: string
+        /** false = 当前平台没有屏幕/窗口采集实现 */
+        capture_supported?: boolean
       }
   >
   openPrefs: () => Promise<void>
@@ -100,6 +102,8 @@ interface ScreenMonitorAPI {
     /** 不能录制时的原因（后端 /api/capture/status 的 reason） */
     reason?: string
     windows_reason?: string | null
+    /** false = 当前平台没有屏幕/窗口采集实现 */
+    capture_supported?: boolean
   }>
   getRecordingStats: () => Promise<{
     captured_screenshots: number
