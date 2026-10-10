@@ -11,12 +11,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { shouldShowOnboarding } from '../onboarding.ts'
-import {
-  unwrapConversations,
-  unwrapSearchResponse,
-  unwrapSearchResults,
-  unwrapSummaries
-} from '../unpack.ts'
+import { unwrapConversations, unwrapSearchResponse, unwrapSearchResults, unwrapSummaries } from '../unpack.ts'
 
 const FIXTURE = fileURLToPath(new URL('../../../../../../fixtures/contract/response-shapes.json', import.meta.url))
 

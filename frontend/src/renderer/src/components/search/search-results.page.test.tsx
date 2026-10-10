@@ -89,10 +89,7 @@ describe('搜索页（rust 后端）', () => {
   })
 
   it('本地关键词检索显示「仅本地」', async () => {
-    installFakeBackend(
-      { 'v1:search': { query: '导入', mode: 'keyword', results: hits } },
-      { strict: false }
-    )
+    installFakeBackend({ 'v1:search': { query: '导入', mode: 'keyword', results: hits } }, { strict: false })
 
     render(<SearchResults />)
     fireEvent.change(screen.getByLabelText('搜索关键词'), { target: { value: '导入' } })

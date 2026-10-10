@@ -513,9 +513,7 @@ fn finish_stream_success(
                 .db
                 .replace_message_content(id, &answer.text, STATUS_COMPLETED, None, now);
         } else if !answer.text.is_empty() {
-            let _ = state
-                .db
-                .append_message_content(id, &answer.text, 1, now);
+            let _ = state.db.append_message_content(id, &answer.text, 1, now);
             let _ = state
                 .db
                 .mark_message_finished(id, STATUS_COMPLETED, None, now);
@@ -1131,7 +1129,9 @@ mod streaming_tests {
             "鉴权失败必须硬失败：{payloads:?}"
         );
         assert!(
-            payloads.iter().all(|value| value["type"] != "stream_complete"),
+            payloads
+                .iter()
+                .all(|value| value["type"] != "stream_complete"),
             "鉴权失败不能伪装成已完成的本地回答：{payloads:?}"
         );
         let rows = state.db.read_messages(conversation).unwrap();
