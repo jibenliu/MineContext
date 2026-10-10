@@ -25,6 +25,7 @@ function renderModal(
         applicationVisible
         tempRecordInterval={5}
         tempEnableRecordingHours={false}
+        tempPauseOnLock
         tempRecordingHours={['09:00', '18:00']}
         tempApplyToDays="everyday"
         onCancel={vi.fn()}
@@ -32,6 +33,7 @@ function renderModal(
         onSetApplicationVisible={vi.fn()}
         onSetTempRecordInterval={vi.fn()}
         onSetTempEnableRecordingHours={vi.fn()}
+        onSetTempPauseOnLock={vi.fn()}
         onSetTempRecordingHours={vi.fn()}
         onSetTempApplyToDays={vi.fn()}
         {...props}
@@ -91,5 +93,12 @@ describe('SettingsModal recording / window alerts', () => {
     expect(screen.getByTestId('capture-window-list-status')).toHaveTextContent(/没有打开|no open/i)
     expect(screen.queryByTestId('window-permission-alert')).not.toBeInTheDocument()
     expect(screen.queryByTestId('quit-relaunch-hint')).not.toBeInTheDocument()
+  })
+
+  it('默认展示锁屏暂停开关且为开启', () => {
+    renderModal({ isMonitoring: true, captureEnabled: true })
+    const toggle = screen.getByTestId('pause-on-lock-switch')
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 })

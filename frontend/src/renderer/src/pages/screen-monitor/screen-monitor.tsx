@@ -50,10 +50,12 @@ const ScreenMonitor: React.FC = () => {
     recordingHours,
     enableRecordingHours,
     applyToDays,
+    pauseOnLock,
     setRecordInterval,
     setEnableRecordingHours,
     setRecordingHours,
-    setApplyToDays
+    setApplyToDays,
+    setPauseOnLock
   } = useSetting()
   const {
     currentSession,
@@ -109,6 +111,7 @@ const ScreenMonitor: React.FC = () => {
   // Settings form state
   const [tempRecordInterval, setTempRecordInterval] = useState(recordInterval)
   const [tempEnableRecordingHours, setTempEnableRecordingHours] = useState(enableRecordingHours)
+  const [tempPauseOnLock, setTempPauseOnLock] = useState(pauseOnLock)
   const [tempRecordingHours, setTempRecordingHours] = useState<[string, string]>(recordingHours as [string, string])
   const [tempApplyToDays, setTempApplyToDays] = useState(applyToDays)
 
@@ -214,7 +217,8 @@ const ScreenMonitor: React.FC = () => {
         recordInterval,
         recordingHours,
         enableRecordingHours,
-        applyToDays
+        applyToDays,
+        pauseOnLock
       })
       await window.screenMonitorAPI.startTask()
       // 不依赖 SSE：推送丢了时界面会一直停在「开始录制」空态。
@@ -435,6 +439,7 @@ const ScreenMonitor: React.FC = () => {
   const handleCancelSettings = useMemoizedFn(() => {
     setTempRecordInterval(recordInterval)
     setTempEnableRecordingHours(enableRecordingHours)
+    setTempPauseOnLock(pauseOnLock)
     setTempRecordingHours(recordingHours as [string, string])
     setTempApplyToDays(applyToDays)
     setSettingsVisible(false)
@@ -444,9 +449,18 @@ const ScreenMonitor: React.FC = () => {
   const handleSaveSettings = useMemoizedFn(() => {
     setRecordInterval(tempRecordInterval)
     setEnableRecordingHours(tempEnableRecordingHours)
+    setPauseOnLock(tempPauseOnLock)
     setRecordingHours(tempRecordingHours as [string, string])
     setApplyToDays(tempApplyToDays)
     setSettingsVisible(false)
+    // 锁屏暂停等设置需立刻落盘；否则要等下次「开始录制」才 PATCH。
+    void window.screenMonitorAPI.updateModelConfig({
+      recordInterval: tempRecordInterval,
+      recordingHours: tempRecordingHours,
+      enableRecordingHours: tempEnableRecordingHours,
+      applyToDays: tempApplyToDays,
+      pauseOnLock: tempPauseOnLock
+    })
   })
 
   // Check recording status on component mount
@@ -519,10 +533,11 @@ const ScreenMonitor: React.FC = () => {
       entry()
       setTempRecordInterval(recordInterval)
       setTempEnableRecordingHours(enableRecordingHours)
+      setTempPauseOnLock(pauseOnLock)
       setTempRecordingHours(recordingHours as [string, string])
       setTempApplyToDays(applyToDays)
     }
-  }, [settingSources, sources, entry, recordInterval, enableRecordingHours, recordingHours, applyToDays])
+  }, [settingSources, sources, entry, recordInterval, enableRecordingHours, pauseOnLock, recordingHours, applyToDays])
 
   const handleRequestPermission = useMemoizedFn(async () => {
     await grantPermission()
@@ -618,6 +633,7 @@ const ScreenMonitor: React.FC = () => {
           applicationVisible={applicationVisible}
           tempRecordInterval={tempRecordInterval}
           tempEnableRecordingHours={tempEnableRecordingHours}
+          tempPauseOnLock={tempPauseOnLock}
           tempRecordingHours={tempRecordingHours}
           tempApplyToDays={tempApplyToDays}
           isMonitoring={isMonitoring}
@@ -629,6 +645,7 @@ const ScreenMonitor: React.FC = () => {
           onSetApplicationVisible={setApplicationVisible}
           onSetTempRecordInterval={setTempRecordInterval}
           onSetTempEnableRecordingHours={setTempEnableRecordingHours}
+          onSetTempPauseOnLock={setTempPauseOnLock}
           onSetTempRecordingHours={setTempRecordingHours}
           onSetTempApplyToDays={setTempApplyToDays}
           onRequestPermission={handleRequestPermission}

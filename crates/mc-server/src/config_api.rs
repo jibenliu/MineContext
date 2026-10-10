@@ -104,6 +104,17 @@ pub fn capture_settings_patch(body: &Value) -> Result<Value, AppError> {
         );
     }
 
+    if let Some(pause) = map.get("pauseOnLock") {
+        capture.insert(
+            "pause_on_lock".to_string(),
+            Value::Bool(
+                pause
+                    .as_bool()
+                    .ok_or_else(|| invalid("pauseOnLock 必须是布尔值"))?,
+            ),
+        );
+    }
+
     if let Some(days) = map.get("applyToDays") {
         let text = days
             .as_str()
@@ -307,5 +318,14 @@ mod tests {
         assert_eq!(patch["capture"]["retention_days"], 14);
         assert_eq!(patch["storage"]["max_total_gb"], 5.5);
         assert!(patch.get("capture").unwrap().get("interval_secs").is_none());
+    }
+
+    #[test]
+    fn settings_patch_accepts_pause_on_lock() {
+        let patch = capture_settings_patch(&serde_json::json!({ "pauseOnLock": false })).unwrap();
+        assert_eq!(patch["capture"]["pause_on_lock"], false);
+        let on = capture_settings_patch(&serde_json::json!({ "pauseOnLock": true })).unwrap();
+        assert_eq!(on["capture"]["pause_on_lock"], true);
+        assert!(capture_settings_patch(&serde_json::json!({ "pauseOnLock": "yes" })).is_err());
     }
 }

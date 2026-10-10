@@ -47,6 +47,10 @@ fn loads_defaults_when_no_file() {
     assert_eq!(loaded.config.capture.interval_secs, 15);
     assert_eq!(loaded.config.capture.idle_threshold_secs, 300);
     assert_eq!(loaded.config.capture.idle_interval_secs, 60);
+    assert!(
+        loaded.config.capture.pause_on_lock,
+        "锁屏暂停采集默认开启（安全默认；可在配置里关掉）"
+    );
     assert_eq!(loaded.config.capture.retention_days, 7);
     assert_eq!(loaded.config.storage.max_total_gb, 10.0);
     assert_eq!(loaded.config.storage.max_screenshot_count, 200_000);

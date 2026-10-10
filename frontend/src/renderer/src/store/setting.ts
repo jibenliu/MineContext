@@ -9,7 +9,9 @@ export const defaultScreenSettings = {
   recordInterval: 15,
   enableRecordingHours: false,
   recordingHours: ['08:00:00', '20:00:00'] as [string, string],
-  applyToDays: 'weekday' as ApplyToDays
+  applyToDays: 'weekday' as ApplyToDays,
+  /** 锁屏时暂停采集；默认开启，可在设置里关掉 */
+  pauseOnLock: true
 }
 
 export type ScreenSettings = typeof defaultScreenSettings

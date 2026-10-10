@@ -373,6 +373,8 @@ const zh: Messages = {
   'screenMonitor.settings.recordInterval': '记录间隔',
   'screenMonitor.settings.chooseWhatToRecord': '选择录制内容',
   'screenMonitor.settings.enableRecordingHours': '启用录制时段',
+  'screenMonitor.settings.pauseOnLock': '锁屏时暂停采集',
+  'screenMonitor.settings.pauseOnLockHint': '默认开启。关闭后锁屏期间仍会采集（空闲降频仍生效）。',
   'screenMonitor.settings.setRecordingHours': '设置录制时段',
   'screenMonitor.settings.applyToDays': '适用日期',
   'screenMonitor.settings.onlyWeekday': '仅工作日',
@@ -811,6 +813,9 @@ const en: Messages = {
   'screenMonitor.settings.recordInterval': 'Record Interval',
   'screenMonitor.settings.chooseWhatToRecord': 'Choose what to record',
   'screenMonitor.settings.enableRecordingHours': 'Enable recording hours',
+  'screenMonitor.settings.pauseOnLock': 'Pause capture when screen is locked',
+  'screenMonitor.settings.pauseOnLockHint':
+    'On by default. When off, capture continues while locked (idle backoff still applies).',
   'screenMonitor.settings.setRecordingHours': 'Set recording hours',
   'screenMonitor.settings.applyToDays': 'Apply to days',
   'screenMonitor.settings.onlyWeekday': 'Only weekday',
