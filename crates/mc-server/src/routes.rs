@@ -1030,17 +1030,11 @@ pub async fn model_settings_validate(
     }))
 }
 
-/// `POST /api/model_settings/update` —— 写进用户配置层并热重载。
+/// `POST /api/model_settings/update` —— 写配置层并热重载。
 ///
-/// 密钥处理是这里唯一需要小心的部分：**明文永远不进配置文件**，
-/// 而是写进 0600 的 sidecar（`model-keys.json`）等用户导入 Keychain，
-/// 配置里只留 `api_key_ref`。前端把密钥留在输入框里就行，不需要读回。
-///
-/// 自建可同时带视觉 / 向量两把密钥：sidecar 分槽保存，配置里用不同
-/// `api_key_ref`；标准平台（豆包 / OpenAI）仍共用视觉槽。
-///
-/// 各平台凭据按 `modelPlatform` 分档持久化：保存 B 不会抹掉 A；
-/// 顶层 `api_key` / `embedding_api_key` 始终镜像当前活跃平台。
+/// 明文只进 0600 sidecar（`model-keys.json`），配置留 `api_key_ref`。
+/// 自建视觉/向量分槽；标准平台共用视觉槽。各平台按 `modelPlatform`
+/// 分档：保存 B 不抹掉 A；顶层密钥镜像当前活跃平台。
 pub async fn model_settings_update(
     State(state): State<Arc<ServerState>>,
     Json(request): Json<ModelSettingsRequest>,
