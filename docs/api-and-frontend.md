@@ -79,6 +79,10 @@
 `push:get-init-check-data` 的消费方自己 `JSON.parse`（所以原样透传字符串），
 其余渠道解成值再交给消费方。
 
+首次引导另有轻量清单（`adapters/first-run-checklist.ts`）：屏幕录制权限 → API Key →
+开始录制 → 确认首张截图（或清除卡住的等待态）。完成或跳过写入
+`settings.firstRunOnboardingComplete`（redux-persist），与模型引导页可同时出现。
+
 ## 2. 前端
 
 ### 业务操作与恢复

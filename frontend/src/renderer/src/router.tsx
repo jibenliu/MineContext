@@ -7,6 +7,8 @@ import { FC, useEffect, useMemo } from 'react'
 import { HashRouter, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { useObservableTask } from './atom/event-loop.atom'
+import FirstRunChecklist from './components/first-run-checklist'
+import { useFirstRunChecklist } from './components/first-run-checklist/use-first-run-checklist'
 import Sidebar from './components/sidebar'
 import { useEvents } from './hooks/use-events'
 import { useTrayRecordingSync } from './hooks/use-tray-recording-sync'
@@ -22,6 +24,7 @@ import VaultPage from './pages/vault/vault'
 
 const AppContent: FC = () => {
   const navigate = useNavigate()
+  const firstRun = useFirstRunChecklist()
   const { startPolling, stopPolling } = useEvents()
   useObservableTask({
     active: startPolling,
@@ -75,7 +78,19 @@ const AppContent: FC = () => {
       {/* <div style={{ appRegion: 'drag', width: '12px', height: '100%' } as React.CSSProperties} /> */}
       <Sidebar />
       {/* min-w-0：主栏 flex 子项默认 min-width:auto 会卡住宽度，助手页铺不满 */}
-      <div className="flex min-w-0 flex-1 flex-col pr-2">{routes}</div>
+      <div className="flex min-w-0 flex-1 flex-col pr-2 pt-2">
+        {firstRun.visible ? (
+          <FirstRunChecklist
+            steps={firstRun.steps}
+            onRequestPermission={() => void firstRun.requestPermission()}
+            onGoApiKey={() => navigate('/settings')}
+            onStartRecording={() => navigate('/screen-monitor', { state: { toggleRecording: true } })}
+            onClearWaiting={firstRun.clearWaiting}
+            onDismiss={firstRun.dismiss}
+          />
+        ) : null}
+        {routes}
+      </div>
     </div>
   )
 }
