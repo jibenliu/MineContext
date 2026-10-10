@@ -33,13 +33,25 @@ pub struct RetentionSnapshot {
 
 /// 从配置推导保留策略。
 ///
-/// 尺寸与数量上限取 [`RetentionPolicy`] 的默认值（10 GiB / 20 万），
-/// 天数取用户配置 —— 这是用户唯一能调、也必须能调的一项。
+/// - 天数：`capture.retention_days`（`0` = 不按天删除）
+/// - 容量：`storage.max_total_gb`（`0` = 不按容量删除）
+/// - 数量：`storage.max_screenshot_count`（`0` = 不按数量删除）
+///
+/// 三项可组合；任一项生效都会从最旧截图开始删。只动 blob 截图/缩略图，不动 vault。
 pub fn policy_from(config: &mc_config::Config) -> RetentionPolicy {
     RetentionPolicy {
         screenshots_days: config.capture.retention_days,
-        ..RetentionPolicy::default()
+        max_total_bytes: max_total_bytes_from_gb(config.storage.max_total_gb),
+        max_blob_count: config.storage.max_screenshot_count,
     }
+}
+
+/// GiB → 字节。`<= 0` 表示不限制（与 [`RetentionPolicy::max_total_bytes`] 的 `0` 语义一致）。
+pub fn max_total_bytes_from_gb(gb: f64) -> u64 {
+    if !gb.is_finite() || gb <= 0.0 {
+        return 0;
+    }
+    (gb * 1024.0 * 1024.0 * 1024.0) as u64
 }
 
 /// 立即执行一次轮转。
@@ -104,4 +116,50 @@ pub fn spawn_retention_task(
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_with(toml: &str) -> mc_config::Config {
+        mc_config::load::load(&mc_config::load::LoadRequest {
+            layers: vec![mc_config::load::LayerSource::Inline {
+                name: "test".to_string(),
+                toml: toml.to_string(),
+            }],
+            env: Vec::new(),
+            read_process_env: false,
+        })
+        .unwrap()
+        .config
+    }
+
+    #[test]
+    fn policy_reads_days_and_capacity_from_config() {
+        let config = config_with(
+            "[capture]\nretention_days = 3\n[storage]\nmax_total_gb = 2.0\nmax_screenshot_count = 1000\n",
+        );
+        let policy = policy_from(&config);
+        assert_eq!(policy.screenshots_days, 3);
+        assert_eq!(policy.max_total_bytes, 2 * 1024 * 1024 * 1024);
+        assert_eq!(policy.max_blob_count, 1000);
+    }
+
+    #[test]
+    fn zero_capacity_means_unlimited() {
+        let config = config_with("[storage]\nmax_total_gb = 0\nmax_screenshot_count = 0\n");
+        let policy = policy_from(&config);
+        assert_eq!(policy.max_total_bytes, 0);
+        assert_eq!(policy.max_blob_count, 0);
+    }
+
+    #[test]
+    fn defaults_match_product_defaults() {
+        let config = config_with("");
+        let policy = policy_from(&config);
+        assert_eq!(policy.screenshots_days, 7);
+        assert_eq!(policy.max_total_bytes, 10 * 1024 * 1024 * 1024);
+        assert_eq!(policy.max_blob_count, 200_000);
+    }
 }

@@ -186,11 +186,42 @@ pub fn capture_settings_patch(body: &Value) -> Result<Value, AppError> {
         }
     }
 
-    if capture.is_empty() {
+    if let Some(days) = map
+        .get("retentionDays")
+        .or_else(|| map.get("retention_days"))
+    {
+        let days = days
+            .as_u64()
+            .ok_or_else(|| invalid("retentionDays 必须是非负整数"))?;
+        if days > u32::MAX as u64 {
+            return Err(invalid("retentionDays 超出范围"));
+        }
+        capture.insert("retention_days".to_string(), Value::from(days as u32));
+    }
+
+    let mut storage = serde_json::Map::new();
+    if let Some(gb) = map.get("maxTotalGb").or_else(|| map.get("max_total_gb")) {
+        let gb = gb
+            .as_f64()
+            .ok_or_else(|| invalid("maxTotalGb 必须是数字（GiB）"))?;
+        if !gb.is_finite() || gb < 0.0 {
+            return Err(invalid("maxTotalGb 必须是非负有限数（0 = 不限制）"));
+        }
+        storage.insert("max_total_gb".to_string(), serde_json::json!(gb));
+    }
+
+    if capture.is_empty() && storage.is_empty() {
         return Err(invalid("请求体里没有可识别的采集设置字段"));
     }
 
-    Ok(serde_json::json!({ "capture": capture }))
+    let mut patch = serde_json::Map::new();
+    if !capture.is_empty() {
+        patch.insert("capture".to_string(), Value::Object(capture));
+    }
+    if !storage.is_empty() {
+        patch.insert("storage".to_string(), Value::Object(storage));
+    }
+    Ok(Value::Object(patch))
 }
 
 /// JSON → TOML。JSON 的 `null` 在 TOML 里没有对应值，因此直接拒绝。
@@ -263,5 +294,18 @@ mod tests {
             capture_settings_patch(&serde_json::json!({ "recordingHours": ["08:00:00"] })).is_err()
         );
         assert!(capture_settings_patch(&serde_json::json!({})).is_err());
+        assert!(capture_settings_patch(&serde_json::json!({ "maxTotalGb": -1.0 })).is_err());
+    }
+
+    #[test]
+    fn settings_patch_accepts_retention_and_capacity() {
+        let patch = capture_settings_patch(&serde_json::json!({
+            "retentionDays": 14,
+            "maxTotalGb": 5.5,
+        }))
+        .unwrap();
+        assert_eq!(patch["capture"]["retention_days"], 14);
+        assert_eq!(patch["storage"]["max_total_gb"], 5.5);
+        assert!(patch.get("capture").unwrap().get("interval_secs").is_none());
     }
 }

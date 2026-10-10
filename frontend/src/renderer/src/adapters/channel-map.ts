@@ -288,6 +288,16 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
     method: 'GET',
     path: `/api/v1/jobs/${enc(args[0])}`
   }),
+  // 截图占用：读策略 + 近似磁盘用量（设置页「截图占用」）
+  'v1:capture-config': () => ({
+    method: 'GET',
+    path: '/api/capture/config'
+  }),
+  'v1:capture-config-patch': (args) => ({
+    method: 'PATCH',
+    path: '/api/capture/config',
+    body: json(args)
+  }),
   // 链接上传：抓取公开网页正文，落成笔记树文档（进入检索 / 向量索引）
   'v1:import-link': (args) => ({
     method: 'POST',
