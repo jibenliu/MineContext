@@ -28,6 +28,7 @@ import { BackfillSection } from './components/backfill-section'
 import { DiagnosticExportSection } from './components/diagnostic-export-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
+import { McpSection } from './components/mcp-section'
 import ModelRadio from './components/model-radio/model-radio'
 import { NotificationSwitch } from './components/notification-switch'
 import { RetentionSection } from './components/retention-section'
@@ -843,6 +844,12 @@ const Settings: FC<SettingsProps> = (props) => {
           {/* 引导页也会挂载本块：局部降级，避免隐私开关把整页设置打成白屏 */}
           <ErrorBoundary title={t('settings.privacy')}>
             <AiUploadSwitch />
+          </ErrorBoundary>
+        </div>
+        <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
+          <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.mcp')}</div>
+          <ErrorBoundary title={t('settings.mcp')}>
+            <McpSection />
           </ErrorBoundary>
         </div>
         <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">

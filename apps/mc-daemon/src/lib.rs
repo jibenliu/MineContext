@@ -188,6 +188,19 @@ pub async fn run(args: Args) -> Result<(), AppError> {
         .with_config_write(load_request, user_config),
     );
 
+    // MCP：按当前配置装载已启用的 server（失败单个跳过，不阻断启动）
+    {
+        let cfg = state.config.current();
+        if let Err(error) = mc_server::mcp::reload_registry(&state.mcp, &cfg.config).await {
+            warn!(
+                component = "mcp",
+                event = "startup_reload_failed",
+                detail = %observability::error_summary(&error),
+                "MCP 注册表启动装载失败"
+            );
+        }
+    }
+
     let address = SocketAddr::from(([127, 0, 0, 1], args.port));
     let listener = tokio::net::TcpListener::bind(address).await.map_err(|e| {
         AppError::new(

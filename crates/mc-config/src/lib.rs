@@ -11,4 +11,4 @@ pub mod write;
 pub use load::{
     load, ConfigHandle, ConfigWarning, LayerSource, LoadRequest, LoadedConfig, ReloadOutcome,
 };
-pub use model::{ApplyToDays, Config, ProviderKind};
+pub use model::{ApplyToDays, Config, Mcp, McpServerConfig, McpTransportKind, ProviderKind};

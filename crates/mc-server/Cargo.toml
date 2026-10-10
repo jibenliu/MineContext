@@ -16,6 +16,7 @@ mc-pipeline = { path = "../mc-pipeline" }
 mc-summary = { path = "../mc-summary" }
 mc-memory = { path = "../mc-memory" }
 mc-search = { path = "../mc-search" }
+mc-mcp = { path = "../mc-mcp" }
 serde.workspace = true
 async-trait.workspace = true
 serde_json.workspace = true

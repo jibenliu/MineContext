@@ -483,6 +483,7 @@ pub mod folder_import;
 pub mod home;
 pub mod jobs;
 pub mod links;
+pub mod mcp;
 pub mod privacy;
 pub mod research;
 pub mod rss;

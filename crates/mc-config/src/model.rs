@@ -8,6 +8,8 @@
 //! 2. **没有明文密钥字段**：只有 `api_key_ref`（指向 Keychain），
 //!    配置里出现明文 key 在结构上不可能。
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_VERSION: u32 = 1;
@@ -26,6 +28,8 @@ pub struct Config {
     pub storage: Storage,
     pub observability: Observability,
     pub server: Server,
+    /// MCP 插件（客户端）。默认关闭；启用后仍需按 server / 工具白名单授权。
+    pub mcp: Mcp,
 }
 
 impl Default for Config {
@@ -42,6 +46,7 @@ impl Default for Config {
             storage: Storage::default(),
             observability: Observability::default(),
             server: Server::default(),
+            mcp: Mcp::default(),
         }
     }
 }
@@ -471,5 +476,71 @@ impl Default for Server {
             host: "127.0.0.1".to_string(),
             port: 0,
         }
+    }
+}
+
+/// MCP 客户端总配置。默认关闭：未显式启用时不会拉起任何子进程或 HTTP 会话。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Mcp {
+    pub enabled: bool,
+    pub servers: Vec<McpServerConfig>,
+}
+
+/// 单个 MCP server 的配置。
+///
+/// `allowed_tools` 为空 = 不允许任何工具（fail-closed）。
+/// 条目 `"*"` 表示该 server 上全部工具（仍受启用与出网闸门约束）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct McpServerConfig {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub transport: McpTransportKind,
+    /// stdio：可执行文件
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    pub args: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    /// http：JSON-RPC 端点
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// 环境变量名 → 密钥引用（`keychain:…` / `env:…`），不写明文。
+    pub env: BTreeMap<String, String>,
+    pub allowed_tools: Vec<String>,
+    /// 工具调用是否需要 `privacy.ai_upload`。HTTP 传输在闸门里始终视为需要出网。
+    pub requires_network: bool,
+}
+
+impl Default for McpServerConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            enabled: false,
+            transport: McpTransportKind::Stdio,
+            command: None,
+            args: Vec::new(),
+            cwd: None,
+            url: None,
+            env: BTreeMap::new(),
+            allowed_tools: Vec::new(),
+            requires_network: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum McpTransportKind {
+    Stdio,
+    Http,
+}
+
+impl Default for McpTransportKind {
+    fn default() -> Self {
+        Self::Stdio
     }
 }

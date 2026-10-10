@@ -22,6 +22,7 @@ pub mod jobs;
 pub mod jobs_worker;
 pub mod latest_activity;
 pub mod link_ingest;
+pub mod mcp;
 pub mod middleware;
 pub mod monitoring;
 pub mod research_ingest;
@@ -90,6 +91,13 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/model_settings/api_key",
     // 设置页「允许 AI 出网」开关
     "/api/privacy",
+    // MCP 插件管理与受控工具调用
+    "/api/mcp",
+    "/api/mcp/servers",
+    "/api/mcp/servers/{id}",
+    "/api/mcp/tools",
+    "/api/mcp/tools/call",
+    "/api/mcp/reload",
     // 以下不属于兼容面
     "/api/backend/status",
     "/api/capture/permissions",
@@ -172,6 +180,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::files::router())
         .merge(routes::settings::router())
         .merge(routes::privacy::router())
+        .merge(routes::mcp::router())
         .merge(monitoring::router())
         .merge(indexing::router())
         .route("/api/health", get(routes::health))
