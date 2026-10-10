@@ -338,6 +338,14 @@
       "source": "adapters/channel-map.ts"
     },
     {
+      "channel": "v1:indexing-resume",
+      "source": "adapters/channel-map.ts"
+    },
+    {
+      "channel": "v1:indexing-status",
+      "source": "adapters/channel-map.ts"
+    },
+    {
       "channel": "v1:jobs-backfill",
       "source": "adapters/channel-map.ts"
     },

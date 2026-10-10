@@ -58,3 +58,22 @@ it('带 action 时展示指向设置 section 的入口', () => {
   expect(action).toHaveTextContent('去设置开启')
   expect(action).toHaveAttribute('href', '/settings?section=ai-upload')
 })
+
+it('indexing_pause 时展示暂停原因与恢复入口', () => {
+  renderCard(
+    <RecordingStatsCard
+      stats={{
+        ...base,
+        processed_screenshots: 3,
+        indexing_pause: {
+          paused: true,
+          code: 'api_key_invalid',
+          message: '向量索引已暂停：API Key 无效或已过期。',
+          action: { target: 'resume_indexing', label: '恢复索引' }
+        }
+      }}
+    />
+  )
+  expect(screen.getByTestId('indexing-pause')).toHaveTextContent(/向量索引已暂停/)
+  expect(screen.getByTestId('indexing-pause-action')).toHaveTextContent('恢复索引')
+})

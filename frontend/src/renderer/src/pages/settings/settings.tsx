@@ -11,6 +11,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { ErrorBoundary } from '../../components/error-boundary'
 import FirstRunChecklist from '../../components/first-run-checklist'
 import { useFirstRunChecklist } from '../../components/first-run-checklist/use-first-run-checklist'
+import { IndexingPauseBanner } from '../../components/indexing-pause-banner'
 import {
   getModelInfo,
   getStoredApiKey,
@@ -732,6 +733,7 @@ const Settings: FC<SettingsProps> = (props) => {
               {t('common.loading')}
             </Text>
           ) : null}
+          {!init ? <IndexingPauseBanner /> : null}
         </div>
 
         {init && firstRun.visible ? (

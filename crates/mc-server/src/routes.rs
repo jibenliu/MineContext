@@ -1178,10 +1178,15 @@ pub async fn model_settings_update(
     };
 
     match crate::config_api::apply_patch(&state, patch) {
-        Ok(_) => envelope::ok(json!({
-            "saved": true,
-            "keySidecar": sidecar_note,
-        })),
+        Ok(_) => {
+            // 保存密钥/模型后立刻清暂停并让索引 worker 重建 Provider，
+            // 避免用户修好 Key 还要再点一次「恢复索引」。
+            state.request_indexing_resume();
+            envelope::ok(json!({
+                "saved": true,
+                "keySidecar": sidecar_note,
+            }))
+        }
         Err(error) => envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
     }
 }

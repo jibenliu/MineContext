@@ -17,6 +17,7 @@ pub mod events;
 pub mod failures;
 pub mod file_ingest;
 pub mod folder_ingest;
+pub mod indexing;
 pub mod jobs;
 pub mod jobs_worker;
 pub mod latest_activity;
@@ -82,6 +83,9 @@ const NEW_API_PATHS: &[&str] = &[
     // 作业队列（新增面；前端在用的那套接口里没有作业概念）
     "/api/v1/jobs/backfill",
     "/api/v1/jobs/{id}",
+    // 向量索引暂停态 + 一键恢复（401/429 后不再静默空转）
+    "/api/indexing/status",
+    "/api/indexing/resume",
     // 设置页显式「复制」才取明文（仍要 token + 本机 Host；不属于旧兼容面）
     "/api/model_settings/api_key",
     // 设置页「允许 AI 出网」开关
@@ -169,6 +173,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::settings::router())
         .merge(routes::privacy::router())
         .merge(monitoring::router())
+        .merge(indexing::router())
         .route("/api/health", get(routes::health))
         .route("/health", get(routes::health))
         .route("/api/backend/status", get(routes::backend_status))

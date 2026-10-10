@@ -67,6 +67,7 @@ pub fn build_stats(state: &ServerState) -> Result<Value, AppError> {
 
     let pending_analyses = state.db.pending_analysis_count().unwrap_or(0);
     let analysis_blocker = analysis_blocker(state, &counts, pending_analyses);
+    let indexing_pause = crate::indexing::pause_payload(state.indexing_pause().as_ref());
 
     let recent_screenshots = counts.recent_screenshot_paths;
 
@@ -98,6 +99,8 @@ pub fn build_stats(state: &ServerState) -> Result<Value, AppError> {
         "recent_errors": recent_errors,
         "recent_screenshots": recent_screenshots,
         "analysis_blocker": analysis_blocker,
+        // 与 analysis_blocker 独立：分析可能已通，向量索引仍会因 401/429 暂停。
+        "indexing_pause": indexing_pause,
     }))
 }
 
@@ -212,6 +215,7 @@ fn provider_failure_blocker(hint: &mc_storage::monitoring::ProviderFailureHint) 
                     .map(|text| format!(" {text}"))
                     .unwrap_or_default()
             ),
+            "action": { "target": "resume_indexing", "label": "恢复索引" },
         })),
         "budget_exceeded" => Some(json!({
             "code": "budget_exceeded",
