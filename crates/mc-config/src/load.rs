@@ -164,11 +164,10 @@ fn validate(config: &Config) -> Result<(), AppError> {
     for (index, server) in config.mcp.servers.iter().enumerate() {
         let path = format!("mcp.servers[{index}]");
         if server.id.trim().is_empty() {
-            return Err(AppError::new(
-                ErrorCode::ConfigInvalid,
-                "mcp.servers[].id 不能为空",
-            )
-            .with_context("path", format!("{path}.id")));
+            return Err(
+                AppError::new(ErrorCode::ConfigInvalid, "mcp.servers[].id 不能为空")
+                    .with_context("path", format!("{path}.id")),
+            );
         }
         if !seen_ids.insert(server.id.clone()) {
             return Err(AppError::new(

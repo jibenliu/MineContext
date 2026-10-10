@@ -212,9 +212,15 @@ pub async fn chat_stream(
 
     // 真流式：provider 的增量一到就推帧，不再等整段生成完。
     // 引擎/provider 不支持流式时退化为「一次回调整段」——契约不变，只是没有变快。
+    // context-lite：按 token 预算打包检索证据，再转成对话引用。
+    let pack = crate::context_lite::pack_from_hits(
+        &request.query,
+        &hits,
+        crate::context_lite::PackOptions::default(),
+    );
     let input = crate::chat::ChatInput {
         query: request.query.clone(),
-        citations: crate::retrieval::citations(&hits),
+        citations: crate::context_lite::citations_from_pack(&pack),
         history: recent_history(
             &state,
             conversation_id,
@@ -1085,6 +1091,7 @@ mod streaming_tests {
                     title: "排查 APEX-389".to_string(),
                     kind: "activity".to_string(),
                     at: 0,
+                    snippet: String::new(),
                 }],
                 history: Vec::new(),
             },
@@ -1145,6 +1152,7 @@ mod streaming_tests {
                     title: "排查 APEX-389".to_string(),
                     kind: "activity".to_string(),
                     at: 0,
+                    snippet: String::new(),
                 }],
                 history: Vec::new(),
             },

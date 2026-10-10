@@ -51,6 +51,9 @@
 | `/api/v1/threads`、`/api/v1/search` | 实体线索；搜索为本地关键词（响应带 `mode: "keyword"`，UI 显示「仅本地」；被拦截内容搜不到由服务端保证）。聊天路径可再叠向量。 |
 | `/api/agent/chat/*` | 对话流（SSE 分帧）+ 会话/消息写入路径。模型断网/超时等可重试失败时降级为本地引用列表，`stream_complete.mode` 为 `"local"`，不假装在线生成。MCP 启用时对话可按白名单调用工具（拒绝原因可读）。 |
 | `/api/mcp`、`/api/mcp/servers`、`/api/mcp/tools`、`/api/mcp/reload` | MCP 插件：总开关、server 增删改、工具白名单、受控调用；HTTP/出网工具还需 `privacy.ai_upload` |
+| `/api/mcp/serve`、`/api/mcp/serve/rpc` | 只读 MCP Server：对外暴露 search / memory / activity / context_pack（JSON-RPC）；需 MCP 总开关 + serve 启用 + 工具白名单 + `privacy.ai_upload`；不直连 SQLite |
+| `/api/v1/context/pack` | context-lite：检索命中按 token 预算打包为可引用上下文 |
+| `/api/v1/tasks`、`/api/v1/tasks/last`、`/api/v1/tasks/correct` | Lite 任务关联（规则/ID/路径/窗口标题）；可纠正、事件可重放；非完整 Task OS |
 | `/api/monitoring/recording-stats` | 录制统计（含最近错误与最近截图上限 5 条） |
 | `/api/v1/stream` | 控制面事件流（SSE） |
 | `/api/v1/jobs/backfill`、`/api/v1/jobs/{id}` | 作业队列：入队补偿推断、查状态（同范围幂等；未配置模型时如实跳过） |

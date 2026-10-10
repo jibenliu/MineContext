@@ -19,6 +19,26 @@ fn default_mcp_disabled() {
     let loaded = load_with("");
     assert!(!loaded.config.mcp.enabled);
     assert!(loaded.config.mcp.servers.is_empty());
+    assert!(!loaded.config.mcp.serve.enabled);
+    assert!(loaded.config.mcp.serve.allowed_tools.is_empty());
+}
+
+#[test]
+fn loads_serve_section() {
+    let loaded = load_with(
+        r#"
+[mcp]
+enabled = true
+[mcp.serve]
+enabled = true
+allowed_tools = ["search", "context_pack"]
+"#,
+    );
+    assert!(loaded.config.mcp.serve.enabled);
+    assert_eq!(
+        loaded.config.mcp.serve.allowed_tools,
+        vec!["search", "context_pack"]
+    );
 }
 
 #[test]

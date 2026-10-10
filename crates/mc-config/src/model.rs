@@ -479,12 +479,26 @@ impl Default for Server {
     }
 }
 
-/// MCP 客户端总配置。默认关闭：未显式启用时不会拉起任何子进程或 HTTP 会话。
+/// MCP 配置：客户端插件 + 只读对外 Server。
+///
+/// 默认全部关闭：未显式启用时不拉起子进程，也不对外暴露记忆工具。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Mcp {
     pub enabled: bool,
     pub servers: Vec<McpServerConfig>,
+    /// 本机作为 MCP Server 对外暴露只读记忆（Codex / Cursor 等）。
+    pub serve: McpServe,
+}
+
+/// 对外只读 MCP Server。默认关闭；`allowed_tools` 空 = fail-closed。
+///
+/// 对外吐出本地记忆等价于出网：必须 `privacy.ai_upload`（与客户端出网闸门一致）。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct McpServe {
+    pub enabled: bool,
+    pub allowed_tools: Vec<String>,
 }
 
 /// 单个 MCP server 的配置。
@@ -532,15 +546,10 @@ impl Default for McpServerConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum McpTransportKind {
+    #[default]
     Stdio,
     Http,
-}
-
-impl Default for McpTransportKind {
-    fn default() -> Self {
-        Self::Stdio
-    }
 }

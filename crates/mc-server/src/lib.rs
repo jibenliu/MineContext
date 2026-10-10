@@ -10,6 +10,7 @@ pub mod capture;
 pub mod capture_loop;
 pub mod chat;
 pub mod config_api;
+pub mod context_lite;
 pub mod domain_rules;
 pub mod embedding;
 pub mod envelope;
@@ -23,6 +24,7 @@ pub mod jobs_worker;
 pub mod latest_activity;
 pub mod link_ingest;
 pub mod mcp;
+pub mod mcp_serve;
 pub mod middleware;
 pub mod monitoring;
 pub mod research_ingest;
@@ -34,6 +36,7 @@ pub mod runtime;
 pub mod stages;
 pub mod state;
 pub mod summary;
+pub mod task_assoc;
 pub mod vault_backup;
 
 pub use capture::CaptureControls;
@@ -98,6 +101,8 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/mcp/tools",
     "/api/mcp/tools/call",
     "/api/mcp/reload",
+    "/api/mcp/serve",
+    "/api/mcp/serve/rpc",
     // 以下不属于兼容面
     "/api/backend/status",
     "/api/capture/permissions",
@@ -128,6 +133,13 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/v1/summaries/{id}/regenerate",
     // 兼容面里没有「线索」概念，这是新增的检索面
     "/api/v1/threads",
+    // context-lite：检索 + 引用 → 带 token 预算的上下文包
+    "/api/v1/context/pack",
+    // lite 任务关联（可纠正、可重放；非完整 Task OS）
+    "/api/v1/tasks",
+    "/api/v1/tasks/last",
+    "/api/v1/tasks/sync",
+    "/api/v1/tasks/correct",
     // 以下不属于兼容面
     "/api/db/vaults",
     "/api/db/vaults/folders",
@@ -181,6 +193,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::settings::router())
         .merge(routes::privacy::router())
         .merge(routes::mcp::router())
+        .merge(routes::task_assoc::router())
         .merge(monitoring::router())
         .merge(indexing::router())
         .route("/api/health", get(routes::health))
@@ -193,6 +206,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
         )
         .route("/api/v1/stream", get(routes::stream))
         .route("/api/v1/search", get(routes::search))
+        .route("/api/v1/context/pack", get(routes::context_pack))
         .route("/api/model_settings/get", get(routes::model_settings_get))
         .route(
             "/api/model_settings/update",

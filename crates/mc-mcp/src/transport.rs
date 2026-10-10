@@ -48,10 +48,12 @@ struct JsonRpcError {
 }
 
 /// 内存脚本会话：单测与 Chat tool loop 用，不拉起真实进程。
+type ScriptedHandler = Arc<dyn Fn(Value) -> Result<String, String> + Send + Sync>;
+
 pub struct ScriptedSession {
     server_id: String,
     tools: Vec<McpTool>,
-    handlers: HashMap<String, Arc<dyn Fn(Value) -> Result<String, String> + Send + Sync>>,
+    handlers: HashMap<String, ScriptedHandler>,
 }
 
 impl ScriptedSession {
@@ -192,7 +194,10 @@ impl HttpSession {
             ));
         }
         parsed.result.ok_or_else(|| {
-            AppError::new(ErrorCode::ConfigInvalid, "MCP JSON-RPC 缺少 result".to_string())
+            AppError::new(
+                ErrorCode::ConfigInvalid,
+                "MCP JSON-RPC 缺少 result".to_string(),
+            )
         })
     }
 }
@@ -251,12 +256,16 @@ impl StdioSession {
         config: &McpServerConfig,
         env: HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        let command = config.command.as_deref().filter(|c| !c.is_empty()).ok_or_else(|| {
-            AppError::new(
-                ErrorCode::ConfigInvalid,
-                format!("MCP server {} 的 stdio 传输缺少 command", config.id),
-            )
-        })?;
+        let command = config
+            .command
+            .as_deref()
+            .filter(|c| !c.is_empty())
+            .ok_or_else(|| {
+                AppError::new(
+                    ErrorCode::ConfigInvalid,
+                    format!("MCP server {} 的 stdio 传输缺少 command", config.id),
+                )
+            })?;
         let mut cmd = Command::new(command);
         cmd.args(&config.args)
             .stdin(Stdio::piped())
@@ -279,7 +288,10 @@ impl StdioSession {
             AppError::new(ErrorCode::ConfigInvalid, "MCP 子进程缺少 stdin".to_string())
         })?;
         let stdout = child.stdout.take().ok_or_else(|| {
-            AppError::new(ErrorCode::ConfigInvalid, "MCP 子进程缺少 stdout".to_string())
+            AppError::new(
+                ErrorCode::ConfigInvalid,
+                "MCP 子进程缺少 stdout".to_string(),
+            )
         })?;
         let session = Self {
             server_id: config.id.clone(),
@@ -301,10 +313,7 @@ impl StdioSession {
                 })),
             )
             .await?;
-        let _ = session
-            .rpc("notifications/initialized", None)
-            .await
-            .ok();
+        let _ = session.rpc("notifications/initialized", None).await.ok();
         info!(
             component = "mcp",
             event = "session_started",
@@ -332,12 +341,16 @@ impl StdioSession {
             )
         })?;
         line.push('\n');
-        guard.stdin.write_all(line.as_bytes()).await.map_err(|error| {
-            AppError::new(
-                ErrorCode::ConfigInvalid,
-                format!("MCP stdin 写入失败：{error}"),
-            )
-        })?;
+        guard
+            .stdin
+            .write_all(line.as_bytes())
+            .await
+            .map_err(|error| {
+                AppError::new(
+                    ErrorCode::ConfigInvalid,
+                    format!("MCP stdin 写入失败：{error}"),
+                )
+            })?;
         guard.stdin.flush().await.map_err(|error| {
             AppError::new(
                 ErrorCode::ConfigInvalid,
@@ -461,7 +474,9 @@ fn parse_tool_result(server_id: &str, name: &str, result: Value) -> McpToolResul
             .iter()
             .filter_map(|part| {
                 if part.get("type").and_then(|t| t.as_str()) == Some("text") {
-                    part.get("text").and_then(|t| t.as_str()).map(str::to_string)
+                    part.get("text")
+                        .and_then(|t| t.as_str())
+                        .map(str::to_string)
                 } else {
                     Some(part.to_string())
                 }
@@ -491,12 +506,16 @@ pub async fn open_session(
             Ok(Arc::new(session))
         }
         McpTransportKind::Http => {
-            let url = config.url.as_deref().filter(|u| !u.is_empty()).ok_or_else(|| {
-                AppError::new(
-                    ErrorCode::ConfigInvalid,
-                    format!("MCP server {} 的 http 传输缺少 url", config.id),
-                )
-            })?;
+            let url = config
+                .url
+                .as_deref()
+                .filter(|u| !u.is_empty())
+                .ok_or_else(|| {
+                    AppError::new(
+                        ErrorCode::ConfigInvalid,
+                        format!("MCP server {} 的 http 传输缺少 url", config.id),
+                    )
+                })?;
             let session = HttpSession::new(&config.id, url, auth_headers)?;
             warn!(
                 component = "mcp",

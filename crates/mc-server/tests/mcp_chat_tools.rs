@@ -50,6 +50,7 @@ fn input(query: &str) -> ChatInput {
             title: "本地活动：写周报".into(),
             kind: "activity".into(),
             at: 1,
+            snippet: String::new(),
         }],
         history: vec![],
     }
@@ -106,7 +107,10 @@ async fn tool_loop_invokes_allowed_mcp_then_answers_with_local_citations() {
         r#"TOOL_CALL:{"tool":"wiki__search","arguments":{"q":"goals"}}"#.into(), // 第一轮
     ]));
     let engine = ToolLoopEngine::new(inner, registry, config_with_wiki(false));
-    let answer = engine.answer(&input("我上周在忙什么，Wiki 上有没有对应目标？")).await.unwrap();
+    let answer = engine
+        .answer(&input("我上周在忙什么，Wiki 上有没有对应目标？"))
+        .await
+        .unwrap();
     assert!(
         answer.text.contains("Q3 goals"),
         "最终回答应包含工具结果：{}",

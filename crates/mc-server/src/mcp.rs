@@ -29,10 +29,10 @@ pub fn auth_context_from_config(config: &Config) -> AuthContext<'_> {
     }
 }
 
+type ResolvedSecrets = (HashMap<String, String>, Vec<(String, String)>);
+
 /// 解析 server 的 env secret refs 与 HTTP Authorization 头。
-pub fn resolve_server_secrets(
-    server: &McpServerConfig,
-) -> Result<(HashMap<String, String>, Vec<(String, String)>), AppError> {
+pub fn resolve_server_secrets(server: &McpServerConfig) -> Result<ResolvedSecrets, AppError> {
     let secrets = mc_providers::credentials::KeychainCommand::default();
     let mut env = HashMap::new();
     for (key, reference) in &server.env {
@@ -49,10 +49,11 @@ pub fn resolve_server_secrets(
         }
     }
     let mut headers = Vec::new();
-    if let Some(token) = env.get("AUTHORIZATION").cloned().or_else(|| {
-        env.get("MCP_AUTH_TOKEN")
-            .map(|t| format!("Bearer {t}"))
-    }) {
+    if let Some(token) = env
+        .get("AUTHORIZATION")
+        .cloned()
+        .or_else(|| env.get("MCP_AUTH_TOKEN").map(|t| format!("Bearer {t}")))
+    {
         headers.push(("Authorization".to_string(), token));
     }
     Ok((env, headers))
@@ -60,7 +61,7 @@ pub fn resolve_server_secrets(
 
 pub async fn reload_registry(registry: &McpRegistry, config: &Config) -> Result<(), AppError> {
     registry
-        .reload_from_config(config, |server| resolve_server_secrets(server))
+        .reload_from_config(config, resolve_server_secrets)
         .await
 }
 
@@ -259,6 +260,7 @@ fn merge_citations(base: &[Citation], tool_notes: &[String]) -> Vec<Citation> {
             title,
             kind: "mcp_tool".into(),
             at: 0,
+            snippet: String::new(),
         });
     }
     out

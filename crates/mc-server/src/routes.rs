@@ -489,6 +489,7 @@ pub mod research;
 pub mod rss;
 pub mod settings;
 pub mod stages;
+pub mod task_assoc;
 pub mod threads;
 pub mod vault_backup;
 pub mod vaults;
@@ -572,6 +573,69 @@ pub async fn search(
 
     // `mode: keyword`：本入口不调用 embedding / chat；前端据此显示「仅本地」。
     envelope::ok(json!({ "query": query, "results": results, "mode": "keyword" }))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ContextPackParams {
+    #[serde(default)]
+    pub q: String,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub budget: Option<usize>,
+}
+
+/// `GET /api/v1/context/pack?q=&limit=&budget=` —— context-lite 入口。
+///
+/// 与检索同源，再按 token 预算打包证据；MCP Server / Chat 共用这一形状。
+pub async fn context_pack(
+    State(state): State<Arc<ServerState>>,
+    axum::extract::Query(params): axum::extract::Query<ContextPackParams>,
+) -> Response {
+    let query = params.q.trim();
+    if query.is_empty() {
+        return envelope::error_response(
+            StatusCode::BAD_REQUEST,
+            &AppError::new(ErrorCode::ConfigInvalid, "检索词不能为空（q=）"),
+        );
+    }
+    let limit = params.limit.unwrap_or(20).clamp(1, 100);
+    let hits = match crate::retrieval::retrieve(&state.db, query, limit, false) {
+        Ok(hits) => hits,
+        Err(error) => return envelope::error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
+    };
+    let pack = crate::context_lite::pack_from_hits(
+        query,
+        &hits,
+        crate::context_lite::PackOptions {
+            token_budget: params
+                .budget
+                .unwrap_or(crate::context_lite::DEFAULT_TOKEN_BUDGET)
+                .max(1),
+            ..crate::context_lite::PackOptions::default()
+        },
+    );
+    let citations: Vec<Value> = crate::context_lite::citations_from_pack(&pack)
+        .into_iter()
+        .map(|citation| {
+            json!({
+                "document_id": citation.document_id,
+                "title": citation.title,
+                "kind": citation.kind,
+                "at": citation.at,
+                "snippet": citation.snippet,
+            })
+        })
+        .collect();
+    envelope::ok(json!({
+        "query": pack.query,
+        "items": pack.items,
+        "total_tokens": pack.total_tokens,
+        "budget": pack.budget,
+        "truncated": pack.truncated,
+        "text": crate::context_lite::render_pack_text(&pack),
+        "citations": citations,
+    }))
 }
 
 // ---------------------------------------------------------------- 模型设置

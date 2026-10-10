@@ -42,6 +42,8 @@ pub struct Citation {
     pub kind: String,
     /// 文档时间（毫秒）。前端跳活动时间线时用来切到对应日期。
     pub at: i64,
+    /// 证据摘要（由 context-lite 按 token 预算裁切；可为空）。
+    pub snippet: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -237,6 +239,12 @@ impl ProviderChatEngine {
                     redacted.text,
                     citation.kind
                 ));
+                if !citation.snippet.is_empty() {
+                    let snippet = self.redactor.redact(&citation.snippet);
+                    hits += snippet.hits.len();
+                    system.push_str(&snippet.text);
+                    system.push('\n');
+                }
             }
         }
 
@@ -391,7 +399,8 @@ pub fn engine_for(state: &crate::state::ServerState) -> Box<dyn ChatEngine> {
                 // 脱敏规则非法时**不组装 provider**：静默放行等于用户以为自己脱敏了、
                 // 实际把原文发了出去。
                 let redactor =
-                    mc_common::redact::Redactor::new(&config.config.privacy.redact_patterns).ok()?;
+                    mc_common::redact::Redactor::new(&config.config.privacy.redact_patterns)
+                        .ok()?;
                 Some(Box::new(ProviderChatEngine::with_redactor(
                     std::sync::Arc::new(provider) as std::sync::Arc<dyn mc_providers::ChatProvider>,
                     locale,

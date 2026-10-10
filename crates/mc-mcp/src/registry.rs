@@ -51,7 +51,9 @@ impl McpRegistry {
         mut resolve_env: F,
     ) -> Result<(), AppError>
     where
-        F: FnMut(&McpServerConfig) -> Result<(HashMap<String, String>, Vec<(String, String)>), AppError>,
+        F: FnMut(
+            &McpServerConfig,
+        ) -> Result<(HashMap<String, String>, Vec<(String, String)>), AppError>,
     {
         if !config.mcp.enabled {
             self.replace_sessions(Vec::new()).await;
@@ -107,7 +109,10 @@ impl McpRegistry {
         self.client.read().await.list_tools().await
     }
 
-    pub async fn list_allowed_tools(&self, ctx: &AuthContext<'_>) -> Result<Vec<McpTool>, AppError> {
+    pub async fn list_allowed_tools(
+        &self,
+        ctx: &AuthContext<'_>,
+    ) -> Result<Vec<McpTool>, AppError> {
         self.client.read().await.list_allowed_tools(ctx).await
     }
 

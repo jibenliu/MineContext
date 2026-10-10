@@ -10,3 +10,4 @@ pub mod observation;
 pub mod projector;
 pub mod rules;
 pub mod stage;
+pub mod task_assoc;
