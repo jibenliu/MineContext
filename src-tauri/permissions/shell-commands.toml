@@ -14,7 +14,7 @@ commands.allow = ["renderer_log"]
 
 [[permission]]
 identifier = "allow-tray-recording-status"
-description = "允许渲染层更新托盘录制状态文案与悬停提示。"
+description = "允许渲染层更新托盘提示、菜单文案与短标题（录制/索引暂停/断连）。"
 commands.allow = ["tray_recording_status"]
 
 [[permission]]

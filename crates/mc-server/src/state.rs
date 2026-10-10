@@ -1,6 +1,7 @@
 //! 控制面共享状态。
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use mc_common::error::AppError;
@@ -53,6 +54,11 @@ pub struct ServerState {
     config_write: Option<(mc_config::load::LoadRequest, std::path::PathBuf)>,
     /// 链接上传用的 HTTP 传输（测试注入 ScriptedTransport；生产默认自建客户端）。
     link_transport: std::sync::Mutex<Option<Arc<dyn mc_providers::transport::HttpTransport>>>,
+    /// 向量索引因 provider 鉴权失败（如 401）而暂停，直到配置重载。
+    ///
+    /// 给 `/api/health` 的 embedding.status 与托盘「索引已暂停」用；
+    /// 业务暂停逻辑仍在 embedding worker 的 `WorkerRetry`。
+    embedding_auth_paused: AtomicBool,
 }
 
 impl ServerState {
@@ -81,6 +87,7 @@ impl ServerState {
             capture_stats: std::sync::Mutex::new(None),
             config_write: None,
             link_transport: std::sync::Mutex::new(None),
+            embedding_auth_paused: AtomicBool::new(false),
         }
     }
 
@@ -190,6 +197,14 @@ impl ServerState {
         if let Ok(mut slot) = self.embedding.lock() {
             *slot = None;
         }
+    }
+
+    pub fn set_embedding_auth_paused(&self, paused: bool) {
+        self.embedding_auth_paused.store(paused, Ordering::Relaxed);
+    }
+
+    pub fn embedding_auth_paused(&self) -> bool {
+        self.embedding_auth_paused.load(Ordering::Relaxed)
     }
 
     pub fn uptime_seconds(&self) -> u64 {
