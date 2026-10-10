@@ -60,6 +60,7 @@ const ScreenMonitor: React.FC = () => {
   const {
     currentSession,
     hasPermission = false,
+    captureSupported = true,
     grantPermission,
     selectedImage,
     setSelectedImage,
@@ -202,6 +203,10 @@ const ScreenMonitor: React.FC = () => {
   // Start monitoring session
   const startMonitoring = useMemoizedFn(async () => {
     try {
+      if (!captureSupported) {
+        Message.error(t('screenMonitor.unsupportedBanner'))
+        return
+      }
       // 权限已开仍可能因无显示器/未挂载采集控制而不可录；先问清楚再 start，避免静默失败。
       const readiness = await checkCanRecord()
       if (!readiness.canRecord) {
@@ -544,6 +549,7 @@ const ScreenMonitor: React.FC = () => {
       <div className="bg-[var(--color-bg-2)] rounded-[16px] p-6 h-[calc(100%-8px)] flex flex-col overflow-y-auto overflow-x-hidden scrollbar-hide pb-2">
         <ScreenMonitorHeader
           hasPermission={hasPermission}
+          captureSupported={captureSupported}
           isMonitoring={isMonitoring}
           isToday={isToday}
           screenAllSources={screenAllSources}
@@ -599,6 +605,7 @@ const ScreenMonitor: React.FC = () => {
             ) : (
               <EmptyStatePlaceholder
                 hasPermission={hasPermission}
+                captureSupported={captureSupported}
                 isToday={isToday}
                 onGrantPermission={grantPermission}
               />
