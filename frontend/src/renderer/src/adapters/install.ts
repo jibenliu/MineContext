@@ -99,6 +99,11 @@ export function installAdapters(options: InstallOptions): void {
     saveConfig: (patch: { retentionDays: number; maxTotalGb: number }) =>
       backend.invoke('v1:capture-config-patch', patch)
   })
+  // 向量索引暂停：设置 / 首页展示原因并一键恢复
+  install('indexingApi', {
+    status: () => backend.invoke('v1:indexing-status'),
+    resume: () => backend.invoke('v1:indexing-resume')
+  })
   // 链接上传：笔记树「导入链接」入口
   install('linkApi', {
     importUrl: (url: string, parentId?: number | null) =>

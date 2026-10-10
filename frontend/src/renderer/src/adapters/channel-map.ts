@@ -301,6 +301,9 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
     path: '/api/capture/config',
     body: json(args)
   }),
+  // 向量索引暂停态 + 一键恢复（401/429 后设置/首页展示）
+  'v1:indexing-status': () => ({ method: 'GET', path: '/api/indexing/status' }),
+  'v1:indexing-resume': () => ({ method: 'POST', path: '/api/indexing/resume' }),
   // 链接上传：抓取公开网页正文，落成笔记树文档（进入检索 / 向量索引）
   'v1:import-link': (args) => ({
     method: 'POST',

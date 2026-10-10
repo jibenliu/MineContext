@@ -1,6 +1,6 @@
 import { Image, Tooltip } from '@arco-design/web-react'
 import { useI18n } from '@renderer/i18n'
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
 import { ScreenshotImage } from './screenshot-image'
@@ -27,6 +27,13 @@ export interface RecordingStats {
     message: string
     action?: { target: string; label: string } | null
   } | null
+  /** 向量索引因上游拒绝而暂停（与 analysis_blocker 独立） */
+  indexing_pause?: {
+    paused?: boolean
+    code?: string
+    message?: string
+    action?: { target: string; label: string } | null
+  } | null
 }
 
 interface RecordingStatsCardProps {
@@ -39,6 +46,7 @@ function settingsSectionFor(target: string | undefined): string {
     case 'settings_ai_upload':
       return 'ai-upload'
     case 'settings_model':
+    case 'resume_indexing':
       return 'model'
     default:
       return ''
@@ -54,9 +62,34 @@ const RecordingStatsCard: React.FC<RecordingStatsCardProps> = ({ stats }) => {
     return section ? `/settings?section=${section}` : '/settings'
   }, [action?.target])
 
+  const indexingPause = stats?.indexing_pause
+  const indexingAction = indexingPause?.action
+  const canResumeHere = indexingAction?.target === 'resume_indexing'
+  const indexingSettingsTo = useMemo(() => {
+    const section = settingsSectionFor(indexingAction?.target)
+    return section ? `/settings?section=${section}` : '/settings'
+  }, [indexingAction?.target])
+  const [resumeBusy, setResumeBusy] = useState(false)
+  const [resumeCleared, setResumeCleared] = useState(false)
+  const onResumeIndexing = useCallback(async () => {
+    const api = (globalThis as { indexingApi?: { resume: () => Promise<unknown> } }).indexingApi
+    if (!api?.resume) {
+      return
+    }
+    setResumeBusy(true)
+    try {
+      await api.resume()
+      setResumeCleared(true)
+    } finally {
+      setResumeBusy(false)
+    }
+  }, [])
+
   if (!stats) {
     return null
   }
+
+  const showIndexingPause = Boolean(indexingPause?.message) && !resumeCleared
 
   return (
     <div className="mt-2">
@@ -129,6 +162,33 @@ const RecordingStatsCard: React.FC<RecordingStatsCardProps> = ({ stats }) => {
               {action.label}
             </RouterLink>
           ) : null}
+        </div>
+      ) : null}
+      {showIndexingPause ? (
+        <div
+          className="mt-1 flex max-w-[720px] flex-wrap items-center gap-2 text-xs leading-5 text-[rgb(var(--warning-6))]"
+          data-testid="indexing-pause"
+          title={indexingPause?.code}>
+          <span>{indexingPause?.message}</span>
+          {canResumeHere ? (
+            <button
+              type="button"
+              disabled={resumeBusy}
+              className="cursor-pointer border-0 bg-transparent p-0 text-xs leading-5 text-[rgb(var(--primary-6))] underline-offset-2 hover:underline disabled:opacity-60"
+              data-testid="indexing-pause-action"
+              onClick={() => {
+                void onResumeIndexing()
+              }}>
+              {indexingAction?.label || t('indexing.pause.resume')}
+            </button>
+          ) : (
+            <RouterLink
+              to={indexingSettingsTo}
+              className="text-xs leading-5 text-[rgb(var(--primary-6))] no-underline hover:underline"
+              data-testid="indexing-pause-action">
+              {indexingAction?.label || t('indexing.pause.resume')}
+            </RouterLink>
+          )}
         </div>
       ) : null}
     </div>

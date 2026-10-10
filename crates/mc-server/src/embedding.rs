@@ -22,7 +22,7 @@ use mc_storage::provider_calls::{ProviderCall, Purpose};
 use mc_storage::vectors::{count_vectors, upsert_vectors, VectorRecord};
 
 use crate::failures::record_embedding_failure;
-use crate::state::ServerState;
+use crate::state::{IndexingPause, ServerState};
 
 /// 索引作业的报告。`failure` 有值表示「这一轮只索引了一部分」。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -490,7 +490,7 @@ pub fn spawn_worker(state: Arc<ServerState>) -> tokio::task::JoinHandle<()> {
                 provider = None;
                 state.clear_embedding_provider();
             }
-            if retry.auth_failed {
+            if retry.paused {
                 continue;
             }
 
@@ -556,7 +556,7 @@ pub fn spawn_worker_with(
         loop {
             tokio::time::sleep(interval).await;
             retry.refresh(&state);
-            if retry.auth_failed {
+            if retry.paused {
                 continue;
             }
             let at = mc_common::time::Clock::now(&mc_common::time::SystemClock);
@@ -571,33 +571,98 @@ pub fn spawn_worker_with(
     })
 }
 
+/// 上游硬拒绝：继续轮询只会烧配额 / 刷日志，应暂停并让用户修复后一键恢复。
+pub(crate) fn should_pause_indexing(code: ErrorCode) -> bool {
+    matches!(
+        code,
+        ErrorCode::ProviderAuthFailed
+            | ErrorCode::ProviderRateLimited
+            | ErrorCode::BudgetExceeded
+            | ErrorCode::ProviderNotFound
+    )
+}
+
+fn indexing_pause_from_error(error: &AppError, component: &str) -> IndexingPause {
+    let hint = error
+        .remediation()
+        .map(|step| format!(" {}", step.text))
+        .unwrap_or_default();
+    let (code, message) = match error.code() {
+        ErrorCode::ProviderAuthFailed => (
+            "api_key_invalid",
+            format!(
+                "向量索引已暂停：API Key 无效或已过期。请到设置页更新密钥后点「恢复索引」。{hint}"
+            ),
+        ),
+        ErrorCode::ProviderRateLimited => (
+            "provider_rate_limited",
+            format!("向量索引已暂停：模型服务限流。请稍后再点「恢复索引」，或降低索引频率。{hint}"),
+        ),
+        ErrorCode::BudgetExceeded => (
+            "budget_exceeded",
+            format!("向量索引已暂停：已达用量上限。请调整预算后点「恢复索引」。{hint}"),
+        ),
+        ErrorCode::ProviderNotFound => (
+            "model_not_found",
+            format!("向量索引已暂停：模型不存在或无权访问。请核对向量模型后点「恢复索引」。{hint}"),
+        ),
+        other => (
+            other.as_str(),
+            format!(
+                "向量索引已暂停：{}。修复后可点「恢复索引」。{hint}",
+                error.user_message()
+            ),
+        ),
+    };
+    IndexingPause {
+        code: code.to_string(),
+        message,
+        component: component.to_string(),
+    }
+}
+
 struct WorkerRetry {
     config: Arc<mc_config::load::LoadedConfig>,
-    auth_failed: bool,
+    resume_epoch: u64,
+    paused: bool,
 }
 
 impl WorkerRetry {
     fn new(state: &ServerState) -> Self {
         Self {
             config: state.config.current(),
-            auth_failed: false,
+            resume_epoch: state.indexing_resume_epoch(),
+            paused: false,
         }
     }
 
+    /// 配置热重载或一键恢复时返回 `true`（调用方应重建 Provider）。
     fn refresh(&mut self, state: &ServerState) -> bool {
         let current = state.config.current();
-        if Arc::ptr_eq(&current, &self.config) {
+        let epoch = state.indexing_resume_epoch();
+        let config_changed = !Arc::ptr_eq(&current, &self.config);
+        let resumed = epoch != self.resume_epoch;
+        if !config_changed && !resumed {
             return false;
         }
-        self.config = current;
-        self.auth_failed = false;
-        state.set_embedding_auth_paused(false);
+        if config_changed {
+            self.config = current;
+            // 保存模型/密钥会热重载配置：一并清掉对外暴露的暂停态。
+            state.clear_indexing_pause();
+        }
+        self.resume_epoch = epoch;
+        self.paused = false;
         true
     }
 
     fn observe(&mut self, state: &ServerState, failure: Option<&AppError>) {
-        self.auth_failed =
-            failure.is_some_and(|error| error.code() == ErrorCode::ProviderAuthFailed);
-        state.set_embedding_auth_paused(self.auth_failed);
+        let Some(error) = failure else {
+            return;
+        };
+        if !should_pause_indexing(error.code()) {
+            return;
+        }
+        self.paused = true;
+        state.set_indexing_pause(indexing_pause_from_error(error, "embedding"));
     }
 }

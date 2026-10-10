@@ -1,7 +1,7 @@
 //! 控制面共享状态。
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use mc_common::error::AppError;
@@ -13,6 +13,16 @@ use crate::capture::CaptureControls;
 use crate::events::EventBus;
 use crate::jobs::AdhocJobs;
 use crate::routes::agent_chat::ChatStreams;
+
+/// 向量索引因上游拒绝（401/429 等）而主动暂停时的可行动原因。
+///
+/// 与 `analysis_blocker`（采到但未分析）互补：分析可能已通，索引仍会静默停住。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexingPause {
+    pub code: String,
+    pub message: String,
+    pub component: String,
+}
 
 pub struct ServerState {
     pub config: ConfigHandle,
@@ -54,11 +64,13 @@ pub struct ServerState {
     config_write: Option<(mc_config::load::LoadRequest, std::path::PathBuf)>,
     /// 链接上传用的 HTTP 传输（测试注入 ScriptedTransport；生产默认自建客户端）。
     link_transport: std::sync::Mutex<Option<Arc<dyn mc_providers::transport::HttpTransport>>>,
-    /// 向量索引因 provider 鉴权失败（如 401）而暂停，直到配置重载。
+    /// 向量索引暂停原因（401/429 等）；`None` = 未暂停。
     ///
-    /// 给 `/api/health` 的 embedding.status 与托盘「索引已暂停」用；
-    /// 业务暂停逻辑仍在 embedding worker 的 `WorkerRetry`。
-    embedding_auth_paused: AtomicBool,
+    /// 给 `/api/health` 的 embedding.status、托盘「索引已暂停」、设置/首页横幅与
+    /// `/api/indexing/*` 共用；业务暂停逻辑在 embedding worker 的 `WorkerRetry`。
+    indexing_pause: std::sync::Mutex<Option<IndexingPause>>,
+    /// 一键恢复代数：worker 用它在不改配置时也能清暂停并重建 Provider。
+    indexing_resume_epoch: AtomicU64,
 }
 
 impl ServerState {
@@ -87,7 +99,8 @@ impl ServerState {
             capture_stats: std::sync::Mutex::new(None),
             config_write: None,
             link_transport: std::sync::Mutex::new(None),
-            embedding_auth_paused: AtomicBool::new(false),
+            indexing_pause: std::sync::Mutex::new(None),
+            indexing_resume_epoch: AtomicU64::new(0),
         }
     }
 
@@ -199,12 +212,53 @@ impl ServerState {
         }
     }
 
-    pub fn set_embedding_auth_paused(&self, paused: bool) {
-        self.embedding_auth_paused.store(paused, Ordering::Relaxed);
+    pub fn set_indexing_pause(&self, pause: IndexingPause) {
+        if let Ok(mut slot) = self.indexing_pause.lock() {
+            *slot = Some(pause);
+        }
     }
 
+    pub fn clear_indexing_pause(&self) {
+        if let Ok(mut slot) = self.indexing_pause.lock() {
+            *slot = None;
+        }
+    }
+
+    pub fn indexing_pause(&self) -> Option<IndexingPause> {
+        self.indexing_pause
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone())
+    }
+
+    pub fn indexing_resume_epoch(&self) -> u64 {
+        self.indexing_resume_epoch.load(Ordering::SeqCst)
+    }
+
+    /// 一键恢复索引：清暂停、丢弃缓存 Provider、递增代数让 worker 立刻重试。
+    pub fn request_indexing_resume(&self) {
+        self.clear_indexing_pause();
+        self.clear_embedding_provider();
+        self.indexing_resume_epoch.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// 托盘 / `/api/health` 兼容入口：有任意索引暂停原因即视为 paused。
     pub fn embedding_auth_paused(&self) -> bool {
-        self.embedding_auth_paused.load(Ordering::Relaxed)
+        self.indexing_pause().is_some()
+    }
+
+    /// 测试与旧调用点：写入/清除一条鉴权类暂停原因。
+    pub fn set_embedding_auth_paused(&self, paused: bool) {
+        if paused {
+            self.set_indexing_pause(IndexingPause {
+                code: "api_key_invalid".to_string(),
+                message: "向量索引已暂停：API Key 无效或已过期。请到设置页更新密钥后点「恢复索引」。"
+                    .to_string(),
+                component: "embedding".to_string(),
+            });
+        } else {
+            self.clear_indexing_pause();
+        }
     }
 
     pub fn uptime_seconds(&self) -> u64 {

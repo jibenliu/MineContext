@@ -74,6 +74,16 @@ async fn worker_pauses_auth_failures_until_config_reload() {
     );
     tokio::time::sleep(Duration::from_millis(200)).await;
     let before_reload = transport.call_count();
+    let pause = ctx
+        .state
+        .indexing_pause()
+        .expect("401 后必须暴露索引暂停原因");
+    assert_eq!(pause.code, "api_key_invalid");
+    assert!(
+        pause.message.contains("暂停"),
+        "暂停文案要给人看：{}",
+        pause.message
+    );
     assert!(
         ctx.state.embedding_auth_paused(),
         "401 后 health/托盘应能读到索引暂停"
@@ -87,8 +97,44 @@ async fn worker_pauses_auth_failures_until_config_reload() {
     assert_eq!(before_reload, 1, "401 后不应按轮询频率反复重试");
     assert_eq!(transport.call_count(), 2, "配置重载后恢复索引");
     assert!(
-        !ctx.state.embedding_auth_paused(),
+        ctx.state.indexing_pause().is_none() && !ctx.state.embedding_auth_paused(),
         "配置重载后应清除索引暂停标志"
+    );
+}
+
+#[tokio::test]
+async fn worker_pauses_rate_limit_until_one_click_resume() {
+    let transport = Arc::new(
+        ScriptedTransport::new()
+            .push_json(429, r#"{"error":{"message":"rate limited"}}"#)
+            .push_json(200, embedding_json(1, 3)),
+    );
+    let ctx = ctx(Arc::clone(&transport));
+    seed(&ctx, 1);
+    let worker = embedding::spawn_worker_with(
+        Arc::clone(&ctx.state),
+        provider(Arc::clone(&transport)),
+        "embed-small".into(),
+        64,
+        Duration::from_millis(10),
+    );
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let before_resume = transport.call_count();
+    assert_eq!(before_resume, 1, "429 后不应按轮询频率反复重试");
+    let pause = ctx
+        .state
+        .indexing_pause()
+        .expect("429 后必须暴露索引暂停原因");
+    assert_eq!(pause.code, "provider_rate_limited");
+
+    ctx.state.request_indexing_resume();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    worker.abort();
+    let _ = worker.await;
+    assert_eq!(transport.call_count(), 2, "一键恢复后应立刻重试索引");
+    assert!(
+        ctx.state.indexing_pause().is_none(),
+        "恢复成功后暂停态应清空"
     );
 }
 

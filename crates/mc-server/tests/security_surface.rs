@@ -74,6 +74,8 @@ fn representative_paths() -> Vec<(&'static str, &'static str)> {
         ("GET", "/api/files"),
         ("GET", "/api/settings/todoList"),
         ("GET", "/api/monitoring/recording-stats"),
+        ("GET", "/api/indexing/status"),
+        ("POST", "/api/indexing/resume"),
         ("GET", "/api/v1/threads"),
         ("GET", "/api/agent/chat/conversations"),
     ]

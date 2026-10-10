@@ -153,6 +153,7 @@ async fn stats_have_every_field_the_card_reads() {
         "recent_errors",
         "recent_screenshots",
         "analysis_blocker",
+        "indexing_pause",
     ] {
         assert!(
             stats.get(field).is_some(),
@@ -165,6 +166,10 @@ async fn stats_have_every_field_the_card_reads() {
     assert!(
         stats["analysis_blocker"].is_null(),
         "没采集时不应给 blocker"
+    );
+    assert!(
+        stats["indexing_pause"].is_null(),
+        "未暂停索引时 indexing_pause 应为 null"
     );
     assert!(stats["recent_errors"].as_array().unwrap().is_empty());
     assert!(stats["recent_screenshots"].as_array().unwrap().is_empty());
@@ -441,6 +446,35 @@ async fn analysis_blocker_names_rate_limit_from_429() {
             .unwrap_or_default()
             .contains("限流"),
         "{blocker}"
+    );
+    assert_eq!(blocker["action"]["target"], "resume_indexing");
+}
+
+#[tokio::test]
+async fn indexing_pause_surfaces_on_recording_stats_and_clears_on_resume() {
+    let ctx = ctx();
+    ctx.state
+        .set_indexing_pause(mc_server::state::IndexingPause {
+            code: "api_key_invalid".into(),
+            message: "向量索引已暂停：API Key 无效".into(),
+            component: "embedding".into(),
+        });
+
+    let stats = data(&call(&ctx.state, "GET", "/api/monitoring/recording-stats").await);
+    let pause = &stats["indexing_pause"];
+    assert_eq!(pause["paused"], true);
+    assert_eq!(pause["code"], "api_key_invalid");
+    assert_eq!(pause["action"]["target"], "resume_indexing");
+
+    let resumed = data(&call(&ctx.state, "POST", "/api/indexing/resume").await);
+    assert_eq!(resumed["resumed"], true);
+    assert!(resumed["indexing_pause"].is_null());
+
+    let stats = data(&call(&ctx.state, "GET", "/api/monitoring/recording-stats").await);
+    assert!(
+        stats["indexing_pause"].is_null(),
+        "恢复后不应再暴露暂停：{}",
+        stats["indexing_pause"]
     );
 }
 

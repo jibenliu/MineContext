@@ -6,6 +6,7 @@ import './home-page.css'
 import { Typography } from '@arco-design/web-react'
 import AIAssistant from '@renderer/components/ai-assistant'
 import AIToggleButton from '@renderer/components/ai-toggle-button'
+import { IndexingPauseBanner } from '@renderer/components/indexing-pause-banner'
 import { useAllotment } from '@renderer/hooks/use-allotment'
 import { useI18n } from '@renderer/i18n'
 import { RootState, useAppDispatch } from '@renderer/store'
@@ -62,6 +63,7 @@ const HomePage: React.FC = () => {
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {t('home.hero.subtitle')}
                       </Text>
+                      <IndexingPauseBanner />
                     </div>
                     <AIToggleButton onClick={() => dispatch(toggleHomeAiAssistant(true))} isActive={isVisible} />
                   </div>

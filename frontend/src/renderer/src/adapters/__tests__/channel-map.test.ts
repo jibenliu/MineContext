@@ -187,6 +187,18 @@ test('新增面：截图占用配置读与写', () => {
   assert.deepEqual(patch.body, { retentionDays: 14, maxTotalGb: 5 })
 })
 
+test('新增面：索引暂停状态与一键恢复', () => {
+  const status = resolveChannel('v1:indexing-status', [])
+  assert.ok(status)
+  assert.equal(status.method, 'GET')
+  assert.equal(status.path, '/api/indexing/status')
+
+  const resume = resolveChannel('v1:indexing-resume', [])
+  assert.ok(resume)
+  assert.equal(resume.method, 'POST')
+  assert.equal(resume.path, '/api/indexing/resume')
+})
+
 test('新增面：链接上传映射到 /api/v1/links', () => {
   const request = resolveChannel('v1:import-link', ['https://example.com/a', 12])
   assert.ok(request)
