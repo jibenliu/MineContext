@@ -19,7 +19,12 @@ interface SearchHit {
   score?: number
   at?: number
 }
+
+/** 本机关键词检索；`hybrid` 预留给以后接向量时。 */
+type SearchMode = 'keyword' | 'hybrid' | string
+
 const PAGE_SIZE = 20
+const isLocalSearchMode = (mode: SearchMode | null) => mode === 'keyword' || mode === 'local'
 
 /**
  * 时间边界 → 毫秒时间戳（本地时区）。两种输入都认：
@@ -43,6 +48,7 @@ export const SearchResults: FC = () => {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [mode, setMode] = useState<SearchMode | null>(null)
   const [searched, setSearched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,12 +81,17 @@ export const SearchResults: FC = () => {
     setBusy(true)
     setError(null)
     setHits(null)
+    setMode(null)
     setPage(0)
     try {
       const api = (
         window as unknown as {
           searchApi?: {
-            query: (q: string, start?: number, end?: number) => Promise<{ results?: SearchHit[] } | SearchHit[]>
+            query: (
+              q: string,
+              start?: number,
+              end?: number
+            ) => Promise<{ results?: SearchHit[]; mode?: string } | SearchHit[]>
           }
         }
       ).searchApi
@@ -89,7 +100,9 @@ export const SearchResults: FC = () => {
 
       if (request !== requestRef.current) return
       const rows = Array.isArray(result) ? result : (result?.results ?? [])
+      const nextMode = Array.isArray(result) ? 'keyword' : (result?.mode ?? 'keyword')
       setHits(rows)
+      setMode(nextMode)
       setSearched(true)
     } catch {
       if (request === requestRef.current) setError(t('search.failed'))
@@ -121,6 +134,14 @@ export const SearchResults: FC = () => {
           <Button type="primary" loading={busy} disabled={!text.trim()} onClick={() => void run()}>
             {t('search.action')}
           </Button>
+          {searched && isLocalSearchMode(mode) && (
+            <span
+              data-testid="search-mode-local"
+              title={t('search.mode.localHint')}
+              className="rounded-[4px] bg-[var(--color-fill-2)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-3)]">
+              {t('search.mode.local')}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-[var(--color-text-3)]">

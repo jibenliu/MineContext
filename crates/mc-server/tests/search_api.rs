@@ -99,6 +99,20 @@ async fn empty_database_returns_the_shape_with_no_hits() {
     );
 }
 
+/// 检索页不依赖模型：始终本地关键词，并显式标 `mode`，前端才能亮「仅本地」。
+#[tokio::test]
+async fn search_reports_keyword_local_mode() {
+    let (_dir, state) = state();
+
+    let (status, json) = get(&state, "/api/v1/search?q=日报", Some(TOKEN)).await;
+
+    assert_eq!(status, StatusCode::OK, "{json}");
+    assert_eq!(
+        json["data"]["mode"], "keyword",
+        "搜索入口不走模型，mode 必须是 keyword：{json}"
+    );
+}
+
 #[tokio::test]
 async fn time_window_filters_are_accepted() {
     let (_dir, state) = state();

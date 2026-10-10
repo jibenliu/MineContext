@@ -25,7 +25,19 @@ export function unwrapConversations(payload: unknown): { items: unknown[]; total
 
 /** 检索结果：`{ query, results: [...] }`；也容忍裸数组。 */
 export function unwrapSearchResults(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload
-  const results = (payload as { results?: unknown } | null | undefined)?.results
-  return Array.isArray(results) ? results : []
+  return unwrapSearchResponse(payload).results
+}
+
+/** 检索响应：保留 `mode`（`keyword` / `hybrid`），供「仅本地」角标。 */
+export function unwrapSearchResponse(payload: unknown): {
+  results: unknown[]
+  mode?: string
+  query?: string
+} {
+  if (Array.isArray(payload)) return { results: payload }
+  const record = (payload ?? {}) as { results?: unknown; mode?: unknown; query?: unknown }
+  const results = Array.isArray(record.results) ? record.results : []
+  const mode = typeof record.mode === 'string' ? record.mode : undefined
+  const query = typeof record.query === 'string' ? record.query : undefined
+  return { results, mode, query }
 }

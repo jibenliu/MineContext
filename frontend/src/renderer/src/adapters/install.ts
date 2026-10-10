@@ -16,7 +16,7 @@ import { createServerPushApi } from './server-push-api.ts'
 import { createSseStreamFactory } from './sse-stream.ts'
 import { createTauriShellBridge, createTauriShellCapabilities } from './tauri-shell.ts'
 import type { Backend, FetchLike, StreamFactory } from './types.ts'
-import { unwrapConversations, unwrapSearchResults, unwrapSummaries } from './unpack.ts'
+import { unwrapConversations, unwrapSearchResponse, unwrapSummaries } from './unpack.ts'
 
 const bootstrapLog = getLogger('bootstrap')
 
@@ -70,7 +70,7 @@ export function installAdapters(options: InstallOptions): void {
   })
   install('searchApi', {
     query: async (text: string, start?: number, end?: number) =>
-      unwrapSearchResults(await backend.invoke('v1:search', text, start, end))
+      unwrapSearchResponse(await backend.invoke('v1:search', text, start, end))
   })
   // 活动来源与改名：兼容面没有这两个字段，只能走扩展面
   install('activityApi', {
