@@ -12,7 +12,7 @@ import { useMemoizedFn, useMount } from 'ahooks'
 import dayjs from 'dayjs'
 import { get } from 'lodash'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import DateNavigation from './components/date-navigation'
 import EmptyStatePlaceholder from './components/empty-state-placeholder'
@@ -45,6 +45,9 @@ const ScreenMonitor: React.FC = () => {
   const { t } = useI18n()
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const focusActivityId = searchParams.get('activity')
+  const focusAt = searchParams.get('at')
   const {
     recordInterval,
     recordingHours,
@@ -91,8 +94,19 @@ const ScreenMonitor: React.FC = () => {
     return (sources.state === 'hasData' ? sources.data.appSources : []).filter((v) => v.isVisible)
   }, [sources])
 
-  const [currentDate, setCurrentDate] = useState(dayjs().toDate())
+  const [currentDate, setCurrentDate] = useState(() => {
+    // 助手引用可带 `at`：先落到那天，否则时间线里找不到对应活动
+    const ms = focusAt ? Number(focusAt) : NaN
+    return Number.isFinite(ms) ? new Date(ms) : dayjs().toDate()
+  })
   const isToday = dayjs(currentDate).isSame(dayjs(), 'day')
+
+  useEffect(() => {
+    const ms = focusAt ? Number(focusAt) : NaN
+    if (!Number.isFinite(ms)) return
+    const next = new Date(ms)
+    setCurrentDate((previous) => (dayjs(previous).isSame(next, 'day') ? previous : next))
+  }, [focusAt])
   const screenshots = currentSession?.screenshots || {}
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
@@ -581,6 +595,7 @@ const ScreenMonitor: React.FC = () => {
                 recordReason={recordBlockReason}
                 activities={activities}
                 recordingStats={recordingStats}
+                focusActivityId={focusActivityId}
                 // 拖选后把范围交给总结页：用 hash 而不是路由 hook，
                 // 与仓库既有的 isOnHomePage 读 hash 保持一致，也不引入新依赖
                 onSummarizeRange={(from, to) => {

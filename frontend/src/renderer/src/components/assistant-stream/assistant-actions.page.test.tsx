@@ -1,8 +1,11 @@
 import { chatStreamService, StreamEvent } from '@renderer/services/chat-stream-service'
 import { messageService } from '@renderer/services/messages-service'
+import store from '@renderer/store'
 import { installFakeBackend } from '@renderer/test/page-setup'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 
 import { AssistantStream } from './assistant-stream'
 
@@ -34,10 +37,20 @@ function event(payload: Record<string, unknown>) {
   emit(payload as unknown as StreamEvent)
 }
 
+function renderStream() {
+  return render(
+    <Provider store={store}>
+      <MemoryRouter>
+        <AssistantStream />
+      </MemoryRouter>
+    </Provider>
+  )
+}
+
 it('回答可复制、重新回答，并展示真实处理进度与引用', async () => {
   const writeText = vi.fn().mockResolvedValue(undefined)
   vi.stubGlobal('navigator', { clipboard: { writeText } })
-  render(<AssistantStream />)
+  renderStream()
   fireEvent.click(screen.getByText('问一句'))
   act(() => {
     event({ type: 'thinking', content: '正在检索本地记录', stage: 'context_gathering' })
@@ -67,7 +80,7 @@ it('生成中拒绝重复提交，停止会调用真实中断接口并忽略迟�
     .spyOn(messageService, 'interruptMessageGeneration')
     .mockResolvedValue({ status: 'success', message_id: 99 } as never)
   const abort = vi.spyOn(chatStreamService, 'abortStream')
-  render(<AssistantStream />)
+  renderStream()
   const input = screen.getByLabelText('输入问题，回车发送')
   fireEvent.change(input, { target: { value: '我的活动' } })
   fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
@@ -89,7 +102,7 @@ it('生成中拒绝重复提交，停止会调用真实中断接口并忽略迟�
 })
 
 it('失败只记录一轮，重新回答可发起新请求', () => {
-  render(<AssistantStream />)
+  renderStream()
   fireEvent.click(screen.getByText('问一句'))
   act(() => {
     event({ type: 'fail', message: '模型暂不可用' })
@@ -122,7 +135,7 @@ it('切换会话忽略迟到历史，并恢复已保存的来源', async () => {
             }
           ]
   }
-  render(<AssistantStream />)
+  renderStream()
   const select = await screen.findByLabelText('会话')
   fireEvent.change(select, { target: { value: '1' } })
   fireEvent.change(select, { target: { value: '2' } })
@@ -139,7 +152,7 @@ it('切换会话忽略迟到历史，并恢复已保存的来源', async () => {
 
 it('复制失败显示反馈，不产生未处理拒绝', async () => {
   vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } })
-  render(<AssistantStream />)
+  renderStream()
   fireEvent.click(screen.getByText('问一句'))
   act(() => {
     event({ type: 'stream_complete', content: '可以手动复制的回答' })
@@ -150,7 +163,7 @@ it('复制失败显示反馈，不产生未处理拒绝', async () => {
 })
 
 it('发送后立刻在历史里看到用户提问（不能等流结束，否则像输入消失）', async () => {
-  render(<AssistantStream />)
+  renderStream()
   const input = screen.getByLabelText('输入问题，回车发送')
   fireEvent.change(input, { target: { value: '我的活动呢' } })
   fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
@@ -165,7 +178,7 @@ it('无标题会话显示未命名文案，不用裸数字 id', async () => {
       { id: 1, title: '   ' }
     ]
   }
-  render(<AssistantStream />)
+  renderStream()
   expect(await screen.findAllByRole('button', { name: '未命名会话' })).toHaveLength(2)
   expect(screen.queryByRole('button', { name: '2' })).toBeNull()
   expect(screen.queryByRole('button', { name: '1' })).toBeNull()
@@ -199,7 +212,7 @@ it('删除会话会确认后调用持久化接口，并从列表移除；删当�
     }
   }
 
-  render(<AssistantStream />)
+  renderStream()
   expect(await screen.findByRole('button', { name: '会话一' })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: '会话一' }))
   await waitFor(() => expect(screen.getByTestId('assistant-history')).toHaveTextContent('第一个回答'))

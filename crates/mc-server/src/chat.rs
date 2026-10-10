@@ -40,6 +40,8 @@ pub struct Citation {
     pub document_id: String,
     pub title: String,
     pub kind: String,
+    /// 文档时间（毫秒）。前端跳活动时间线时用来切到对应日期。
+    pub at: i64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

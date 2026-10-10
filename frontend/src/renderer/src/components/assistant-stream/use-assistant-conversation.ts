@@ -10,6 +10,8 @@ export interface Source {
   document_id: string
   title: string
   kind: string
+  /** 文档时间（毫秒）；活动跳转时间线时用来切日 */
+  at?: number
 }
 interface Conversation {
   id: number
@@ -41,13 +43,23 @@ const api = () => (window as unknown as { chatApi?: ChatApi }).chatApi
 
 function sourcesFrom(value: unknown): Source[] {
   if (!Array.isArray(value)) return []
-  return value.filter(
-    (source): source is Source =>
-      source &&
-      typeof source.document_id === 'string' &&
-      typeof source.title === 'string' &&
-      typeof source.kind === 'string'
-  )
+  return value.flatMap((raw) => {
+    if (
+      !raw ||
+      typeof raw.document_id !== 'string' ||
+      typeof raw.title !== 'string' ||
+      typeof raw.kind !== 'string'
+    ) {
+      return []
+    }
+    const source: Source = {
+      document_id: raw.document_id,
+      title: raw.title,
+      kind: raw.kind
+    }
+    if (typeof raw.at === 'number' && Number.isFinite(raw.at)) source.at = raw.at
+    return [source]
+  })
 }
 
 function storedSources(metadata?: string): Source[] {

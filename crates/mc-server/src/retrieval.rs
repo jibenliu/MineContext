@@ -251,6 +251,7 @@ pub fn citations(hits: &[Hit]) -> Vec<Citation> {
             document_id: hit.document.id.clone(),
             title: first_line(&hit.document.text),
             kind: hit.document.kind.as_str().to_string(),
+            at: hit.document.at.as_millis(),
         })
         .collect()
 }

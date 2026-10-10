@@ -471,6 +471,7 @@ fn write_answer_metadata(
                 "document_id": citation.document_id,
                 "title": citation.title,
                 "kind": citation.kind,
+                "at": citation.at,
             })).collect::<Vec<_>>(),
         }),
         now,
@@ -490,6 +491,7 @@ fn emit_stream_complete(
             "document_id": citation.document_id,
             "title": citation.title,
             "kind": citation.kind,
+            "at": citation.at,
         })).collect::<Vec<_>>(),
     }));
 }

@@ -4,7 +4,10 @@
 // 是两种状态；③ 失败要显示出来（而不是一直转圈）。
 
 import { configureHttpClient } from '@renderer/services/axios-config'
+import store from '@renderer/store'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AssistantStream } from './assistant-stream'
@@ -28,6 +31,16 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = originalFetch
 })
+
+function renderStream() {
+  return render(
+    <Provider store={store}>
+      <MemoryRouter>
+        <AssistantStream />
+      </MemoryRouter>
+    </Provider>
+  )
+}
 
 /** 用合成流替代网络：分片边界故意切在一帧中间（真实网络就是这样）。 */
 function streamChunks(chunks: string[]): void {
@@ -55,7 +68,7 @@ describe('助手流式气泡（5.41）', () => {
       'data: {"type":"completed"}\n\n'
     ])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
 
     await waitFor(() => expect(screen.getByTestId('assistant-text')).toHaveTextContent('上午在写导入脚本'))
@@ -66,7 +79,7 @@ describe('助手流式气泡（5.41）', () => {
   it('失败要显示出来，而不是一直转圈', async () => {
     streamChunks(['data: {"type":"fail","message":"模型不可用（已降级）"}\n\n'])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
 
     await waitFor(() => expect(screen.getByTestId('assistant-state')).toHaveTextContent('生成失败'))
@@ -92,7 +105,7 @@ describe('助手对话历史（5.41 完整会话的第一步）', () => {
   it('答完一轮后历史里留下这一问一答', async () => {
     streamChunks(['data: {"type":"stream_chunk","content":"上午在写导入脚本"}\n\n', 'data: {"type":"completed"}\n\n'])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
 
     await waitFor(() => expect(screen.getByTestId('assistant-history')).toBeInTheDocument())
@@ -103,7 +116,7 @@ describe('助手对话历史（5.41 完整会话的第一步）', () => {
   it('「新会话」清空历史与当前回答', async () => {
     streamChunks(['data: {"type":"completed"}\n\n'])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
     await waitFor(() => expect(screen.getByTestId('assistant-history')).toBeInTheDocument())
 
@@ -122,7 +135,7 @@ describe('助手回答按 markdown 渲染（5.41）', () => {
       'data: {"type":"completed"}\n\n'
     ])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
 
     await waitFor(() => expect(screen.getByTestId('assistant-text').querySelector('strong')).not.toBeNull())
@@ -136,7 +149,7 @@ describe('助手回答按 markdown 渲染（5.41）', () => {
       'data: {"type":"completed"}\n\n'
     ])
 
-    render(<AssistantStream />)
+    renderStream()
     fireEvent.click(screen.getByText('问一句'))
 
     await waitFor(() => expect(screen.getByTestId('assistant-text').textContent).toContain('你好'))
@@ -158,7 +171,7 @@ describe('多会话（5.41：列表与切换）', () => {
       ]
     }
 
-    render(<AssistantStream />)
+    renderStream()
 
     const select = await screen.findByLabelText('会话')
     expect(select).toHaveTextContent('上午的整理')
@@ -188,7 +201,7 @@ describe('多会话（5.41：列表与切换）', () => {
       }
     }
 
-    render(<AssistantStream />)
+    renderStream()
 
     fireEvent.change(await screen.findByLabelText('会话'), { target: { value: '7' } })
 

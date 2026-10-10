@@ -65,6 +65,7 @@ fn input(query: &str, title: &str) -> ChatInput {
             document_id: "act-1".to_string(),
             title: title.to_string(),
             kind: "activity".to_string(),
+            at: 0,
         }],
         history: Vec::new(),
     }

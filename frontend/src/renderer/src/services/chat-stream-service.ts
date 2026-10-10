@@ -95,7 +95,7 @@ export interface StreamEvent {
   assistant_message_id?: number
   conversation_id?: number | null
   message?: string
-  citations?: Array<{ document_id: string; title: string; kind: string }>
+  citations?: Array<{ document_id: string; title: string; kind: string; at?: number }>
   /** `local` = 仅本地列表；`model` = 在线生成 */
   mode?: string
   model?: string | null
