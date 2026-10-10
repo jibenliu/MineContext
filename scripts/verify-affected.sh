@@ -170,7 +170,7 @@ if [ "${do_scripts}" -eq 1 ]; then
       [ "${LIST_ONLY}" -eq 0 ] && timed "打包冒烟清单模式" bash ./scripts/tests/packaged-smoke-checklist-modes.sh
       ;;
   esac
-  [ "${LIST_ONLY}" -eq 0 ] && timed "源码类门禁（10 条）" ./scripts/check-source.sh
+  [ "${LIST_ONLY}" -eq 0 ] && timed "源码类门禁（11 条）" ./scripts/check-source.sh
   case " ${changed} " in
     *scripts/tests/selftest-lints.sh* | *scripts/checks/*)
       [ "${LIST_ONLY}" -eq 0 ] && timed "守卫自检（植入违规必须被拦）" ./scripts/tests/selftest-lints.sh
