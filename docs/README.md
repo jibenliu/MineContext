@@ -17,6 +17,7 @@
 | 已交付的上下文来源与仍需外部账号/硬件的方向 | [`context-sources.md`](context-sources.md) |
 | 外部条件项怎么验（真机、签名、长跑） | [`operations.md`](operations.md) §2.2 与 §5 |
 | 发布清单与豁免项 | [`operations.md`](operations.md) §5 |
+| 打包产物冒烟（录制/助手/摄入） | [`operations.md`](operations.md) §5.1 → `scripts/tests/packaged-smoke-checklist.sh` |
 | 出错先查什么（36 个错误码逐条） | [`operations.md`](operations.md) §3 → [`troubleshooting.md`](troubleshooting.md) |
 | 隐私说明（采集、拦截、脱敏、上传边界） | [`operations.md`](operations.md) §4 → [`privacy.md`](privacy.md) |
 | 前端测试怎么分层、契约夹具怎么生成 | [`api-and-frontend.md`](api-and-frontend.md) §2.2、§3 |
@@ -48,5 +49,5 @@ docs/
 ├── troubleshooting.md         36 个错误码逐条排查（门禁校验一致性）
 ├── privacy.md                 隐私说明（采集/拦截/脱敏/上传边界）
 ├── comment-style.md           注释风格规则（门禁依据）
-└── decisions/                 决策记录（性能基线、向量规模）
+└── decisions/                 决策记录（性能基线、向量规模、空闲/锁屏采集节奏）
 ```

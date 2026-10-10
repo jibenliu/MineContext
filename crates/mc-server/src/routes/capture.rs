@@ -201,6 +201,8 @@ pub async fn status(State(state): State<Arc<ServerState>>) -> Response {
         "canRecord": ready,
         "status": if running { "running" } else { "stopped" },
         "enabled": enabled,
+        // 与 permissions 同源：设置页要同时展示 TCC 原值与录制开关，不能只靠 canRecord。
+        "screen_recording_tcc": mc_capture::platform::probe_tcc_granted(),
         "reason": reason,
         "windows_reason": mc_capture::platform::probe_windows_reason(),
     }))
@@ -493,6 +495,8 @@ pub async fn get_config(State(state): State<Arc<ServerState>>) -> Response {
         "maxTotalGb": storage.max_total_gb,
         "max_screenshot_count": storage.max_screenshot_count,
         "disk_usage": disk_usage,
+        "idle_threshold_secs": capture.idle_threshold_secs,
+        "idle_interval_secs": capture.idle_interval_secs,
     }))
 }
 

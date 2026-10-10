@@ -19,6 +19,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
+# Mach-O / minos 只能在有苹果产物的机器上验；Linux 云代理跑 --with-smoke
+# 时应继续跑 daemon 真进程冒烟，而不是被「没有 Mach-O」挡死。
+if [ "$(uname -s)" != "Darwin" ]; then
+  echo "SKIP: macOS 产物校验（当前 $(uname -s)，需要 Darwin 上的构建产物）"
+  exit 0
+fi
+
 . "$(dirname "$0")/../lib/xtask.sh"
 
 MIN="13.0"

@@ -15,6 +15,8 @@ required=(
   allow-launch-at-login
   allow-set-launch-at-login
   allow-clipboard-write-text
+  allow-check-for-update
+  allow-open-external-url
 )
 
 fail=0

@@ -136,7 +136,7 @@ fn invalid_patterns_do_not_produce_a_working_redactor() {
 /// 降级路径：本地引擎不组装 provider，因此不可能把原文发出去。
 #[tokio::test]
 async fn local_engine_never_uses_a_model() {
-    let engine: Box<dyn ChatEngine> = Box::new(ExtractOnlyEngine);
+    let engine: Box<dyn ChatEngine> = Box::new(ExtractOnlyEngine::default());
     let answer = engine
         .answer(&ChatInput {
             query: "测试".to_string(),

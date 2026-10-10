@@ -363,9 +363,9 @@ export const SUBSCRIBED_CHANNELS: Record<string, string> = {
  * 单独列出是为了防止有人误以为「没映射 = 漏了」。
  */
 export const SHELL_CHANNELS: Record<string, string> = {
-  'app:check-for-update': 'Tauri updater 插件',
-  'app:quit-and-install': 'Tauri updater 插件',
-  'app:cancel-download': 'Tauri updater 插件',
+  'app:check-for-update': 'Tauri 命令 check_for_update（GitHub Releases）',
+  'app:quit-and-install': 'Tauri updater 插件（需签名与公证，当前明确失败）',
+  'app:cancel-download': 'Tauri updater 插件（需签名与公证，当前明确失败）',
   'notification:send': 'Tauri notification 插件',
   'window-show': 'Tauri 窗口事件',
   'app-activate': 'Tauri 应用激活事件',

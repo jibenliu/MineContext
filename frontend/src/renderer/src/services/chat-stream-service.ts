@@ -95,6 +95,9 @@ export interface StreamEvent {
   conversation_id?: number | null
   message?: string
   citations?: Array<{ document_id: string; title: string; kind: string }>
+  /** `local` = 仅本地列表；`model` = 在线生成 */
+  mode?: string
+  model?: string | null
 }
 
 // Streaming chat service class

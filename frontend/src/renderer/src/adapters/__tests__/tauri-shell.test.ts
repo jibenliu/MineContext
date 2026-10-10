@@ -53,14 +53,33 @@ test('未声明 notification 能力时明确失败，且不调用任何命令', 
   assert.equal(calls.length, 0)
 })
 
-test('更新类命令明确失败（外壳未接线），并说明原因', async () => {
-  const { target } = fakeTauri({ notification: true })
+test('检查更新走 check_for_update；静默安装仍明确失败', async () => {
+  const calls: Call[] = []
+  const target = {
+    __TAURI__: {
+      core: {
+        invoke: async (command: string, args?: Record<string, unknown>) => {
+          calls.push({ command, args })
+          if (command === 'check_for_update') {
+            return {
+              updateInfo: { version: '1.0.8', htmlUrl: 'https://example.com', dmgUrl: null },
+              currentVersion: '1.0.7'
+            }
+          }
+          return undefined
+        }
+      }
+    },
+    mcRuntime: { shell: { notification: true } }
+  }
   const bridge = createTauriShellBridge(target)
   assert.ok(bridge)
 
-  await assert.rejects(() => bridge.checkForUpdate(), /更新 不可用：当前外壳未接线/)
-  await assert.rejects(() => bridge.quitAndInstall(), /更新 不可用/)
-  await assert.rejects(() => bridge.cancelDownload(), /更新 不可用/)
+  const got = await bridge.checkForUpdate()
+  assert.equal(calls[0]?.command, 'check_for_update')
+  assert.deepEqual(got.updateInfo, { version: '1.0.8', htmlUrl: 'https://example.com', dmgUrl: null })
+  await assert.rejects(() => bridge.quitAndInstall(), /更新安装 不可用/)
+  await assert.rejects(() => bridge.cancelDownload(), /更新安装 不可用/)
 })
 
 test('窗口事件返回解绑函数，接口形状与 Electron 桥一致', () => {

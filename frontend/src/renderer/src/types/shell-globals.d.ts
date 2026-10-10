@@ -95,6 +95,8 @@ interface ScreenMonitorAPI {
     status: string
     /** capture.enabled：false 表示用户停过录，间隔配置不等于正在采集 */
     enabled?: boolean
+    /** 进程 TCC 原值；与经验证后的 canRecord / screen_recording 区分 */
+    screen_recording_tcc?: boolean
     /** 不能录制时的原因（后端 /api/capture/status 的 reason） */
     reason?: string
     windows_reason?: string | null

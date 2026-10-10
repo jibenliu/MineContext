@@ -9,6 +9,8 @@ import { find, get, isEmpty, pick } from 'lodash'
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ErrorBoundary } from '../../components/error-boundary'
+import FirstRunChecklist from '../../components/first-run-checklist'
+import { useFirstRunChecklist } from '../../components/first-run-checklist/use-first-run-checklist'
 import {
   getModelInfo,
   getStoredApiKey,
@@ -25,6 +27,7 @@ import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
 import ModelRadio from './components/model-radio/model-radio'
 import { NotificationSwitch } from './components/notification-switch'
 import { RetentionSection } from './components/retention-section'
+import { UpdateCheckSection } from './components/update-check-section'
 import {
   BaseUrl,
   embeddingModels,
@@ -447,6 +450,7 @@ const Settings: FC<SettingsProps> = (props) => {
   const [hasStoredEmbeddingKey, setHasStoredEmbeddingKey] = useState(false)
   const [embeddingMaskedValue, setEmbeddingMaskedValue] = useState('')
   const embeddingMaskedRef = useRef('')
+  const firstRun = useFirstRunChecklist({ apiKeyConfiguredOverride: hasStoredKey })
 
   const { run: updateModelSettings, loading: updateLoading } = useRequest(updateModelSettingsAPI, {
     manual: true,
@@ -657,6 +661,18 @@ const Settings: FC<SettingsProps> = (props) => {
           ) : null}
         </div>
 
+        {init && firstRun.visible ? (
+          <FirstRunChecklist
+            steps={firstRun.steps}
+            apiKeyInline
+            onRequestPermission={() => void firstRun.requestPermission()}
+            onGoApiKey={() => undefined}
+            onStartRecording={() => closeSetting?.()}
+            onClearWaiting={firstRun.clearWaiting}
+            onDismiss={firstRun.dismiss}
+          />
+        ) : null}
+
         <div>
           <Form
             autoComplete="off"
@@ -752,6 +768,7 @@ const Settings: FC<SettingsProps> = (props) => {
           <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.startup')}</div>
           <LaunchAtLoginSwitch />
           <NotificationSwitch />
+          <UpdateCheckSection />
           {/* 语言切换入口：设置页里的位置固定在启动项下面，不随页面结构漂移 */}
           <LanguageSwitch />
           <RetentionSection />
