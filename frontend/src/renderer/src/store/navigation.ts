@@ -68,6 +68,7 @@ const navigationSlice = createSlice({
           '/screen-monitor': 'screen-monitor',
           '/search': 'search',
           '/assistant': 'assistant',
+          '/insights': 'insights',
           '/summaries': 'summaries',
           '/files': 'files',
           '/settings': 'settings',

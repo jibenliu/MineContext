@@ -281,6 +281,30 @@ export const NEW_API_CHANNELS: Record<string, RequestBuilder> = {
     method: 'POST',
     path: `/api/v1/summaries/adhoc/jobs/${enc(args[0])}/cancel`
   }),
+  // 商业方向 3–6：风险 / 销售 / 学习 / 交接（本地启发式）
+  'v1:risks': () => ({ method: 'GET', path: '/api/v1/risks' }),
+  'v1:risks-report': () => ({ method: 'GET', path: '/api/v1/risks/report' }),
+  'v1:risks-dismiss': (args) => ({
+    method: 'POST',
+    path: '/api/v1/risks/dismiss',
+    body: { finding_id: args[0] }
+  }),
+  'v1:sales-timeline': () => ({ method: 'GET', path: '/api/v1/sales/timeline' }),
+  'v1:sales-follow-ups': () => ({ method: 'GET', path: '/api/v1/sales/follow-ups' }),
+  'v1:sales-visit-prep': (args) => ({
+    method: 'GET',
+    path: `/api/v1/sales/visit-prep${query({ contact_id: args[0] })}`
+  }),
+  'v1:learning-topics': () => ({ method: 'GET', path: '/api/v1/learning/topics' }),
+  'v1:learning-stuck': () => ({ method: 'GET', path: '/api/v1/learning/stuck' }),
+  'v1:learning-review-plan': () => ({ method: 'GET', path: '/api/v1/learning/review-plan' }),
+  'v1:handoff-candidates': () => ({ method: 'GET', path: '/api/v1/handoff/candidates' }),
+  'v1:handoff-confirm': (args) => ({
+    method: 'POST',
+    path: '/api/v1/handoff/confirm',
+    body: { candidate_id: args[0] }
+  }),
+  'v1:handoff-export': () => ({ method: 'GET', path: '/api/v1/handoff/export' }),
   // 补偿推断作业：入队 + 查状态（设置页「补推断」入口）
   'v1:jobs-backfill': (args) => ({
     method: 'POST',

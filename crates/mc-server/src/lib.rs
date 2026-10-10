@@ -18,11 +18,14 @@ pub mod events;
 pub mod failures;
 pub mod file_ingest;
 pub mod folder_ingest;
+pub mod handoff_pack;
 pub mod indexing;
 pub mod jobs;
 pub mod jobs_worker;
 pub mod latest_activity;
+pub mod learning_coach;
 pub mod link_ingest;
+pub mod local_text;
 pub mod mcp;
 pub mod mcp_serve;
 pub mod middleware;
@@ -30,9 +33,11 @@ pub mod monitoring;
 pub mod research_ingest;
 pub mod retention;
 pub mod retrieval;
+pub mod risk_scan;
 pub mod routes;
 pub mod rss_ingest;
 pub mod runtime;
+pub mod sales_memory;
 pub mod stages;
 pub mod state;
 pub mod summary;
@@ -140,6 +145,19 @@ const NEW_API_PATHS: &[&str] = &[
     "/api/v1/tasks/last",
     "/api/v1/tasks/sync",
     "/api/v1/tasks/correct",
+    // 商业方向 3–6（本地启发式；隐私 fail-closed）
+    "/api/v1/risks",
+    "/api/v1/risks/report",
+    "/api/v1/risks/dismiss",
+    "/api/v1/sales/timeline",
+    "/api/v1/sales/follow-ups",
+    "/api/v1/sales/visit-prep",
+    "/api/v1/learning/topics",
+    "/api/v1/learning/stuck",
+    "/api/v1/learning/review-plan",
+    "/api/v1/handoff/candidates",
+    "/api/v1/handoff/confirm",
+    "/api/v1/handoff/export",
     // 以下不属于兼容面
     "/api/db/vaults",
     "/api/db/vaults/folders",
@@ -194,6 +212,10 @@ pub fn router(state: Arc<ServerState>) -> Router {
         .merge(routes::privacy::router())
         .merge(routes::mcp::router())
         .merge(routes::task_assoc::router())
+        .merge(routes::risk_scan::router())
+        .merge(routes::sales_memory::router())
+        .merge(routes::learning_coach::router())
+        .merge(routes::handoff_pack::router())
         .merge(monitoring::router())
         .merge(indexing::router())
         .route("/api/health", get(routes::health))

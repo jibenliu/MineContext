@@ -6,7 +6,15 @@ import './index.css'
 import { Layout } from '@arco-design/web-react'
 // 六个导航入口统一用 Arco 图标：继承侧栏文字色（currentColor），暗色主题下不会
 // 再出现「半黑 SVG + 亮白图标」混排。
-import { IconCalendar, IconDesktop, IconHome, IconRobot, IconSearch, IconSettings } from '@arco-design/web-react/icon'
+import {
+  IconCalendar,
+  IconDesktop,
+  IconHome,
+  IconList,
+  IconRobot,
+  IconSearch,
+  IconSettings
+} from '@arco-design/web-react/icon'
 import { ErrorBoundary } from '@renderer/components/error-boundary'
 import VaultTree from '@renderer/components/vault-tree'
 import { useNavigation } from '@renderer/hooks/use-navigation'
@@ -42,6 +50,12 @@ const tabItems = [
     icon: <IconRobot style={iconStyle} />,
     labelKey: 'sidebar.assistant',
     path: '/assistant'
+  },
+  {
+    key: 'insights',
+    icon: <IconList style={iconStyle} />,
+    labelKey: 'sidebar.insights',
+    path: '/insights'
   },
   {
     key: 'summaries',

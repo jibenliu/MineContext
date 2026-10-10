@@ -26,6 +26,7 @@ import { apiKeyInputShouldBeVisible } from './api-key-visibility'
 import { AiUploadSwitch } from './components/ai-upload-switch'
 import { BackfillSection } from './components/backfill-section'
 import { DiagnosticExportSection } from './components/diagnostic-export-section'
+import { InsightsEntrySection } from './components/insights-entry-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
 import { McpSection } from './components/mcp-section'
@@ -850,6 +851,12 @@ const Settings: FC<SettingsProps> = (props) => {
           <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('settings.mcp')}</div>
           <ErrorBoundary title={t('settings.mcp')}>
             <McpSection />
+          </ErrorBoundary>
+        </div>
+        <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
+          <div className="mb-[8px] text-[14px] font-bold text-[var(--color-text-1)]">{t('insights.title')}</div>
+          <ErrorBoundary title={t('insights.title')}>
+            <InsightsEntrySection onOpen={closeSetting} />
           </ErrorBoundary>
         </div>
         <div className="mt-[20px] border-t border-[var(--color-border-2)] pt-[16px]">
