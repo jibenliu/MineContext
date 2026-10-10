@@ -109,6 +109,32 @@ async fn health_returns_component_status() {
 }
 
 #[tokio::test]
+async fn health_reports_embedding_paused_when_auth_paused() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = Arc::new(Database::open(dir.path().join("minecontext.db")).unwrap());
+    let mut loaded = mc_config::load::load(&mc_config::load::LoadRequest::default()).unwrap();
+    loaded.config.ai.embedding.base_url = "https://api.example.com/v1".to_string();
+    loaded.config.ai.embedding.model = "embed-small".to_string();
+    let state = Arc::new(ServerState::new(
+        mc_config::ConfigHandle::new(loaded),
+        db,
+        TOKEN.to_string(),
+        Timestamp::from_millis(1_756_000_000_000),
+        dir.path().to_path_buf(),
+    ));
+    state.set_embedding_auth_paused(true);
+    let response = router(Arc::clone(&state))
+        .oneshot(get("/api/health", None))
+        .await
+        .unwrap();
+    let json = json_body(response).await;
+    assert_eq!(
+        json["data"]["components"]["embedding"]["status"], "paused",
+        "{json}"
+    );
+}
+
+#[tokio::test]
 async fn health_works_without_token() {
     let ctx = ctx();
     let response = router(ctx.state)

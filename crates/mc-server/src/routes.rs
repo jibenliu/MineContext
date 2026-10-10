@@ -45,6 +45,15 @@ fn health_payload(state: &ServerState) -> Value {
         "unconfigured"
     };
 
+    // 已配置时：鉴权失败暂停索引用 "paused"（托盘与诊断共用这一格，不另开状态面）。
+    let embedding_status = if !embedding_configured {
+        "unconfigured"
+    } else if state.embedding_auth_paused() {
+        "paused"
+    } else {
+        "ok"
+    };
+
     let capture_status = match state.capture.as_ref() {
         Some(controls) if controls.is_running() => "running",
         Some(_) => "stopped",
@@ -59,7 +68,7 @@ fn health_payload(state: &ServerState) -> Value {
                 // 渲染层读的是 data.components.llm，键名不能改
                 "llm":       { "status": llm_status, "message": if vision_configured { "" } else { "未配置视觉模型" } },
                 "vlm":       { "status": llm_status },
-                "embedding": { "status": if embedding_configured { "ok" } else { "unconfigured" } },
+                "embedding": { "status": embedding_status },
                 "storage":   { "status": "ok" },
                 // 采集是否在跑要如实报告：恒 "not_started" 会让诊断页看到假状态
                 "capture":   { "status": capture_status }

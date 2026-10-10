@@ -324,23 +324,38 @@ fn get_runtime(state: tauri::State<'_, Mutex<ShellState>>) -> Option<RuntimeInfo
     take_runtime(&state)
 }
 
-/// 渲染层上报录制状态：更新托盘提示与菜单文案。
+/// 更新托盘提示、切换录制菜单文案，以及 macOS 菜单栏短标题。
 ///
-/// 只做展示，不做业务判断 —— 「该不该在录」由 daemon 回答，外壳不持第二份真相。
+/// 文案由渲染层按 i18n 拼好再上报；缺省时回落到中文默认（引导完成前也会有托盘）。
+/// 只做展示，不做业务判断 —— 录制 / 索引暂停 / 断连的判定都在 daemon 与渲染层。
 #[tauri::command]
-fn tray_recording_status(app: tauri::AppHandle, recording: bool) -> Result<(), String> {
+fn tray_recording_status(
+    app: tauri::AppHandle,
+    recording: bool,
+    tooltip: Option<String>,
+    toggle_label: Option<String>,
+    title: Option<String>,
+) -> Result<(), String> {
     let handles = app.state::<TrayHandles>();
+    let toggle_text = match toggle_label.as_deref().filter(|text| !text.is_empty()) {
+        Some(text) => text.to_string(),
+        None if recording => "停止录制".to_string(),
+        None => "开始录制".to_string(),
+    };
     handles
         .toggle
-        .set_text(if recording { "暂停录制" } else { "开始录制" })
+        .set_text(toggle_text)
         .map_err(|error| error.to_string())?;
     if let Some(tray) = app.tray_by_id("main") {
-        tray.set_tooltip(Some(if recording {
-            "MineContext · 录制中"
-        } else {
-            "MineContext · 已暂停"
-        }))
-        .map_err(|error| error.to_string())?;
+        let tip = match tooltip.as_deref().filter(|text| !text.is_empty()) {
+            Some(text) => text.to_string(),
+            None if recording => "MineContext · 录制中".to_string(),
+            None => "MineContext · 已暂停".to_string(),
+        };
+        tray.set_tooltip(Some(tip))
+            .map_err(|error| error.to_string())?;
+        // macOS：图标旁短标题一眼可读；其它平台对空标题是空操作。
+        let _ = tray.set_title(Some(title.as_deref().unwrap_or("")));
     }
     Ok(())
 }

@@ -24,11 +24,36 @@ export interface ShellCapabilities {
 
 /** 由外壳命令实现的渠道：命令名与参数翻译只写在这里，业务代码不需要知道。 */
 const SHELL_COMMANDS: Record<string, (args: unknown[]) => { command: string; payload: Record<string, unknown> }> = {
-  // 屏幕监控页在录制状态变化时上报，用来更新托盘的提示与菜单文案
-  'tray:update-recording-status': (args) => ({
-    command: 'tray_recording_status',
-    payload: { recording: Boolean(args[0]) }
-  })
+  // 渲染层上报托盘展示串（录制 / 索引暂停 / 断连）；外壳只贴字，不判业务。
+  'tray:update-recording-status': (args) => {
+    const arg = args[0]
+    if (arg && typeof arg === 'object') {
+      const body = arg as {
+        recording?: unknown
+        tooltip?: unknown
+        toggleLabel?: unknown
+        title?: unknown
+      }
+      return {
+        command: 'tray_recording_status',
+        payload: {
+          recording: Boolean(body.recording),
+          tooltip: typeof body.tooltip === 'string' ? body.tooltip : '',
+          toggle_label: typeof body.toggleLabel === 'string' ? body.toggleLabel : '',
+          title: typeof body.title === 'string' ? body.title : ''
+        }
+      }
+    }
+    return {
+      command: 'tray_recording_status',
+      payload: {
+        recording: Boolean(arg),
+        tooltip: '',
+        toggle_label: '',
+        title: ''
+      }
+    }
+  }
 }
 
 export interface IpcRendererShim {

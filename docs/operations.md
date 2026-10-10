@@ -335,7 +335,9 @@ OCR 廉价层未做**（语义未定义，配置点名时启动日志如实报�
 外壳面：渲染层日志经外壳命令写进 `<日志目录>/renderer.log`
 （`~/Library/Logs/com.minecontext.desktop/renderer.log`，同时进 stdout），
 启动检查就靠它判断"渲染层真的起来了"；
-**托盘录制状态由 app shell 同步**（订阅采集 SSE + 启动时拉 `/api/capture/status`）；
+**托盘状态由 app shell 同步**（采集 SSE + `/api/capture/status`；每 3 秒轮询
+`/api/backend/status` 与 `/api/health`，提示/菜单/短标题走产品 i18n：录制中、
+索引暂停 `embedding.status=paused`、本地服务不可用）；
 **检查更新可用、静默安装不可用**（GitHub Releases 比对 + 打开发布页/dmg；
 Tauri updater 静默安装需要签名与公证，仍明确失败）；**多窗口状态同步是 no-op**（单窗口产品，登记为 DEFERRED）；
 **`backend:status-changed` 不推送**（渲染层每 3 秒轮询 `/api/backend/status`）。
@@ -484,7 +486,7 @@ sqlite3 "<数据目录>/data/minecontext.db" \
 | 后台拉黑应用的截图拦截 | 未实现 | 依赖视觉识别，需真机验证 |
 | 开机自启 / 系统通知（Tauri） | 可用 | 设置页 Startup 分组；**是否真的弹出/真的自启需真机确认**（§7） |
 | Tauri 外壳 | **唯一外壳** | 托盘（显示窗口 / 开始-暂停录制 / 屏幕监控 / 退出）、单实例、通知、自启、关窗收进托盘、未签名 dmg 均已实现；渲染层在打包版里的观感待真机确认（§7） |
-| 托盘快捷动作 / 托盘录制状态 | 可用 | 菜单事件由外壳发、业务由渲染层做（不复制采集开关）；录制状态由 app shell 同步（§6） |
+| 托盘快捷动作 / 托盘状态 | 可用 | 菜单事件由外壳发、业务由渲染层做（不复制采集开关）；录制/索引暂停/断连由 app shell 同步（§6） |
 | 检查更新 | 可用 | 设置页对照 GitHub Releases；有新版本时打开发布页 / dmg（§6） |
 | 静默自动安装 | 未实现 | 需要签名与公证；`quitAndInstall` / `cancelDownload` 显式失败（§6） |
 | 渲染层日志落盘 | 可用 | 走外壳 `renderer_log` 命令写 `~/Library/Logs/com.minecontext.desktop/renderer.log`（同时进 stdout）；外壳不在时只写控制台，日志器本身不依赖外壳（§6） |

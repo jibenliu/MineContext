@@ -373,7 +373,8 @@ export const SHELL_CHANNELS: Record<string, string> = {
   'window-show': 'Tauri 窗口事件',
   'app-activate': 'Tauri 应用激活事件',
   'main-log': '渲染层日志输出，无需 IPC',
-  'tray:update-recording-status': 'Tauri 命令 tray_recording_status（更新托盘提示与菜单文案）'
+  'tray:update-recording-status':
+    'Tauri 命令 tray_recording_status（更新托盘提示、菜单文案与 macOS 短标题：录制/索引暂停/断连）'
 }
 
 /**

@@ -74,6 +74,10 @@ async fn worker_pauses_auth_failures_until_config_reload() {
     );
     tokio::time::sleep(Duration::from_millis(200)).await;
     let before_reload = transport.call_count();
+    assert!(
+        ctx.state.embedding_auth_paused(),
+        "401 后 health/托盘应能读到索引暂停"
+    );
     ctx.state
         .config
         .reload(&mc_config::load::LoadRequest::default());
@@ -82,6 +86,10 @@ async fn worker_pauses_auth_failures_until_config_reload() {
     let _ = worker.await;
     assert_eq!(before_reload, 1, "401 后不应按轮询频率反复重试");
     assert_eq!(transport.call_count(), 2, "配置重载后恢复索引");
+    assert!(
+        !ctx.state.embedding_auth_paused(),
+        "配置重载后应清除索引暂停标志"
+    );
 }
 
 /// 写入若干观测并投影成活动。

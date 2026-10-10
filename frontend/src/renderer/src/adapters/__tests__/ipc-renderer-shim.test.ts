@@ -285,11 +285,41 @@ test('托盘状态上报翻译成外壳命令（带参数）', async () => {
   const shell = fakeShell()
   const ipcRenderer = createIpcRendererShim(fake.backend, shell.capabilities)
 
-  const result = await ipcRenderer.invoke('tray:update-recording-status', true)
+  const result = await ipcRenderer.invoke('tray:update-recording-status', {
+    recording: true,
+    tooltip: 'MineContext · Recording',
+    toggleLabel: 'Stop Recording',
+    title: 'R'
+  })
 
   assert.equal(result, 'ok')
-  assert.deepEqual(shell.invokes, [{ command: 'tray_recording_status', payload: { recording: true } }])
+  assert.deepEqual(shell.invokes, [
+    {
+      command: 'tray_recording_status',
+      payload: {
+        recording: true,
+        tooltip: 'MineContext · Recording',
+        toggle_label: 'Stop Recording',
+        title: 'R'
+      }
+    }
+  ])
   assert.deepEqual(fake.invokes, [], '外壳渠道不该发到 daemon')
+})
+
+test('托盘状态上报兼容旧的布尔参数', async () => {
+  const fake = fakeBackend()
+  const shell = fakeShell()
+  const ipcRenderer = createIpcRendererShim(fake.backend, shell.capabilities)
+
+  await ipcRenderer.invoke('tray:update-recording-status', true)
+
+  assert.deepEqual(shell.invokes, [
+    {
+      command: 'tray_recording_status',
+      payload: { recording: true, tooltip: '', toggle_label: '', title: '' }
+    }
+  ])
 })
 
 test('没有外壳时托盘渠道告警一次并忽略调用（不静默、不发错请求）', async () => {

@@ -507,7 +507,7 @@ pub fn spawn_worker(state: Arc<ServerState>) -> tokio::task::JoinHandle<()> {
                     }
                     Ok(None) => continue,
                     Err(error) => {
-                        retry.observe(Some(&error));
+                        retry.observe(&state, Some(&error));
                         record_embedding_failure(&state.db, at, &error);
                         continue;
                     }
@@ -531,13 +531,13 @@ pub fn spawn_worker(state: Arc<ServerState>) -> tokio::task::JoinHandle<()> {
                 // 维度不一致需要用户介入：记下来，并丢弃已组装的 Provider，
                 // 这样用户改完配置后下一轮会重新组装。
                 Err(error) => {
-                    retry.observe(Some(&error));
+                    retry.observe(&state, Some(&error));
                     record_embedding_failure(&state.db, at, &error);
                     // 维度不一致：清掉缓存，用户改完配置后重新组装
                     state.clear_embedding_provider();
                     provider = None;
                 }
-                Ok(report) => retry.observe(report.failure.as_ref()),
+                Ok(report) => retry.observe(&state, report.failure.as_ref()),
             }
         }
     })
@@ -561,9 +561,9 @@ pub fn spawn_worker_with(
             }
             let at = mc_common::time::Clock::now(&mc_common::time::SystemClock);
             match index_pending(&state, provider.as_ref(), &model, batch_limit, at).await {
-                Ok(report) => retry.observe(report.failure.as_ref()),
+                Ok(report) => retry.observe(&state, report.failure.as_ref()),
                 Err(error) => {
-                    retry.observe(Some(&error));
+                    retry.observe(&state, Some(&error));
                     record_embedding_failure(&state.db, at, &error);
                 }
             }
@@ -591,11 +591,13 @@ impl WorkerRetry {
         }
         self.config = current;
         self.auth_failed = false;
+        state.set_embedding_auth_paused(false);
         true
     }
 
-    fn observe(&mut self, failure: Option<&AppError>) {
+    fn observe(&mut self, state: &ServerState, failure: Option<&AppError>) {
         self.auth_failed =
             failure.is_some_and(|error| error.code() == ErrorCode::ProviderAuthFailed);
+        state.set_embedding_auth_paused(self.auth_failed);
     }
 }
