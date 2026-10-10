@@ -6,9 +6,7 @@
 use std::io::Read;
 use std::path::Path;
 
-use mc_common::diagnostic_pack::{
-    self, PackMeta, PackSources, DEFAULT_LOG_TAIL_BYTES,
-};
+use mc_common::diagnostic_pack::{self, PackMeta, PackSources, DEFAULT_LOG_TAIL_BYTES};
 
 const API_KEY: &str = "sk-live-DIAGPACK0123456789abcdef";
 const TOKEN: &str = "export-token-0123456789abcdef";
@@ -59,7 +57,12 @@ fn tail_file_keeps_only_the_end() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("daemon.log");
     // 开头用独特前缀，尾巴窗口放不下它，避免按字节截断时碰到半个单词误伤断言。
-    let body = format!("{}{}{}", "UNIQUE-HEAD-ONLY-", "x".repeat(200), "TAIL-MARKER");
+    let body = format!(
+        "{}{}{}",
+        "UNIQUE-HEAD-ONLY-",
+        "x".repeat(200),
+        "TAIL-MARKER"
+    );
     seed_log(&path, &body);
 
     let tailed = diagnostic_pack::tail_file(&path, 32).unwrap();
@@ -95,11 +98,17 @@ fn write_pack_redacts_secrets_and_paths() {
         assert!(!text.contains(TOKEN), "{label} leaked token");
         assert!(!text.contains("/Users/someone"), "{label} leaked home path");
     }
-    assert!(daemon_out.contains("<secret>") || daemon_out.contains("<path>"), "{daemon_out}");
+    assert!(
+        daemon_out.contains("<secret>") || daemon_out.contains("<path>"),
+        "{daemon_out}"
+    );
     assert!(info.contains("\"port\": 18432"), "{info}");
     assert!(info.contains("1.0.7"), "{info}");
     assert!(diagnostics.contains("mc-diagnostics/1"), "{diagnostics}");
-    assert!(out.join("README.txt").is_file(), "pack must explain what is included");
+    assert!(
+        out.join("README.txt").is_file(),
+        "pack must explain what is included"
+    );
 }
 
 #[test]

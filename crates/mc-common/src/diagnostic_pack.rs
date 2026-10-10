@@ -79,7 +79,10 @@ fn entries(sources: &PackSources) -> Vec<(String, String)> {
     ));
     if let Some(diagnostics) = &sources.diagnostics_json {
         let raw = serde_json::to_string_pretty(diagnostics).unwrap_or_else(|_| "{}".to_string());
-        out.push(("diagnostics.json".to_string(), scrub_log_text(&raw, &secrets)));
+        out.push((
+            "diagnostics.json".to_string(),
+            scrub_log_text(&raw, &secrets),
+        ));
     }
     if let Some(daemon) = &sources.daemon_log {
         out.push(("daemon.log".to_string(), scrub_log_text(daemon, &secrets)));

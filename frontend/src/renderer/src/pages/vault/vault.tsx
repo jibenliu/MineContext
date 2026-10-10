@@ -92,7 +92,8 @@ const VaultPage = () => {
         read: async (url) => new Uint8Array(await (await fetch(url)).arrayBuffer()),
         save: async (name, data) => {
           const result = (await window.fileService?.saveFile(name, data)) as
-            { success?: boolean; filePath?: string } | undefined
+            | { success?: boolean; filePath?: string }
+            | undefined
           if (!result?.success || !result.filePath) throw new Error('图片保存失败')
           // 与 Crepe `persistEditorImage` 同一契约：markdown 写 `file://`，重启才能读回。
           return toEditorFileUrl(result.filePath)
