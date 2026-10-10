@@ -427,10 +427,8 @@ sqlite3 "<数据目录>/data/minecontext.db" \
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
-| 屏幕 / 窗口采集 + 活动推断 | 可用 | 需要屏幕录制权限；权限缺失时接口如实报告原因 |
-| 锁屏暂停采集 | 可用（默认开） | `capture.pause_on_lock`（UI：`pauseOnLock`）；锁屏硬暂停优先于空闲降频；不改 `enabled`，解锁按原状态继续；探测失败按未锁定（宁可多采）；组合见 [`decisions/capture-idle-and-lock.md`](decisions/capture-idle-and-lock.md) |
 | 屏幕 / 窗口采集 + 活动推断 | 可用（**仅 macOS**） | Windows/Linux：`capture_supported=false`，界面禁用开始录制；权限缺失时接口如实报告原因（见 [`context-sources.md`](context-sources.md)） |
-| 锁屏暂停采集 | 可用 | 解锁自动继续；探测读不出来时按未锁定处理（宁可多采）；与空闲降频的组合见 [`decisions/capture-idle-and-lock.md`](decisions/capture-idle-and-lock.md) |
+| 锁屏暂停采集 | 可用（默认开） | `capture.pause_on_lock`（UI：`pauseOnLock`）；锁屏硬暂停优先于空闲降频；不改 `enabled`，解锁按原状态继续；探测失败按未锁定（宁可多采）；组合见 [`decisions/capture-idle-and-lock.md`](decisions/capture-idle-and-lock.md) |
 | 空闲降频 | 可用 | 空闲 ≥ `capture.idle_threshold_secs`（默认 300s）后改用 `capture.idle_interval_secs`（默认 60s）；锁屏时硬暂停优先于降频 |
 | 磁盘将满停采 | 可用 | 低于 512 MiB 跳过本轮并写节流失败；**真机灌满未验** |
 | 采集状态自述 | 可用 | `GET /api/capture/status` 含 `canRecord` / `status` / `reason`，界面直接显示原因 |
