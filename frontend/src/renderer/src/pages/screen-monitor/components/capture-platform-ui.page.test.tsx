@@ -6,14 +6,7 @@ import ScreenMonitorHeader from './screen-monitor-header'
 
 describe('屏幕监控：非支持平台 UI 门闩', () => {
   it('空态：captureSupported=false 时说明平台限制，不出现开启权限按钮', () => {
-    render(
-      <EmptyStatePlaceholder
-        hasPermission={false}
-        isToday
-        captureSupported={false}
-        onGrantPermission={vi.fn()}
-      />
-    )
+    render(<EmptyStatePlaceholder hasPermission={false} isToday captureSupported={false} onGrantPermission={vi.fn()} />)
 
     expect(screen.getByTestId('capture-unsupported-empty')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /开启权限|Enable Permission/i })).toBeNull()
@@ -21,9 +14,7 @@ describe('屏幕监控：非支持平台 UI 门闩', () => {
   })
 
   it('空态：平台支持但无权限时仍显示开启权限', () => {
-    render(
-      <EmptyStatePlaceholder hasPermission={false} isToday captureSupported onGrantPermission={vi.fn()} />
-    )
+    render(<EmptyStatePlaceholder hasPermission={false} isToday captureSupported onGrantPermission={vi.fn()} />)
 
     expect(screen.queryByTestId('capture-unsupported-empty')).toBeNull()
     expect(screen.getByRole('button', { name: /开启权限|Enable Permission/i })).toBeInTheDocument()

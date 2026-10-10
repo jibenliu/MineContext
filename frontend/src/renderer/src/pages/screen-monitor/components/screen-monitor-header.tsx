@@ -35,11 +35,7 @@ const ScreenMonitorHeader: React.FC<ScreenMonitorHeaderProps> = ({
   return (
     <div className="flex flex-col mb-3 gap-3">
       {!captureSupported ? (
-        <Alert
-          type="warning"
-          data-testid="capture-unsupported-banner"
-          content={t('screenMonitor.unsupportedBanner')}
-        />
+        <Alert type="warning" data-testid="capture-unsupported-banner" content={t('screenMonitor.unsupportedBanner')} />
       ) : null}
       <div className="flex justify-between items-start flex-col md:flex-row">
         <div className="w-full md:w-4/5">
@@ -57,9 +53,7 @@ const ScreenMonitorHeader: React.FC<ScreenMonitorHeaderProps> = ({
             <Space>
               <Popover
                 content={
-                  !captureSupported
-                    ? t('screenMonitor.unsupportedBanner')
-                    : t('screenMonitor.settingsDisabledHint')
+                  !captureSupported ? t('screenMonitor.unsupportedBanner') : t('screenMonitor.settingsDisabledHint')
                 }
                 disabled={captureSupported && !isMonitoring}>
                 <Button
@@ -75,13 +69,9 @@ const ScreenMonitorHeader: React.FC<ScreenMonitorHeaderProps> = ({
               {!isMonitoring ? (
                 <Popover
                   content={
-                    !captureSupported
-                      ? t('screenMonitor.unsupportedBanner')
-                      : t('screenMonitor.selectSourceHint')
+                    !captureSupported ? t('screenMonitor.unsupportedBanner') : t('screenMonitor.selectSourceHint')
                   }
-                  disabled={
-                    captureSupported && !(screenAllSources.length === 0 && appAllSources.length === 0)
-                  }>
+                  disabled={captureSupported && !(screenAllSources.length === 0 && appAllSources.length === 0)}>
                   <Button
                     type="primary"
                     icon={<IconPlayArrow />}

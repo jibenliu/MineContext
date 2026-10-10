@@ -11,10 +11,7 @@ export function isCapturePlatformSupported(result: unknown): boolean {
 export type ScreenMonitorGate = 'unsupported' | 'permission' | 'ready'
 
 /** 屏幕监控页主门闩：平台未实现优先于权限 CTA。 */
-export function screenMonitorGate(input: {
-  captureSupported: boolean
-  hasPermission: boolean
-}): ScreenMonitorGate {
+export function screenMonitorGate(input: { captureSupported: boolean; hasPermission: boolean }): ScreenMonitorGate {
   if (!input.captureSupported) return 'unsupported'
   if (!input.hasPermission) return 'permission'
   return 'ready'

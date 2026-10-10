@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest'
-
 import { isCapturePlatformSupported } from '@renderer/pages/screen-monitor/capture-platform'
+import { describe, expect, it } from 'vitest'
 
 import { isScreenRecordingGranted } from './use-screen'
 
