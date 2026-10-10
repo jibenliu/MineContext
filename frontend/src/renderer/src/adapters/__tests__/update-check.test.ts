@@ -48,10 +48,7 @@ test('有更新时透传 updateInfo / currentVersion', async () => {
   assert.equal(calls[0]?.command, 'check_for_update')
   assert.equal(got.currentVersion, '1.0.7')
   assert.equal(got.updateInfo?.version, '1.0.8')
-  assert.equal(
-    got.updateInfo?.dmgUrl,
-    'https://example.com/MineContext_1.0.8_aarch64.dmg'
-  )
+  assert.equal(got.updateInfo?.dmgUrl, 'https://example.com/MineContext_1.0.8_aarch64.dmg')
 })
 
 test('已是最新：updateInfo 为 null', async () => {

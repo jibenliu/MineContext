@@ -55,9 +55,7 @@ export function UpdateCheckSection({ api }: { api?: UpdateCheck }) {
         <div className="flex flex-col">
           <span className="text-[14px]">{t('settings.updateCheck')}</span>
           <Text type="secondary" className="!text-[12px]">
-            {!supported
-              ? t('settings.updateCheck.unsupported')
-              : t('settings.updateCheck.hint')}
+            {!supported ? t('settings.updateCheck.unsupported') : t('settings.updateCheck.hint')}
           </Text>
         </div>
         <Button

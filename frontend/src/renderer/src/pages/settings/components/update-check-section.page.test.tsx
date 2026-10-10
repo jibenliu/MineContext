@@ -30,9 +30,7 @@ describe('settings/update-check-section', () => {
 
     fireEvent.click(screen.getByRole('link', { name: '打开发布页' }))
     await waitFor(() =>
-      expect(api.openUrl).toHaveBeenCalledWith(
-        'https://github.com/jibenliu/MineContext/releases/tag/v1.0.8'
-      )
+      expect(api.openUrl).toHaveBeenCalledWith('https://github.com/jibenliu/MineContext/releases/tag/v1.0.8')
     )
   })
 

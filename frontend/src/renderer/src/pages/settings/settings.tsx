@@ -22,9 +22,9 @@ import { AiUploadSwitch } from './components/ai-upload-switch'
 import { BackfillSection } from './components/backfill-section'
 import { LanguageSwitch } from './components/language-switch'
 import { LaunchAtLoginSwitch } from './components/launch-at-login-switch'
-import { UpdateCheckSection } from './components/update-check-section'
 import ModelRadio from './components/model-radio/model-radio'
 import { NotificationSwitch } from './components/notification-switch'
+import { UpdateCheckSection } from './components/update-check-section'
 import {
   BaseUrl,
   embeddingModels,
