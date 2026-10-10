@@ -66,6 +66,7 @@ fn input(query: &str, title: &str) -> ChatInput {
             title: title.to_string(),
             kind: "activity".to_string(),
             at: 0,
+            snippet: String::new(),
         }],
         history: Vec::new(),
     }

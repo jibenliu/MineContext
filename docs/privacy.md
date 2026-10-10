@@ -82,6 +82,7 @@ macOS 卸载应用不会碰数据目录，这三步要分别做。
 | 总结（阶段/日报/周报） | `ai.enabled`、`ai.chat.base_url`+`model` 已配、能取到密钥 |
 | 对话 | 同上（chat 端点） |
 | MCP 工具（HTTP，或 `requires_network`） | `privacy.ai_upload = true`，且 MCP 总开关 / server / 工具白名单均已放行 |
+| MCP Server（对外只读记忆） | `privacy.ai_upload = true`，且 MCP 总开关 / `[mcp.serve]` 启用 / 工具白名单均已放行 |
 
 出网的目标地址完全由你的配置决定；本仓库不内置任何厂商地址、不内置任何
 遥测与崩溃上报。**没有「匿名统计」这类隐藏出口**。stdio MCP 子进程本身在本机，

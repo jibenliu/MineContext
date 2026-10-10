@@ -26,6 +26,9 @@ pub fn router() -> axum::Router<Arc<ServerState>> {
         .route("/api/mcp/tools", get(list_tools))
         .route("/api/mcp/tools/call", post(call_tool))
         .route("/api/mcp/reload", post(reload))
+        // 只读 MCP Server：JSON-RPC（供外部 Agent / 本机探测；不直连 SQLite）
+        .route("/api/mcp/serve", get(get_serve).put(put_serve))
+        .route("/api/mcp/serve/rpc", post(serve_rpc))
 }
 
 async fn get_mcp(State(state): State<Arc<ServerState>>) -> Response {
@@ -34,7 +37,64 @@ async fn get_mcp(State(state): State<Arc<ServerState>>) -> Response {
         "enabled": config.config.mcp.enabled,
         "servers": config.config.mcp.servers.iter().map(server_public).collect::<Vec<_>>(),
         "ai_upload": config.config.privacy.ai_upload,
+        "serve": {
+            "enabled": config.config.mcp.serve.enabled,
+            "allowed_tools": config.config.mcp.serve.allowed_tools,
+        },
     }))
+}
+
+async fn get_serve(State(state): State<Arc<ServerState>>) -> Response {
+    let config = state.config.current();
+    envelope::ok(json!({
+        "enabled": config.config.mcp.serve.enabled,
+        "allowed_tools": config.config.mcp.serve.allowed_tools,
+        "ai_upload": config.config.privacy.ai_upload,
+        "mcp_enabled": config.config.mcp.enabled,
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct ServePatch {
+    enabled: bool,
+    #[serde(default)]
+    allowed_tools: Option<Vec<String>>,
+}
+
+async fn put_serve(
+    State(state): State<Arc<ServerState>>,
+    Json(body): Json<ServePatch>,
+) -> Response {
+    let mut patch = json!({
+        "serve": {
+            "enabled": body.enabled,
+        }
+    });
+    if let Some(tools) = body.allowed_tools {
+        patch["serve"]["allowed_tools"] = json!(tools);
+    }
+    match apply_mcp_patch(&state, patch).await {
+        Ok(data) => envelope::ok(data),
+        Err(error) => envelope::error_response(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+/// `POST /api/mcp/serve/rpc` —— 一条 JSON-RPC 请求体（raw JSON-RPC，非信封）。
+async fn serve_rpc(State(state): State<Arc<ServerState>>, body: String) -> Response {
+    let config = state.config.current();
+    let auth = crate::mcp_serve::serve_auth(&config.config);
+    let handler = crate::mcp_serve::MemoryServeHandler::new(Arc::clone(&state));
+    let response = mc_mcp::handle_jsonrpc(&auth, &handler, &body);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(axum::http::header::CONTENT_TYPE, "application/json")
+        .body(axum::body::Body::from(response))
+        .unwrap_or_else(|_| {
+            envelope::error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &AppError::new(ErrorCode::ConfigInvalid, "无法构造 MCP Server 响应"),
+            )
+        })
 }
 
 #[derive(Debug, Deserialize)]
@@ -178,10 +238,7 @@ async fn upsert_impl(state: &ServerState, body: ServerBody) -> Response {
     }
 }
 
-async fn delete_server(
-    State(state): State<Arc<ServerState>>,
-    Path(id): Path<String>,
-) -> Response {
+async fn delete_server(State(state): State<Arc<ServerState>>, Path(id): Path<String>) -> Response {
     let config = state.config.current();
     let servers: Vec<_> = config
         .config
@@ -313,5 +370,9 @@ async fn apply_mcp_patch(state: &ServerState, mcp_patch: Value) -> Result<Value,
         "enabled": loaded.config.mcp.enabled,
         "servers": loaded.config.mcp.servers.iter().map(server_public).collect::<Vec<_>>(),
         "ai_upload": loaded.config.privacy.ai_upload,
+        "serve": {
+            "enabled": loaded.config.mcp.serve.enabled,
+            "allowed_tools": loaded.config.mcp.serve.allowed_tools,
+        },
     }))
 }

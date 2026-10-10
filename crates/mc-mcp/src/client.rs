@@ -40,7 +40,10 @@ impl McpClient {
     }
 
     /// 列出工具，但只返回当前授权上下文允许的项（设置页「可见工具」用）。
-    pub async fn list_allowed_tools(&self, ctx: &AuthContext<'_>) -> Result<Vec<McpTool>, AppError> {
+    pub async fn list_allowed_tools(
+        &self,
+        ctx: &AuthContext<'_>,
+    ) -> Result<Vec<McpTool>, AppError> {
         let all = self.list_tools().await?;
         Ok(all
             .into_iter()

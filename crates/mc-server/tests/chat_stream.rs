@@ -377,6 +377,7 @@ async fn chat_answer_carries_citations() {
                 title: "排查 APEX-389".to_string(),
                 kind: "activity".to_string(),
                 at: 1_725_000_000_000,
+                snippet: String::new(),
             }],
             history: Vec::new(),
         })
@@ -404,6 +405,7 @@ async fn provider_unavailable_listing_does_not_claim_unconfigured() {
                 title: "排查 APEX-389".to_string(),
                 kind: "activity".to_string(),
                 at: 0,
+                snippet: String::new(),
             }],
             history: Vec::new(),
         })

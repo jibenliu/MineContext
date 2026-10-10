@@ -245,22 +245,12 @@ pub fn vector_index(db: &Database) -> Result<Option<VectorIndex>, AppError> {
 }
 
 /// 检索结果 → 对话引用（回答里要能说出「依据是这几条」）。
+///
+/// 走 context-lite 默认预算，保证 Chat 与 `/api/v1/context/pack` 同一套裁切。
 pub fn citations(hits: &[Hit]) -> Vec<Citation> {
-    hits.iter()
-        .map(|hit| Citation {
-            document_id: hit.document.id.clone(),
-            title: first_line(&hit.document.text),
-            kind: hit.document.kind.as_str().to_string(),
-            at: hit.document.at.as_millis(),
-        })
-        .collect()
-}
-
-/// 引用标题只取第一行、截断到 60 字：引用是给人看的，
-/// 把整篇总结塞进引用列表会把 UI 撑爆。
-fn first_line(text: &str) -> String {
-    let line = text.lines().next().unwrap_or("").trim();
-    line.chars().take(60).collect()
+    let pack =
+        crate::context_lite::pack_from_hits("", hits, crate::context_lite::PackOptions::default());
+    crate::context_lite::citations_from_pack(&pack)
 }
 
 /// 把活动还原成线索输入（Thread 只需要标题 + 时间 + provenance）。
